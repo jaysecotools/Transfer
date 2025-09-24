@@ -1,0 +1,128 @@
+Looking at your code, I've identified the issue with the gates logic for NPC hire, Projects, and Policy options. The problem is in the getNextChoices function where the logic doesn't properly ensure that only one option of each type is shown at a time.
+
+Issues Found:
+
+1. NPC Hire Logic (Lines ~690-710)
+
+The current logic shows the first available NPC, but it doesn't prevent multiple NPC options from appearing if multiple are available.
+
+2. Policy Logic (Lines ~712-728)
+
+Similar issue - it shows the first available policy but doesn't prevent multiple policy options.
+
+3. Project Logic (Lines ~730-748)
+
+Again, shows the first available project but doesn't prevent multiple project options.
+
+Fixed Code:
+
+Replace the problematic sections in your getNextChoices function with this corrected logic:
+
+```javascript
+// Show hire NPC option if in team mode and you have enough budget, and haven't hired all professionals
+if (
+    ecosystemData.gameMode === 'team' &&
+    ecosystemData.day >= 12 &&
+    ecosystemData.reputation > 28 &&
+    npcTeamMembers.some(npc => !ecosystemData.npcTeam.map(m => m.id).includes(npc.id)) &&
+    budget >= Math.min(...npcTeamMembers.map(npc => npc.cost))
+) {
+    const hireableNPCs = npcTeamMembers.filter(npc =>
+        !ecosystemData.npcTeam.map(m => m.id).includes(npc.id) &&
+        budget >= npc.cost
+    );
+    
+    // Only add ONE NPC option, choose randomly from available
+    if (hireableNPCs.length > 0) {
+        const npc = hireableNPCs[Math.floor(Math.random() * hireableNPCs.length)];
+        specialChoices.push({
+            id: "hire_npc",
+            text: `Hire ${npc.name} (${npc.role})`,
+            cost: npc.cost,
+            time: 1,
+            npcId: npc.id,
+            className: "bg-blue-200 border-blue-400"
+        });
+    }
+}
+
+// Policy options - only show one at a time
+if (
+    ecosystemData.day >= 10 &&
+    ecosystemData.reputation > 35 &&
+    ecosystemData.budget >= 700
+) {
+    const availablePolicies = policyOptions.filter(policy =>
+        !ecosystemData.policiesEnacted.includes(policy.id) &&
+        ecosystemData.budget >= policy.cost * costMultiplier
+    );
+    
+    // Only add ONE policy option, choose randomly from available
+    if (availablePolicies.length > 0) {
+        const policy = availablePolicies[Math.floor(Math.random() * availablePolicies.length)];
+        specialChoices.push({
+            id: "enact_policy",
+            text: `Enact Policy: ${policy.name}`,
+            cost: policy.cost,
+            time: 2,
+            policyId: policy.id,
+            className: "policy-card"
+        });
+    }
+}
+
+// Project options - only show one at a time per location
+if (
+    ecosystemData.day >= 8 &&
+    ecosystemData.reputation > 18 &&
+    ecosystemData.budget >= 300 &&
+    unlockedProjects &&
+    unlockedProjects[currentLocation] &&
+    unlockedProjects[currentLocation].length > 0
+) {
+    const availableProjects = locations[currentLocation].projects.filter(project =>
+        unlockedProjects[currentLocation].includes(project.id) &&
+        budget >= project.cost * costMultiplier
+    );
+    
+    // Only add ONE project option, choose randomly from available
+    if (availableProjects.length > 0) {
+        const project = availableProjects[Math.floor(Math.random() * availableProjects.length)];
+        specialChoices.push({
+            id: "run_project",
+            text: `Project: ${project.name}`,
+            cost: project.cost,
+            time: 2,
+            projectId: project.id,
+            className: "location-unlocked pulse-animation"
+        });
+    }
+}
+```
+
+Additional Improvements:
+
+You might also want to add tracking to ensure the same type doesn't appear too frequently. Add this state management at the top of your component:
+
+```javascript
+// Add this state to track when each type was last shown
+const [lastShown, setLastShown] = useState({
+    npc: 0,
+    policy: 0,
+    project: 0
+});
+
+// Then in your choice generation, add conditions like:
+if (ecosystemData.day - lastShown.npc >= 5) { // Only show NPC every 5 days
+    // NPC logic here
+}
+```
+
+Key Changes Made:
+
+1. Removed the [0] index selection and replaced with random selection from available options
+2. Added proper filtering to ensure only qualified options are considered
+3. Each section now only adds one choice of its type to the specialChoices array
+4. Maintained all the original gate conditions (day, reputation, budget requirements)
+
+This should now ensure that only one NPC hire option, one policy option, and one project option appear at a time, while still rotating through the available choices randomly.
