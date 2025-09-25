@@ -1,336 +1,213 @@
-Looking at your code, I can see why the Assessments, Species, and Maintenance pages are blank. The issue is that while you have the navigation links and section containers for these pages, you're missing the actual content HTML for these sections.
+You need to add form handlers for the three new forms (Assessments, Species, and Maintenance) in your JavaScript code. Here's what to add and where:
 
-In your HTML, you have:
+Add these form handlers right after your existing projectForm handler:
 
-```html
-<div id="assessments" class="content-section">
-<div id="species" class="content-section">  
-<div id="maintenance" class="content-section">
+```javascript
+// Assessment Form Handler
+document.getElementById('assessmentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!validateForm(this)) {
+        showToast('Validation Error', 'Please fix the errors in the form', 'error');
+        return;
+    }
+    
+    const assessment = {
+        date: document.getElementById('assessmentDate').value,
+        assessor: document.getElementById('assessorName').value,
+        projectId: document.getElementById('assessmentProject').value,
+        health: document.getElementById('healthStatus').value,
+        description: document.getElementById('assessmentDescription').value
+    };
+    
+    try {
+        db.saveAssessment(assessment);
+        this.reset();
+        // Remove validation classes
+        this.querySelectorAll('.is-valid').forEach(el => el.classList.remove('is-valid'));
+        loadAssessments();
+        loadDataSummary();
+        showToast('Success', 'Assessment created successfully');
+    } catch (error) {
+        showToast('Error', 'Failed to save assessment', 'error');
+    }
+});
+
+// Species Form Handler
+document.getElementById('speciesForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!validateForm(this)) {
+        showToast('Validation Error', 'Please fix the errors in the form', 'error');
+        return;
+    }
+    
+    const species = {
+        name: document.getElementById('speciesName').value,
+        scientificName: document.getElementById('scientificName').value,
+        type: document.getElementById('speciesType').value,
+        status: document.getElementById('speciesStatus').value,
+        projectId: document.getElementById('speciesProject').value,
+        description: document.getElementById('speciesDescription').value
+    };
+    
+    try {
+        db.saveSpecies(species);
+        this.reset();
+        // Remove validation classes
+        this.querySelectorAll('.is-valid').forEach(el => el.classList.remove('is-valid'));
+        loadSpecies();
+        loadDataSummary();
+        showToast('Success', 'Species added successfully');
+    } catch (error) {
+        showToast('Error', 'Failed to save species', 'error');
+    }
+});
+
+// Maintenance Form Handler
+document.getElementById('maintenanceForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!validateForm(this)) {
+        showToast('Validation Error', 'Please fix the errors in the form', 'error');
+        return;
+    }
+    
+    const maintenance = {
+        activity: document.getElementById('maintenanceActivity').value,
+        type: document.getElementById('maintenanceType').value,
+        date: document.getElementById('maintenanceDate').value,
+        priority: document.getElementById('maintenancePriority').value,
+        projectId: document.getElementById('maintenanceProject').value,
+        description: document.getElementById('maintenanceDescription').value
+    };
+    
+    try {
+        db.saveMaintenance(maintenance);
+        this.reset();
+        // Remove validation classes
+        this.querySelectorAll('.is-valid').forEach(el => el.classList.remove('is-valid'));
+        loadMaintenance();
+        loadDataSummary();
+        showToast('Success', 'Maintenance activity scheduled successfully');
+    } catch (error) {
+        showToast('Error', 'Failed to save maintenance activity', 'error');
+    }
+});
 ```
 
-But these sections are empty - they only contain the header but no actual content like tables, forms, or other UI elements that exist in the Projects section.
+Also, update your setupFormValidation() function to include the new forms:
 
-Here's what you need to add for each missing section:
-
-1. Assessments Section Content
-
-Add this inside the <div id="assessments" class="content-section">:
-
-```html
-<div id="assessments" class="content-section">
-    <div class="section-header">
-        <h2>Assessments</h2>
-        <p class="text-muted">Manage ecosystem health assessments</p>
-    </div>
-    
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0">Assessment List</h5>
-            <div>
-                <label for="assessmentProjectFilter" class="form-label me-2">Filter by Project:</label>
-                <select class="form-select form-select-sm" id="assessmentProjectFilter" style="width: auto; display: inline-block;">
-                    <option value="all">All Projects</option>
-                </select>
-            </div>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Assessor</th>
-                            <th>Health Status</th>
-                            <th>Project</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="assessments-table">
-                        <!-- Assessments will be loaded here -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    
-    <div class="card mt-4">
-        <div class="card-header">
-            <h5 class="card-title mb-0">Add New Assessment</h5>
-        </div>
-        <div class="card-body">
-            <form id="assessmentForm">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="assessmentDate" class="form-label">Assessment Date *</label>
-                            <input type="date" class="form-control" id="assessmentDate" required>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="assessorName" class="form-label">Assessor Name *</label>
-                            <input type="text" class="form-control" id="assessorName" required>
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="assessmentProject" class="form-label">Project *</label>
-                            <select class="form-select" id="assessmentProject" required>
-                                <option value="">Select Project</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="healthStatus" class="form-label">Health Status *</label>
-                            <select class="form-select" id="healthStatus" required>
-                                <option value="excellent">Excellent</option>
-                                <option value="good">Good</option>
-                                <option value="fair">Fair</option>
-                                <option value="poor">Poor</option>
-                                <option value="degraded">Degraded</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label for="assessmentDescription" class="form-label">Description *</label>
-                    <textarea class="form-control" id="assessmentDescription" rows="3" required></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary">Save Assessment</button>
-            </form>
-        </div>
-    </div>
-</div>
+```javascript
+function setupFormValidation() {
+    // Add real-time validation to all forms
+    const forms = document.querySelectorAll('#projectForm, #assessmentForm, #speciesForm, #maintenanceForm');
+    forms.forEach(form => {
+        const inputs = form.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            input.addEventListener('blur', function() {
+                validateField(this);
+            });
+            input.addEventListener('input', function() {
+                if (this.classList.contains('is-invalid')) {
+                    validateField(this);
+                }
+            });
+        });
+    });
+}
 ```
 
-2. Species Section Content
+And update your navigation section loading to call the appropriate functions:
 
-Add this inside the <div id="species" class="content-section">:
-
-```html
-<div id="species" class="content-section">
-    <div class="section-header">
-        <h2>Species</h2>
-        <p class="text-muted">Track plant and animal species in your ecosystems</p>
-    </div>
+```javascript
+// Update this part in your setupNavigation() function
+setTimeout(() => {
+    document.getElementById(target).classList.add('active');
     
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0">Species List</h5>
-            <div>
-                <label for="speciesProjectFilter" class="form-label me-2">Filter by Project:</label>
-                <select class="form-select form-select-sm" id="speciesProjectFilter" style="width: auto; display: inline-block;">
-                    <option value="all">All Projects</option>
-                </select>
-            </div>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Common Name</th>
-                            <th>Scientific Name</th>
-                            <th>Type</th>
-                            <th>Status</th>
-                            <th>Project</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="species-table">
-                        <!-- Species will be loaded here -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    
-    <div class="card mt-4">
-        <div class="card-header">
-            <h5 class="card-title mb-0">Add New Species</h5>
-        </div>
-        <div class="card-body">
-            <form id="speciesForm">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="speciesName" class="form-label">Common Name *</label>
-                            <input type="text" class="form-control" id="speciesName" required>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="scientificName" class="form-label">Scientific Name</label>
-                            <input type="text" class="form-control" id="scientificName">
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="speciesType" class="form-label">Type *</label>
-                            <select class="form-select" id="speciesType" required>
-                                <option value="plant">Plant</option>
-                                <option value="animal">Animal</option>
-                                <option value="bird">Bird</option>
-                                <option value="reptile">Reptile</option>
-                                <option value="insect">Insect</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="speciesStatus" class="form-label">Status *</label>
-                            <select class="form-select" id="speciesStatus" required>
-                                <option value="native">Native</option>
-                                <option value="introduced">Introduced</option>
-                                <option value="weed">Weed</option>
-                                <option value="pest">Pest</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label for="speciesProject" class="form-label">Project *</label>
-                    <select class="form-select" id="speciesProject" required>
-                        <option value="">Select Project</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label for="speciesDescription" class="form-label">Description</label>
-                    <textarea class="form-control" id="speciesDescription" rows="3"></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary">Save Species</button>
-            </form>
-        </div>
-    </div>
-</div>
+    // Load data for the section
+    if (target === 'dashboard') loadDashboard();
+    if (target === 'projects') loadProjects();
+    if (target === 'assessments') {
+        loadAssessments();
+        loadProjectSelects(); // Make sure project dropdowns are populated
+    }
+    if (target === 'species') {
+        loadSpecies();
+        loadProjectSelects(); // Make sure project dropdowns are populated
+    }
+    if (target === 'maintenance') {
+        loadMaintenance();
+        loadProjectSelects(); // Make sure project dropdowns are populated
+    }
+    if (target === 'charts') loadCharts();
+    if (target === 'data') {
+        loadDataSummary();
+        loadProjectSelects();
+    }
+}, 50);
 ```
 
-3. Maintenance Section Content
+Also, make sure your loadProjectSelects() function includes the new dropdowns:
 
-Add this inside the <div id="maintenance" class="content-section">:
-
-```html
-<div id="maintenance" class="content-section">
-    <div class="section-header">
-        <h2>Maintenance</h2>
-        <p class="text-muted">Schedule and track ecosystem maintenance activities</p>
-    </div>
+```javascript
+function loadProjectSelects() {
+    const projects = db.getProjects();
+    const projectSelects = document.querySelectorAll('#assessmentProject, #speciesProject, #maintenanceProject, #assessmentProjectFilter, #speciesProjectFilter, #maintenanceProjectFilter, #exportProject');
     
-    <div class="view-toggle mb-3">
-        <div class="btn-group" role="group">
-            <button type="button" class="btn btn-outline-primary active" data-view="list-view">List View</button>
-            <button type="button" class="btn btn-outline-primary" data-view="calendar-view">Calendar View</button>
-        </div>
-    </div>
-    
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0">Maintenance Activities</h5>
-            <div>
-                <label for="maintenanceProjectFilter" class="form-label me-2">Filter by Project:</label>
-                <select class="form-select form-select-sm" id="maintenanceProjectFilter" style="width: auto; display: inline-block;">
-                    <option value="all">All Projects</option>
-                </select>
-            </div>
-        </div>
-        <div class="card-body">
-            <div id="list-view" class="list-view active">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Activity</th>
-                                <th>Type</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                                <th>Priority</th>
-                                <th>Project</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="maintenance-table">
-                            <!-- Maintenance activities will be loaded here -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div id="calendar-view" class="calendar-view">
-                <div id="calendar"></div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="card mt-4">
-        <div class="card-header">
-            <h5 class="card-title mb-0">Schedule New Maintenance</h5>
-        </div>
-        <div class="card-body">
-            <form id="maintenanceForm">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="maintenanceActivity" class="form-label">Activity Name *</label>
-                            <input type="text" class="form-control" id="maintenanceActivity" required>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="maintenanceType" class="form-label">Activity Type *</label>
-                            <select class="form-select" id="maintenanceType" required>
-                                <option value="weed-control">Weed Control</option>
-                                <option value="revegetation">Revegetation</option>
-                                <option value="monitoring">Monitoring</option>
-                                <option value="survey">Survey</option>
-                                <option value="erosion-control">Erosion Control</option>
-                                <option value="pest-management">Pest Management</option>
-                                <option value="water-quality">Water Quality Testing</option>
-                                <option value="trail-maintenance">Trail Maintenance</option>
-                                <option value="equipment">Equipment Maintenance</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="maintenanceDate" class="form-label">Scheduled Date *</label>
-                            <input type="date" class="form-control" id="maintenanceDate" required>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="maintenancePriority" class="form-label">Priority *</label>
-                            <select class="form-select" id="maintenancePriority" required>
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label for="maintenanceProject" class="form-label">Project *</label>
-                    <select class="form-select" id="maintenanceProject" required>
-                        <option value="">Select Project</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label for="maintenanceDescription" class="form-label">Description *</label>
-                    <textarea class="form-control" id="maintenanceDescription" rows="3" required></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary">Schedule Maintenance</button>
-            </form>
-        </div>
-    </div>
-</div>
+    projectSelects.forEach(select => {
+        const isFilter = select.id.includes('Filter') || select.id === 'exportProject';
+        const currentValue = select.value;
+        
+        // Clear existing options except the first one
+        while(select.options.length > (isFilter ? 1 : 1)) {
+            select.remove(1);
+        }
+        
+        // Add project options
+        projects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.id;
+            option.textContent = project.name;
+            select.appendChild(option);
+        });
+        
+        // Try to restore previous selection
+        if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+            select.value = currentValue;
+        }
+    });
+}
 ```
 
-You'll also need to add the corresponding form handlers in your JavaScript for the new forms (assessmentForm, speciesForm, maintenanceForm), similar to how you have the projectForm handler.
+Finally, add the view toggle functionality for the Maintenance section:
 
-The main issue is that these sections exist as empty containers in your HTML, so when you navigate to them, they appear blank because there's no content to display.
+```javascript
+function setupViewToggle() {
+    const viewButtons = document.querySelectorAll('.view-toggle button');
+    const listView = document.getElementById('list-view');
+    const calendarView = document.getElementById('calendar-view');
+    
+    viewButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const targetView = this.getAttribute('data-view');
+            
+            // Update button states
+            viewButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Show/hide views using class toggling
+            if (targetView === 'list-view') {
+                listView.classList.add('active');
+                calendarView.classList.remove('active');
+            } else if (targetView === 'calendar-view') {
+                listView.classList.remove('active');
+                calendarView.classList.add('active');
+                loadCalendar();
+            }
+        });
+    });
+}
+```
+
+Add all these code snippets to your existing JavaScript, and your forms should work properly! The form handlers will capture the form submissions, validate the data, save it to your database, and refresh the relevant sections.
