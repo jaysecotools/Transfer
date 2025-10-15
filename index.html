@@ -1,19 +1,77 @@
-8. References
-• DPIPWE (2020). Tasmania's Natural Values Atlas.
-• Kirkpatrick, J.B. (2007). Tasmanian Native Bush: A Management Handbook.
-• Williams, K.J. et al. (2010). Forest Ecology and Management.
-• Tasmanian Government (2013). Tasmanian Wilderness World Heritage Area Management Plan.
-• NRM South (2018). Regional Natural Resource Management Strategy.
-Tasmanian Context
-Tasmania is recognized globally for its unique biodiversity and significant conservation
-values. The island's geographic isolation has resulted in high levels of endemism, with
-many species found nowhere else on Earth. Tasmania contains approximately:
- 
-• 44% of Australia's threatened native vegetation communities
-• Important populations of threatened species including the Tasmanian devil, wedge-tailed
-eagle, and orange-bellied parrot
-• World Heritage Areas covering approximately 1.58 million hectares
-• Extensive wilderness areas of global significance
-This project contributes to the protection and management of these important natural
-values in the face of ongoing threats from climate change, invasive species, and habitat
-modification.
+function createTasmanianContext(doc, reportType) {
+    doc.setFontSize(16);
+    doc.setTextColor(46, 139, 87);
+    doc.text("Tasmanian Context", 20, 30);
+    doc.setDrawColor(46, 139, 87);
+    doc.line(20, 32, 60, 32);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    
+    let yPos = 45;
+    
+    // First paragraph - handle separately
+    const introText = "Tasmania is recognized globally for its unique biodiversity and significant conservation values. The island's geographic isolation has resulted in high levels of endemism, with many species found nowhere else on Earth. Tasmania contains approximately:";
+    
+    const introLines = doc.splitTextToSize(introText, 170);
+    introLines.forEach(line => {
+        if (yPos > 270) {
+            doc.addPage();
+            yPos = 30;
+        }
+        doc.text(line, 20, yPos);
+        yPos += 7;
+    });
+    
+    yPos += 5; // Add some space before bullet points
+    
+    // Bullet points - handle each separately to prevent overlapping
+    const bulletPoints = [
+        "44% of Australia's threatened native vegetation communities",
+        "Important populations of threatened species including the Tasmanian devil, wedge-tailed eagle, and orange-bellied parrot",
+        "World Heritage Areas covering approximately 1.58 million hectares",
+        "Extensive wilderness areas of global significance"
+    ];
+    
+    bulletPoints.forEach(point => {
+        if (yPos > 270) {
+            doc.addPage();
+            yPos = 30;
+        }
+        
+        // Add bullet character
+        doc.text("•", 20, yPos);
+        
+        // Split the point text to fit within the line
+        const pointLines = doc.splitTextToSize(point, 160); // Reduced width to account for bullet
+        pointLines.forEach((line, index) => {
+            if (yPos > 270) {
+                doc.addPage();
+                yPos = 30;
+            }
+            // First line starts after bullet, subsequent lines are indented
+            const startX = index === 0 ? 27 : 27;
+            doc.text(line, startX, yPos);
+            yPos += 7;
+        });
+        
+        yPos += 2; // Space between bullet points
+    });
+    
+    yPos += 5; // Add space before concluding paragraph
+    
+    // Concluding paragraph
+    const conclusionText = "This project contributes to the protection and management of these important natural values in the face of ongoing threats from climate change, invasive species, and habitat modification.";
+    
+    const conclusionLines = doc.splitTextToSize(conclusionText, 170);
+    conclusionLines.forEach(line => {
+        if (yPos > 270) {
+            doc.addPage();
+            yPos = 30;
+        }
+        doc.text(line, 20, yPos);
+        yPos += 7;
+    });
+    
+    doc.addPage();
+}
