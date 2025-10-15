@@ -2428,7 +2428,7 @@
                 { label: "Threat Reduction", value: `${projectData.simulation.threatReduction}%` },
                 { label: "Total Investment", value: `$${projectData.simulation.totalCost.toLocaleString()}` },
                 { label: "Timeframe", value: `${projectData.simulation.timeframe} months` },
-                { label: "Actions", value: projectData.actions.length },
+                { label: "Actions", value: projectData.actions.length.toString() },
                 { label: "Area", value: projectData.area ? `${projectData.area.toFixed(2)} ha` : 'N/A' },
                 { label: "Cost/Ha", value: projectData.area ? `$${Math.round(projectData.simulation.totalCost/projectData.area).toLocaleString()}` : 'N/A' }
             ];
@@ -2566,10 +2566,10 @@
             
             yPos += 30;
             
-            // Threats table
+            // Threats table - FIXED: Convert all values to strings
             const threatRows = projectData.threats.map(t => [
                 t.name,
-                t.severity.toString(),
+                t.severity.toString(), // Convert to string
                 getSeverityDescription(t.severity),
                 t.description || 'No description provided'
             ]);
@@ -2681,7 +2681,7 @@
             
             yPos += 40;
             
-            // Actions table
+            // Actions table - FIXED: Convert all numeric values to strings
             const actionRows = projectData.actions.map(a => [
                 a.name,
                 `$${a.cost.toLocaleString()}`,
@@ -2918,7 +2918,7 @@
             doc.setTextColor(46, 139, 87);
             doc.text("6. Budget Proposal", 20, 30);
             
-            // Detailed budget table
+            // Detailed budget table - FIXED: Convert all values to strings
             const budgetRows = projectData.actions.map(a => [
                 a.name,
                 `$${a.cost.toLocaleString()}`,
