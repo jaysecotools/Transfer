@@ -1,457 +1,1239 @@
-// Replace your current generateVRHTML function with this corrected version
-generateVRHTML(projectData) {
-    const markers = projectData.markers.map(marker => {
-        const phi = marker.phi || this.convertXToPhi(marker.x);
-        const theta = marker.theta || this.convertYToTheta(marker.y);
-        
-        return {
-            ...marker,
-            phi: phi,
-            theta: theta,
-            position: this.sphericalToCartesian(phi, theta, 5)
-        };
-    });
-
-    const markersHTML = markers.map(marker => {
-        const escapedData = JSON.stringify(marker)
-            .replace(/'/g, "&apos;")
-            .replace(/"/g, "&quot;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;");
-
-        const markerStyle = this.getVRMarkerStyle(marker);
-        
-        return `
-        <a-entity class="vr-marker interactive-marker" 
-            data-marker='${escapedData}'
-            position="${marker.position}"
-            animation="property: rotation; to: 0 360 0; loop: true; dur: 10000"
-            clickable>
-            
-            ${markerStyle.outerRing}
-            ${markerStyle.innerCore}
-            ${markerStyle.icon}
-            
-            <a-text 
-                value="${this.escapeHtml(marker.title)}" 
-                position="0 0.8 0" 
-                align="center" 
-                color="white"
-                scale="1.5 1.5 1.5"
-                width="3">
-            </a-text>
-            
-            <a-text 
-                value="${markerStyle.typeLabel}" 
-                position="0 -0.5 0" 
-                align="center" 
-                color="${markerStyle.textColor}"
-                scale="1 1 1"
-                width="2">
-            </a-text>
-        </a-entity>`;
-    }).join('');
-
-    return `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>360° VR Experience</title>
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <!-- Add A-Frame extras for better interaction -->
-    <script src="https://unpkg.com/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
+    <title>Your Name Photography | Portfolio & Prints</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            background: #000; 
-            font-family: Arial, sans-serif;
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #e74c3c;
+            --light-color: #ecf0f1;
+            --dark-color: #2c3e50;
+            --text-color: #333;
+            --background-color: #fff;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .info-panel {
-            position: fixed; 
-            top: 20px; 
-            left: 20px; 
-            background: rgba(0,0,0,0.95); 
-            color: white; 
-            padding: 20px; 
-            border-radius: 10px; 
-            max-width: 400px; 
-            max-height: 80vh; 
-            overflow-y: auto; 
-            z-index: 1000; 
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+
+        /* Header & Navigation */
+        header {
+            background-color: var(--primary-color);
+            color: var(--light-color);
+            padding: 1rem 0;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            box-shadow: var(--shadow);
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: var(--light-color);
+        }
+
+        .logo span {
+            color: var(--secondary-color);
+        }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+        }
+
+        nav ul li {
+            margin-left: 2rem;
+        }
+
+        nav ul li a {
+            color: var(--light-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        nav ul li a:hover {
+            color: var(--secondary-color);
+        }
+
+        .mobile-menu-btn {
             display: none;
-            border: 2px solid #6366f1; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            backdrop-filter: blur(10px);
-        }
-        .close-btn {
-            position: absolute; 
-            top: 10px; 
-            right: 15px; 
-            background: none; 
+            background: none;
             border: none;
-            color: white; 
-            font-size: 20px; 
-            cursor: pointer; 
-            padding: 0; 
-            width: 30px; 
-            height: 30px;
-            display: flex; 
-            align-items: center; 
+            color: var(--light-color);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* Hero Section */
+        .hero {
+            height: 100vh;
+            background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://source.unsplash.com/random/1920x1080/?photography') no-repeat center center/cover;
+            display: flex;
+            align-items: center;
             justify-content: center;
+            text-align: center;
+            color: var(--light-color);
+            margin-top: 70px;
         }
-        .close-btn:hover { 
-            background: rgba(255,255,255,0.1); 
-            border-radius: 50%; 
+
+        .hero-content h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
-        .media-container { 
-            margin-top: 15px; 
+
+        .hero-content p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
         }
-        .loading-screen {
+
+        .btn {
+            display: inline-block;
+            background-color: var(--secondary-color);
+            color: var(--light-color);
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: #c0392b;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Gallery Section */
+        .section {
+            padding: 5rem 0;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-title h2 {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            position: relative;
+            display: inline-block;
+            padding-bottom: 10px;
+        }
+
+        .section-title h2::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 3px;
+            background-color: var(--secondary-color);
+        }
+
+        .gallery-filters {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: none;
+            border: none;
+            padding: 0.5rem 1.5rem;
+            margin: 0 0.5rem 1rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+            border-radius: 30px;
+        }
+
+        .filter-btn.active {
+            background-color: var(--secondary-color);
+            color: var(--light-color);
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .gallery-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            height: 300px;
+            cursor: pointer;
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s;
+        }
+
+        .gallery-item:hover img {
+            transform: scale(1.05);
+        }
+
+        .gallery-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+            color: var(--light-color);
+            padding: 1rem;
+            transform: translateY(100%);
+            transition: transform 0.3s;
+        }
+
+        .gallery-item:hover .gallery-overlay {
+            transform: translateY(0);
+        }
+
+        .gallery-overlay h3 {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Genre Page */
+        .genre-page {
+            display: none;
+            padding-top: 100px;
+        }
+
+        .genre-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+            background-color: #f8f9fa;
+        }
+
+        .genre-header h1 {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .genre-header p {
+            max-width: 700px;
+            margin: 0 auto;
+            font-size: 1.1rem;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .back-btn i {
+            margin-right: 0.5rem;
+        }
+
+        .genre-gallery {
+            display: flex;
+            overflow-x: auto;
+            gap: 20px;
+            padding: 1rem 0;
+            scroll-behavior: smooth;
+            scrollbar-width: thin;
+        }
+
+        .genre-gallery::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .genre-gallery::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .genre-gallery::-webkit-scrollbar-thumb {
+            background: var(--secondary-color);
+            border-radius: 10px;
+        }
+
+        .genre-item {
+            flex: 0 0 auto;
+            width: 350px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        .genre-item img {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .genre-item-info {
+            padding: 1rem;
+            background-color: var(--light-color);
+        }
+
+        .genre-item-info h3 {
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        .scroll-indicator {
+            text-align: center;
+            margin-top: 1rem;
+            color: var(--primary-color);
+            font-style: italic;
+        }
+
+        /* About Section */
+        .about {
+            background-color: #f8f9fa;
+        }
+
+        .about-content {
+            display: flex;
+            align-items: center;
+            gap: 3rem;
+        }
+
+        .about-image {
+            flex: 1;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .about-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .about-text {
+            flex: 1;
+        }
+
+        .about-text h2 {
+            font-size: 2.2rem;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .about-text p {
+            margin-bottom: 1.5rem;
+        }
+
+        /* Contact Section */
+        .contact-form {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        textarea.form-control {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        /* Footer */
+        footer {
+            background-color: var(--primary-color);
+            color: var(--light-color);
+            padding: 3rem 0 1rem;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+        }
+
+        .footer-column {
+            flex: 1;
+            margin-right: 2rem;
+        }
+
+        .footer-column:last-child {
+            margin-right: 0;
+        }
+
+        .footer-column h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+            padding-bottom: 10px;
+        }
+
+        .footer-column h3::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 40px;
+            height: 2px;
+            background-color: var(--secondary-color);
+        }
+
+        .social-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .social-links a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            color: var(--light-color);
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .social-links a:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-3px);
+        }
+
+        .copyright {
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Modal for Image View */
+        .modal {
+            display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: #000;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 1100;
+            overflow: auto;
+        }
+
+        .modal-content {
+            position: relative;
+            margin: auto;
+            display: block;
+            width: 80%;
+            max-width: 800px;
+            margin-top: 50px;
+        }
+
+        .modal-image {
+            width: 100%;
+            height: auto;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: var(--light-color);
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .close-modal:hover {
+            color: var(--secondary-color);
+        }
+
+        .modal-info {
+            color: var(--light-color);
+            padding: 20px;
+            text-align: center;
+        }
+
+        .purchase-options {
             display: flex;
             justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 24px;
-            z-index: 9999;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
         }
-        .vr-controls-info {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 14px;
-            max-width: 300px;
-            z-index: 100;
+
+        .purchase-option {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 4px;
+            text-align: center;
+            min-width: 150px;
+        }
+
+        .price {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--secondary-color);
+            margin: 0.5rem 0;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            .about-content {
+                flex-direction: column;
+            }
+            
+            .about-image, .about-text {
+                flex: auto;
+            }
+            
+            .footer-content {
+                flex-direction: column;
+            }
+            
+            .footer-column {
+                margin-right: 0;
+                margin-bottom: 2rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            nav {
+                width: 100%;
+                margin-top: 1rem;
+                display: none;
+            }
+            
+            nav.active {
+                display: block;
+            }
+            
+            nav ul {
+                flex-direction: column;
+            }
+            
+            nav ul li {
+                margin: 0;
+                margin-bottom: 0.5rem;
+            }
+            
+            .mobile-menu-btn {
+                display: block;
+                position: absolute;
+                right: 20px;
+                top: 20px;
+            }
+            
+            .hero-content h1 {
+                font-size: 2.5rem;
+            }
+            
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            }
+            
+            .genre-item {
+                width: 300px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .hero-content h1 {
+                font-size: 2rem;
+            }
+            
+            .section-title h2 {
+                font-size: 2rem;
+            }
+            
+            .gallery-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .genre-item {
+                width: 280px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="loading-screen" id="loadingScreen">
-        <div style="text-align: center;">
-            <div style="margin-bottom: 20px;">Loading VR Experience...</div>
-            <div style="font-size: 16px; opacity: 0.8;">Look around and click on markers to interact</div>
+    <!-- Header -->
+    <header>
+        <div class="container header-container">
+            <a href="#" class="logo">Your<span>Name</span> Photography</a>
+            <button class="mobile-menu-btn">
+                <i class="fas fa-bars"></i>
+            </button>
+            <nav>
+                <ul>
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#gallery">Gallery</a></li>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <div class="container hero-content">
+            <h1>Capturing Life's Beautiful Moments</h1>
+            <p>Fine art photography prints available for purchase. Explore my portfolio and bring a piece of my vision into your home.</p>
+            <a href="#gallery" class="btn">View Gallery</a>
+        </div>
+    </section>
+
+    <!-- Gallery Section -->
+    <section class="section" id="gallery">
+        <div class="container">
+            <div class="section-title">
+                <h2>My Portfolio</h2>
+            </div>
+            <div class="gallery-filters">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="landscape">Landscape</button>
+                <button class="filter-btn" data-filter="portrait">Portrait</button>
+                <button class="filter-btn" data-filter="street">Street</button>
+                <button class="filter-btn" data-filter="nature">Nature</button>
+            </div>
+            <div class="gallery-grid">
+                <!-- Gallery items will be populated by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Genre Pages -->
+    <div id="genre-landscape" class="genre-page">
+        <div class="container">
+            <button class="back-btn" onclick="goBackToGallery()">
+                <i class="fas fa-arrow-left"></i> Back to Gallery
+            </button>
+            <div class="genre-header">
+                <h1>Landscape Photography</h1>
+                <p>Immerse yourself in breathtaking vistas and natural wonders from around the world. Each landscape captures the unique beauty of our planet in different lights and seasons.</p>
+            </div>
+            <div class="genre-gallery" id="landscape-gallery">
+                <!-- Landscape images will be populated by JavaScript -->
+            </div>
+            <p class="scroll-indicator">Scroll horizontally to view more images</p>
         </div>
     </div>
 
-    <a-scene 
-        vr-mode-ui="enabled: true" 
-        loading-screen="dotsColor: #6366f1; backgroundColor: #000"
-        cursor="rayOrigin: mouse"
-        raycaster="objects: .interactive-marker"
-        renderer="antialias: true; colorManagement: true">
-        
-        <!-- 360° Image -->
-        <a-sky src="${projectData.imageSrc}" rotation="0 -90 0"></a-sky>
-        
-        <!-- Markers -->
-        ${markersHTML}
-        
-        <!-- Camera Rig -->
-        <a-entity id="rig" movement-controls position="0 0 0">
-            <a-entity 
-                id="camera" 
-                camera 
-                look-controls 
-                wasd-controls 
-                position="0 1.6 0"
-                cursor="rayOrigin: cursor; fuse: true; fuseTimeout: 1000"
-                raycaster="objects: .interactive-marker, .clickable">
-            </a-entity>
-        </a-entity>
-        
-        <!-- Lighting -->
-        <a-entity light="type: ambient; color: #888; intensity: 0.8"></a-entity>
-        <a-entity light="type: directional; color: #fff; intensity: 0.5" position="-1 1 1"></a-entity>
-        
-        <!-- Ground reference (optional) -->
-        <a-circle 
-            position="0 -2 0" 
-            rotation="-90 0 0" 
-            radius="10" 
-            color="#333" 
-            opacity="0.3">
-        </a-circle>
-    </a-scene>
-
-    <!-- Info Panel -->
-    <div class="info-panel" id="infoPanel">
-        <button class="close-btn" onclick="closeInfoPanel()">&times;</button>
-        <h3 id="panelTitle" style="margin-bottom: 15px; color: #6366f1;">Marker Info</h3>
-        <p id="panelDescription" style="margin-bottom: 15px; line-height: 1.5;"></p>
-        <a id="panelLink" target="_blank" rel="noopener" style="display: none; padding: 8px 16px; background: #10b981; color: white; text-decoration: none; border-radius: 4px; margin-right: 10px;">🔗 Visit Link</a>
-        <div class="media-container" id="panelMedia"></div>
+    <div id="genre-portrait" class="genre-page">
+        <div class="container">
+            <button class="back-btn" onclick="goBackToGallery()">
+                <i class="fas fa-arrow-left"></i> Back to Gallery
+            </button>
+            <div class="genre-header">
+                <h1>Portrait Photography</h1>
+                <p>Capturing the essence of individuals through intimate and expressive portraits. Each image tells a unique story of personality, emotion, and human connection.</p>
+            </div>
+            <div class="genre-gallery" id="portrait-gallery">
+                <!-- Portrait images will be populated by JavaScript -->
+            </div>
+            <p class="scroll-indicator">Scroll horizontally to view more images</p>
+        </div>
     </div>
 
-    <!-- Controls Info -->
-    <div class="vr-controls-info" id="controlsInfo">
-        <strong>Controls:</strong><br>
-        • Mouse: Look around & click markers<br>
-        • WASD: Move around<br>
-        • VR: Use VR controllers<br>
-        • Mobile: Touch to look, virtual joystick to move
+    <div id="genre-street" class="genre-page">
+        <div class="container">
+            <button class="back-btn" onclick="goBackToGallery()">
+                <i class="fas fa-arrow-left"></i> Back to Gallery
+            </button>
+            <div class="genre-header">
+                <h1>Street Photography</h1>
+                <p>Documenting everyday life and society in public places. These images capture candid moments, urban landscapes, and the poetry of ordinary life.</p>
+            </div>
+            <div class="genre-gallery" id="street-gallery">
+                <!-- Street images will be populated by JavaScript -->
+            </div>
+            <p class="scroll-indicator">Scroll horizontally to view more images</p>
+        </div>
+    </div>
+
+    <div id="genre-nature" class="genre-page">
+        <div class="container">
+            <button class="back-btn" onclick="goBackToGallery()">
+                <i class="fas fa-arrow-left"></i> Back to Gallery
+            </button>
+            <div class="genre-header">
+                <h1>Nature Photography</h1>
+                <p>Exploring the intricate details and grand spectacles of the natural world. From macro shots of flora and fauna to sweeping wilderness scenes.</p>
+            </div>
+            <div class="genre-gallery" id="nature-gallery">
+                <!-- Nature images will be populated by JavaScript -->
+            </div>
+            <p class="scroll-indicator">Scroll horizontally to view more images</p>
+        </div>
+    </div>
+
+    <!-- About Section -->
+    <section class="section about" id="about">
+        <div class="container">
+            <div class="section-title">
+                <h2>About Me</h2>
+            </div>
+            <div class="about-content">
+                <div class="about-image">
+                    <img src="https://source.unsplash.com/random/600x600/?photographer" alt="Photographer">
+                </div>
+                <div class="about-text">
+                    <h2>My Story</h2>
+                    <p>Hello! I'm [Your Name], a passionate photographer with over [X] years of experience capturing the world through my lens. My journey began when I received my first camera as a gift, and since then, I've been dedicated to freezing moments in time that tell stories and evoke emotions.</p>
+                    <p>My work spans various genres including landscape, portrait, and street photography. Each photograph is a piece of my heart, carefully composed and processed to share my unique perspective with the world.</p>
+                    <p>I believe that photography has the power to connect people, preserve memories, and highlight the beauty in everyday life. Through my prints, I hope to bring a piece of that beauty into your home or workspace.</p>
+                    <a href="#contact" class="btn">Get In Touch</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="section" id="contact">
+        <div class="container">
+            <div class="section-title">
+                <h2>Contact Me</h2>
+            </div>
+            <div class="contact-form">
+                <form id="contactForm">
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input type="text" id="name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="subject">Subject</label>
+                        <input type="text" id="subject" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="message">Message</label>
+                        <textarea id="message" class="form-control" required></textarea>
+                    </div>
+                    <button type="submit" class="btn">Send Message</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-column">
+                    <h3>YourName Photography</h3>
+                    <p>Creating timeless images that capture the essence of moments and places.</p>
+                    <div class="social-links">
+                        <a href="#"><i class="fab fa-instagram"></i></a>
+                        <a href="#"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-pinterest"></i></a>
+                    </div>
+                </div>
+                <div class="footer-column">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="#home">Home</a></li>
+                        <li><a href="#gallery">Gallery</a></li>
+                        <li><a href="#about">About</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h3>Contact Info</h3>
+                    <p><i class="fas fa-envelope"></i> yourname@example.com</p>
+                    <p><i class="fas fa-phone"></i> +1 (123) 456-7890</p>
+                    <p><i class="fas fa-map-marker-alt"></i> Your City, Your Country</p>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>&copy; 2023 YourName Photography. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Image Modal -->
+    <div class="modal" id="imageModal">
+        <span class="close-modal">&times;</span>
+        <div class="modal-content">
+            <img class="modal-image" id="modalImg" src="" alt="">
+            <div class="modal-info">
+                <h3 id="modalTitle"></h3>
+                <p id="modalDescription"></p>
+                <div class="purchase-options">
+                    <div class="purchase-option">
+                        <h4>8x10 Print</h4>
+                        <p class="price">$45</p>
+                        <button class="btn">Add to Cart</button>
+                    </div>
+                    <div class="purchase-option">
+                        <h4>12x16 Print</h4>
+                        <p class="price">$75</p>
+                        <button class="btn">Add to Cart</button>
+                    </div>
+                    <div class="purchase-option">
+                        <h4>16x20 Print</h4>
+                        <p class="price">$120</p>
+                        <button class="btn">Add to Cart</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Enhanced interaction system
-        document.addEventListener('DOMContentLoaded', function() {
-            const scene = document.querySelector('a-scene');
-            const loadingScreen = document.getElementById('loadingScreen');
+        // Sample gallery data
+        const galleryData = [
+            // Landscape images
+            {
+                id: 1,
+                src: "https://source.unsplash.com/random/600x400/?mountain",
+                title: "Mountain Sunrise",
+                description: "A breathtaking view of the mountains at sunrise.",
+                category: "landscape",
+                price: 45
+            },
+            {
+                id: 2,
+                src: "https://source.unsplash.com/random/600x400/?ocean",
+                title: "Ocean Cliffs",
+                description: "Dramatic cliffs meeting the powerful ocean waves.",
+                category: "landscape",
+                price: 55
+            },
+            {
+                id: 3,
+                src: "https://source.unsplash.com/random/600x400/?desert",
+                title: "Desert Dunes",
+                description: "The endless beauty of sand dunes at golden hour.",
+                category: "landscape",
+                price: 50
+            },
+            {
+                id: 4,
+                src: "https://source.unsplash.com/random/600x400/?forest",
+                title: "Enchanted Forest",
+                description: "Mystical morning light in a dense forest.",
+                category: "landscape",
+                price: 60
+            },
+            {
+                id: 5,
+                src: "https://source.unsplash.com/random/600x400/?lake",
+                title: "Serene Lake",
+                description: "Perfect reflections in a calm mountain lake.",
+                category: "landscape",
+                price: 48
+            },
+            {
+                id: 6,
+                src: "https://source.unsplash.com/random/600x400/?waterfall",
+                title: "Majestic Waterfall",
+                description: "Powerful waterfall cascading down rocky cliffs.",
+                category: "landscape",
+                price: 65
+            },
             
-            scene.addEventListener('loaded', function() {
-                // Hide loading screen
-                setTimeout(() => {
-                    if (loadingScreen) {
-                        loadingScreen.style.display = 'none';
-                    }
-                }, 1000);
-                
-                setupVRInteractions();
-            });
+            // Portrait images
+            {
+                id: 7,
+                src: "https://source.unsplash.com/random/600x400/?woman,portrait",
+                title: "Thoughtful Moment",
+                description: "A contemplative portrait capturing deep emotion.",
+                category: "portrait",
+                price: 65
+            },
+            {
+                id: 8,
+                src: "https://source.unsplash.com/random/600x400/?man,portrait",
+                title: "Urban Portrait",
+                description: "A candid portrait in an urban setting.",
+                category: "portrait",
+                price: 55
+            },
+            {
+                id: 9,
+                src: "https://source.unsplash.com/random/600x400/?child,portrait",
+                title: "Innocent Smile",
+                description: "Capturing the pure joy of childhood.",
+                category: "portrait",
+                price: 50
+            },
+            {
+                id: 10,
+                src: "https://source.unsplash.com/random/600x400/?elderly,portrait",
+                title: "Wisdom in Eyes",
+                description: "A portrait revealing a lifetime of experiences.",
+                category: "portrait",
+                price: 60
+            },
+            {
+                id: 11,
+                src: "https://source.unsplash.com/random/600x400/?couple,portrait",
+                title: "Shared Connection",
+                description: "Intimate portrait of a couple's bond.",
+                category: "portrait",
+                price: 75
+            },
             
-            // Handle scene load errors
-            scene.addEventListener('error', function() {
-                if (loadingScreen) {
-                    loadingScreen.innerHTML = '<div style="text-align: center; color: #ff4444;">Error loading VR experience. Please check your image URL.</div>';
-                }
-            });
-        });
-
-        function setupVRInteractions() {
-            const camera = document.querySelector('#camera');
-            const cursor = camera.querySelector('[cursor]');
+            // Street images
+            {
+                id: 12,
+                src: "https://source.unsplash.com/random/600x400/?city,night",
+                title: "City Lights",
+                description: "The vibrant energy of the city at night.",
+                category: "street",
+                price: 50
+            },
+            {
+                id: 13,
+                src: "https://source.unsplash.com/random/600x400/?alley",
+                title: "Urban Geometry",
+                description: "Architectural lines and shadows in the city.",
+                category: "street",
+                price: 52
+            },
+            {
+                id: 14,
+                src: "https://source.unsplash.com/random/600x400/?market,street",
+                title: "Market Day",
+                description: "Bustling street market full of life and color.",
+                category: "street",
+                price: 48
+            },
+            {
+                id: 15,
+                src: "https://source.unsplash.com/random/600x400/?rain,street",
+                title: "Rainy Reflections",
+                description: "City streets glistening after rainfall.",
+                category: "street",
+                price: 55
+            },
             
-            if (!cursor) {
-                console.warn('Cursor element not found');
-                return;
+            // Nature images
+            {
+                id: 16,
+                src: "https://source.unsplash.com/random/600x400/?wildlife",
+                title: "Wild Beauty",
+                description: "A majestic animal in its natural habitat.",
+                category: "nature",
+                price: 70
+            },
+            {
+                id: 17,
+                src: "https://source.unsplash.com/random/600x400/?flower,macro",
+                title: "Floral Details",
+                description: "Intricate details of a blooming flower.",
+                category: "nature",
+                price: 45
+            },
+            {
+                id: 18,
+                src: "https://source.unsplash.com/random/600x400/?bird",
+                title: "In Flight",
+                description: "Capturing the grace of a bird in motion.",
+                category: "nature",
+                price: 60
+            },
+            {
+                id: 19,
+                src: "https://source.unsplash.com/random/600x400/?forest,path",
+                title: "Woodland Path",
+                description: "A tranquil path winding through ancient woods.",
+                category: "nature",
+                price: 55
             }
+        ];
 
-            // Handle mouse clicks
-            scene.addEventListener('click', function(evt) {
-                const intersectedEl = evt.detail.intersectedEl;
-                if (intersectedEl && intersectedEl.classList.contains('interactive-marker')) {
-                    handleMarkerClick(intersectedEl);
+        // DOM elements
+        const galleryGrid = document.querySelector('.gallery-grid');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImg');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalDescription = document.getElementById('modalDescription');
+        const closeModal = document.querySelector('.close-modal');
+        const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
+        const nav = document.querySelector('nav');
+        const contactForm = document.getElementById('contactForm');
+        const genrePages = document.querySelectorAll('.genre-page');
+        const mainGallery = document.getElementById('gallery');
+
+        // Initialize gallery
+        function initGallery() {
+            galleryGrid.innerHTML = '';
+            
+            // Show only 4 images per category in the main gallery
+            const categories = {};
+            
+            galleryData.forEach(item => {
+                if (!categories[item.category]) {
+                    categories[item.category] = [];
+                }
+                categories[item.category].push(item);
+            });
+            
+            // Add one representative image from each category
+            Object.keys(categories).forEach(category => {
+                if (categories[category].length > 0) {
+                    const item = categories[category][0];
+                    const galleryItem = createGalleryItem(item, true);
+                    galleryGrid.appendChild(galleryItem);
                 }
             });
-
-            // Handle VR controller clicks
-            scene.addEventListener('triggerdown', function(evt) {
-                const intersectedEl = evt.detail.intersectedEl;
-                if (intersectedEl && intersectedEl.classList.contains('interactive-marker')) {
-                    handleMarkerClick(intersectedEl);
-                }
-            });
-
-            // Handle fuse events (gaze-based interaction)
-            cursor.addEventListener('fusing', function(evt) {
-                const intersectedEl = evt.detail.intersectedEl;
-                if (intersectedEl && intersectedEl.classList.contains('interactive-marker')) {
-                    // Visual feedback during fusing
-                    intersectedEl.setAttribute('animation', {
-                        property: 'scale',
-                        to: '1.2 1.2 1.2',
-                        dur: 500
-                    });
-                }
-            });
-
-            cursor.addEventListener('fusing', function(evt) {
-                const intersectedEl = evt.detail.intersectedEl;
-                if (intersectedEl && intersectedEl.classList.contains('interactive-marker')) {
-                    handleMarkerClick(intersectedEl);
-                }
-            });
-
-            // Add hover effects
-            scene.addEventListener('mouseenter', function(evt) {
-                const el = evt.detail.intersectedEl;
-                if (el && el.classList.contains('interactive-marker')) {
-                    el.setAttribute('animation', {
-                        property: 'scale',
-                        to: '1.1 1.1 1.1',
-                        dur: 200
-                    });
-                }
-            });
-
-            scene.addEventListener('mouseleave', function(evt) {
-                const el = evt.detail.intersectedEl;
-                if (el && el.classList.contains('interactive-marker')) {
-                    el.setAttribute('animation', {
-                        property: 'scale',
-                        to: '1 1 1',
-                        dur: 200
-                    });
-                }
-            });
+            
+            // Initialize genre pages
+            initGenrePages();
         }
 
-        function handleMarkerClick(markerElement) {
-            const markerData = markerElement.getAttribute('data-marker');
-            if (markerData) {
-                try {
-                    const marker = JSON.parse(markerData);
-                    showMarkerInfo(marker);
-                    
-                    // Add click feedback
-                    markerElement.setAttribute('animation', {
-                        property: 'scale',
-                        from: '1.3 1.3 1.3',
-                        to: '1 1 1',
-                        dur: 300
-                    });
-                } catch (e) {
-                    console.error('Error parsing marker data:', e);
-                }
-            }
-        }
-
-        function showMarkerInfo(marker) {
-            const panel = document.getElementById('infoPanel');
-            const title = document.getElementById('panelTitle');
-            const description = document.getElementById('panelDescription');
-            const linkElement = document.getElementById('panelLink');
-            const mediaElement = document.getElementById('panelMedia');
+        // Create a gallery item
+        function createGalleryItem(item, isCategoryLink = false) {
+            const galleryItem = document.createElement('div');
+            galleryItem.className = `gallery-item ${item.category}`;
+            galleryItem.setAttribute('data-category', item.category);
             
-            if (!panel || !title) return;
-            
-            title.textContent = marker.title || 'Untitled Marker';
-            description.textContent = marker.description || 'No description provided.';
-            
-            // Handle link
-            if (marker.url && marker.url.trim() !== '') {
-                linkElement.href = marker.url;
-                linkElement.textContent = '🔗 Visit Link';
-                linkElement.style.display = 'inline-block';
+            if (isCategoryLink) {
+                galleryItem.innerHTML = `
+                    <img src="${item.src}" alt="${item.title}">
+                    <div class="gallery-overlay">
+                        <h3>${getCategoryDisplayName(item.category)}</h3>
+                        <p>View ${getImagesCountByCategory(item.category)} photos</p>
+                    </div>
+                `;
+                galleryItem.addEventListener('click', () => openGenrePage(item.category));
             } else {
-                linkElement.style.display = 'none';
+                galleryItem.innerHTML = `
+                    <img src="${item.src}" alt="${item.title}">
+                    <div class="gallery-overlay">
+                        <h3>${item.title}</h3>
+                        <p>${item.description}</p>
+                    </div>
+                `;
+                galleryItem.addEventListener('click', () => openModal(item));
             }
             
-            // Handle media
-            mediaElement.innerHTML = '';
-            if (marker.mediaUrl && marker.mediaUrl.trim() !== '') {
-                mediaElement.innerHTML = getMediaEmbed(marker.mediaUrl);
-            }
-            
-            panel.style.display = 'block';
-            
-            // Auto-hide controls info when panel is open
-            const controlsInfo = document.getElementById('controlsInfo');
-            if (controlsInfo) {
-                controlsInfo.style.display = 'none';
-            }
+            return galleryItem;
         }
 
-        function closeInfoPanel() {
-            const panel = document.getElementById('infoPanel');
-            const controlsInfo = document.getElementById('controlsInfo');
+        // Initialize genre pages with all images
+        function initGenrePages() {
+            const categories = {};
             
-            if (panel) {
-                panel.style.display = 'none';
-            }
-            if (controlsInfo) {
-                controlsInfo.style.display = 'block';
-            }
-        }
-
-        function getMediaEmbed(url) {
-            if (!url) return '';
-            
-            // YouTube
-            if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                const videoId = extractYouTubeId(url);
-                if (videoId) {
-                    return '<div style="margin-top: 10px;"><iframe width="100%" height="200" src="https://www.youtube.com/embed/' + videoId + '?rel=0&modestbranding=1" frameborder="0" allowfullscreen style="border-radius: 8px;"></iframe></div>';
+            galleryData.forEach(item => {
+                if (!categories[item.category]) {
+                    categories[item.category] = [];
                 }
-            }
+                categories[item.category].push(item);
+            });
             
-            // Vimeo
-            if (url.includes('vimeo.com')) {
-                const videoId = extractVimeoId(url);
-                if (videoId) {
-                    return '<div style="margin-top: 10px;"><iframe width="100%" height="200" src="https://player.vimeo.com/video/' + videoId + '?title=0&byline=0&portrait=0" frameborder="0" allowfullscreen style="border-radius: 8px;"></iframe></div>';
-                }
-            }
-            
-            // Audio files
-            if (url.match(/\\.(mp3|wav|ogg|m4a)(\\?.*)?$/i)) {
-                return '<audio controls style="width: 100%; margin-top: 10px; border-radius: 8px;"><source src="' + url + '">Your browser does not support audio.</audio>';
-            }
-            
-            // Video files
-            if (url.match(/\\.(mp4|webm|ogg|mov)(\\?.*)?$/i)) {
-                return '<video controls style="width: 100%; max-width: 100%; margin-top: 10px; border-radius: 8px;"><source src="' + url + '">Your browser does not support video.</video>';
-            }
-            
-            // SoundCloud
-            if (url.includes('soundcloud.com')) {
-                return '<div style="background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center; margin: 10px 0;">' +
-                       '<p style="margin-bottom: 10px; color: #666;">🎵 SoundCloud Audio</p>' +
-                       '<a href="' + url + '" target="_blank" rel="noopener" style="display: inline-block; padding: 10px 20px; background: #ff5500; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">' +
-                       'Listen on SoundCloud</a>' +
-                       '</div>';
-            }
-            
-            // Default link
-            return '<a href="' + url + '" target="_blank" rel="noopener" style="display: inline-block; padding: 10px 20px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; margin-top: 10px; font-weight: bold;">Open Media</a>';
-        }
-
-        function extractYouTubeId(url) {
-            const patterns = [
-                /(?:https?:\\/\\/)?(?:www\\.)?(?:youtube\\.com\\/watch\\?v=|youtu\\.be\\/)([^&\\n?#]+)/,
-                /(?:https?:\\/\\/)?(?:www\\.)?youtube\\.com\\/embed\\/([^&\\n?#]+)/
-            ];
-            for (const pattern of patterns) {
-                const match = url.match(pattern);
-                if (match && match[1]) return match[1].split('?')[0].split('&')[0];
-            }
-            return null;
-        }
-
-        function extractVimeoId(url) {
-            const match = url.match(/(?:https?:\\/\\/)?(?:www\\.)?vimeo\\.com\\/([0-9]+)/);
-            return match ? match[1] : null;
-        }
-
-        // Close panel when clicking outside
-        document.addEventListener('click', function(e) {
-            const panel = document.getElementById('infoPanel');
-            if (panel && panel.style.display === 'block' && !panel.contains(e.target)) {
-                closeInfoPanel();
-            }
-        });
-
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeInfoPanel();
-            }
-        });
-
-        // Handle mobile device detection
-        function isMobileDevice() {
-            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        }
-
-        // Adjust controls based on device
-        if (isMobileDevice()) {
-            document.addEventListener('DOMContentLoaded', function() {
-                const controlsInfo = document.getElementById('controlsInfo');
-                if (controlsInfo) {
-                    controlsInfo.innerHTML = '<strong>Controls:</strong><br>• Touch and drag: Look around<br>• Virtual joystick: Move<br>• Tap markers: Interact';
+            // Populate each genre page
+            Object.keys(categories).forEach(category => {
+                const genreGallery = document.getElementById(`${category}-gallery`);
+                if (genreGallery) {
+                    genreGallery.innerHTML = '';
+                    
+                    categories[category].forEach(item => {
+                        const genreItem = document.createElement('div');
+                        genreItem.className = 'genre-item';
+                        genreItem.innerHTML = `
+                            <img src="${item.src}" alt="${item.title}">
+                            <div class="genre-item-info">
+                                <h3>${item.title}</h3>
+                                <p>${item.description}</p>
+                                <p class="price">From $${item.price}</p>
+                                <button class="btn" onclick="openModal(${JSON.stringify(item).replace(/"/g, '&quot;')})">View & Purchase</button>
+                            </div>
+                        `;
+                        genreGallery.appendChild(genreItem);
+                    });
                 }
             });
         }
+
+        // Get display name for category
+        function getCategoryDisplayName(category) {
+            const names = {
+                'landscape': 'Landscape',
+                'portrait': 'Portrait',
+                'street': 'Street',
+                'nature': 'Nature'
+            };
+            return names[category] || category;
+        }
+
+        // Get count of images by category
+        function getImagesCountByCategory(category) {
+            return galleryData.filter(item => item.category === category).length;
+        }
+
+        // Open genre page
+        function openGenrePage(category) {
+            mainGallery.style.display = 'none';
+            document.getElementById(`genre-${category}`).style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Go back to main gallery
+        function goBackToGallery() {
+            genrePages.forEach(page => {
+                page.style.display = 'none';
+            });
+            mainGallery.style.display = 'block';
+            window.scrollTo({ top: mainGallery.offsetTop - 70, behavior: 'smooth' });
+        }
+
+        // Filter gallery items (for main gallery)
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active class from all buttons
+                filterBtns.forEach(b => b.classList.remove('active'));
+                // Add active class to clicked button
+                btn.classList.add('active');
+                
+                const filter = btn.getAttribute('data-filter');
+                
+                if (filter === 'all') {
+                    document.querySelectorAll('.gallery-item').forEach(item => {
+                        item.style.display = 'block';
+                    });
+                } else {
+                    document.querySelectorAll('.gallery-item').forEach(item => {
+                        if (item.getAttribute('data-category') === filter) {
+                            item.style.display = 'block';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                }
+            });
+        });
+
+        // Open modal with image details
+        function openModal(item) {
+            modalImg.src = item.src;
+            modalImg.alt = item.title;
+            modalTitle.textContent = item.title;
+            modalDescription.textContent = item.description;
+            modal.style.display = 'block';
+        }
+
+        // Close modal
+        closeModal.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        // Close modal when clicking outside the image
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // Mobile menu toggle
+        mobileMenuBtn.addEventListener('click', () => {
+            nav.classList.toggle('active');
+        });
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                if (targetId === '#') return;
+                
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    window.scrollTo({
+                        top: targetElement.offsetTop - 70,
+                        behavior: 'smooth'
+                    });
+                    
+                    // Close mobile menu if open
+                    nav.classList.remove('active');
+                }
+            });
+        });
+
+        // Contact form submission
+        contactForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            alert('Thank you for your message! I will get back to you soon.');
+            contactForm.reset();
+        });
+
+        // Initialize the gallery on page load
+        document.addEventListener('DOMContentLoaded', initGallery);
     </script>
 </body>
-</html>`;
-}
+</html>
