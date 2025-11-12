@@ -1,123 +1,242 @@
-No, you don't need to apply ALL of them at once. Let me give you a more practical approach - start with the simplest solution first and then add more if needed.
+Ah, I see the issue now! You're right - the unit tiles are being duplicated when the same unit appears in multiple courses. Instead of showing one tile per unique unit across all courses, it's showing separate tiles for each course-unit combination.
 
-Start with Solution 2 + Solution 3 (The Quick Fix)
+The Problem
 
-Just add these two functions and modify your existing ones:
-
-Add this function to your script:
+The current code iterates through each course and then through each unit within that course:
 
 ```javascript
-function refreshMapWhenVisible(containerId, stateKey) {
-  const container = document.getElementById(containerId);
-  if (!container || !state[stateKey]) return;
-  
-  // Use a small delay to ensure the container is visible
-  setTimeout(() => {
-    if (state[stateKey]) {
-      state[stateKey].invalidateSize();
-      // Force a second refresh to be sure
-      setTimeout(() => {
-        state[stateKey].invalidateSize();
-      }, 100);
+appData.courses?.forEach(course => {
+    course.units?.forEach(unit => {
+        // Creates a tile for each unit in each course
+    });
+});
+```
+
+This means if "Unit A" exists in both "Course 1" and "Course 2", you'll see two separate tiles for "Unit A".
+
+The Solution
+
+We need to aggregate units across all courses and show each unique unit only once. Here's the fixed renderUnitCompletionOverview() function:
+
+```javascript
+function renderUnitCompletionOverview() {
+    try {
+        const unitCompletionContainer = document.getElementById('unit-completion-container');
+        if (!unitCompletionContainer) return;
+        
+        unitCompletionContainer.innerHTML = '';
+        
+        const selectedCourseId = document.getElementById('analytics-course-filter').value;
+        
+        // Collect all unique units across courses
+        const uniqueUnits = new Map();
+        
+        appData.courses?.forEach(course => {
+            if (selectedCourseId && course.id != selectedCourseId) return;
+            
+            course.units?.forEach(unit => {
+                const unitKey = `${unit.code}-${unit.name}`;
+                
+                if (!uniqueUnits.has(unitKey)) {
+                    uniqueUnits.set(unitKey, {
+                        unit: unit,
+                        courses: [course],
+                        enrolledStudents: new Set(),
+                        completedStudents: new Set()
+                    });
+                } else {
+                    // Add this course to the existing unit
+                    const existingUnit = uniqueUnits.get(unitKey);
+                    if (!existingUnit.courses.some(c => c.id === course.id)) {
+                        existingUnit.courses.push(course);
+                    }
+                }
+            });
+        });
+        
+        // Now calculate statistics for each unique unit
+        uniqueUnits.forEach((unitData, unitKey) => {
+            const { unit, courses } = unitData;
+            
+            // Get all students enrolled in ANY of the courses that contain this unit
+            courses.forEach(course => {
+                const courseStudents = appData.students.filter(student => 
+                    student.courses?.some(c => c.courseId === course.id)
+                );
+                
+                courseStudents.forEach(student => {
+                    unitData.enrolledStudents.add(student.id);
+                    
+                    // Check if student completed this unit in ANY of the courses
+                    const completed = courses.some(course => {
+                        const unitProgress = student.progress?.[course.id]?.units?.[unit.id];
+                        return unitProgress && unitProgress.completedTasks === unitProgress.totalTasks;
+                    });
+                    
+                    if (completed) {
+                        unitData.completedStudents.add(student.id);
+                    }
+                });
+            });
+            
+            const enrolledCount = unitData.enrolledStudents.size;
+            const completedCount = unitData.completedStudents.size;
+            const completionRate = enrolledCount > 0 
+                ? Math.round((completedCount / enrolledCount) * 100) 
+                : 0;
+            
+            const unitCard = document.createElement('div');
+            unitCard.className = 'card unit-completion-card';
+            unitCard.setAttribute('data-unit-key', unitKey);
+            unitCard.innerHTML = `
+                <h3>${unit.code} - ${unit.name}</h3>
+                <p><strong>Courses:</strong> ${courses.map(c => c.code).join(', ')}</p>
+                <p><strong>Completion Rate:</strong> ${completionRate}%</p>
+                <p><strong>Completed:</strong> ${completedCount} of ${enrolledCount} students</p>
+                <div class="progress-bar">
+                    <div class="progress" style="width: ${completionRate}%"></div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <button class="btn btn-sm view-unit-completion-btn">View Details</button>
+                </div>
+            `;
+            
+            unitCompletionContainer.appendChild(unitCard);
+        });
+        
+        // Add event listeners to unit completion cards
+        document.querySelectorAll('.view-unit-completion-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const card = this.closest('.unit-completion-card');
+                const unitKey = card.getAttribute('data-unit-key');
+                showUnitCompletionDetails(unitKey);
+            });
+        });
+        
+    } catch (e) {
+        console.error('Error rendering unit completion overview:', e);
     }
-  }, 300);
 }
 ```
 
-Then modify your showProjectForm function - find this function and add the refresh call:
+You'll also need to update the showUnitCompletionDetails() function to handle the new data structure:
 
 ```javascript
-function showProjectForm(projectId = null) {
-  try {
-    const formContainer = document.getElementById('project-form-container');
-    const formTitle = document.getElementById('project-form-title');
-    const previewContainer = document.getElementById('photo-preview');
-    
-    // Show the form first
-    document.getElementById('projects-list').style.display = 'none';
-    formContainer.style.display = 'block';
-    
-    // ADD THIS: Refresh the map after showing the form
-    setTimeout(() => {
-      refreshMapWhenVisible('project-location-map', 'projectLocationMap');
-    }, 100);
-    
-    // ... rest of your existing showProjectForm code continues unchanged
-    if (projectId) {
-      // ... your existing code
-    } else {
-      // ... your existing code
+function showUnitCompletionDetails(unitKey) {
+    try {
+        // Recreate the unique units map to get the unit data
+        const uniqueUnits = new Map();
+        
+        appData.courses?.forEach(course => {
+            course.units?.forEach(unit => {
+                const key = `${unit.code}-${unit.name}`;
+                if (!uniqueUnits.has(key)) {
+                    uniqueUnits.set(key, {
+                        unit: unit,
+                        courses: [course]
+                    });
+                } else {
+                    const existing = uniqueUnits.get(key);
+                    if (!existing.courses.some(c => c.id === course.id)) {
+                        existing.courses.push(course);
+                    }
+                }
+            });
+        });
+        
+        const unitData = uniqueUnits.get(unitKey);
+        if (!unitData) return;
+        
+        const { unit, courses } = unitData;
+        
+        document.getElementById('unit-completion-title').textContent = 
+            `Unit Completion: ${unit.code} - ${unit.name}`;
+        
+        const content = document.getElementById('unit-completion-content');
+        content.innerHTML = '';
+        
+        // Calculate completion statistics across all courses
+        const enrolledStudents = new Set();
+        const completedStudents = new Set();
+        const inProgressStudents = new Set();
+        const notStartedStudents = new Set();
+        
+        courses.forEach(course => {
+            const courseStudents = appData.students.filter(student => 
+                student.courses?.some(c => c.courseId === course.id)
+            );
+            
+            courseStudents.forEach(student => {
+                enrolledStudents.add(student.id);
+                
+                let completed = false;
+                let inProgress = false;
+                
+                // Check if student completed this unit in any course
+                courses.some(c => {
+                    const unitProgress = student.progress?.[c.id]?.units?.[unit.id];
+                    if (unitProgress) {
+                        if (unitProgress.completedTasks === unitProgress.totalTasks) {
+                            completed = true;
+                            return true;
+                        } else if (unitProgress.completedTasks > 0) {
+                            inProgress = true;
+                        }
+                    }
+                    return false;
+                });
+                
+                if (completed) {
+                    completedStudents.add(student.id);
+                } else if (inProgress) {
+                    inProgressStudents.add(student.id);
+                } else {
+                    notStartedStudents.add(student.id);
+                }
+            });
+        });
+        
+        // Add summary statistics
+        const summaryHTML = `
+            <div class="analytics-grid" style="margin-bottom: 20px;">
+                <div class="analytics-card">
+                    <div class="analytics-value">${enrolledStudents.size}</div>
+                    <div class="analytics-label">Total Students</div>
+                </div>
+                <div class="analytics-card">
+                    <div class="analytics-value">${completedStudents.size}</div>
+                    <div class="analytics-label">Completed</div>
+                </div>
+                <div class="analytics-card">
+                    <div class="analytics-value">${inProgressStudents.size}</div>
+                    <div class="analytics-label">In Progress</div>
+                </div>
+                <div class="analytics-card">
+                    <div class="analytics-value">${notStartedStudents.size}</div>
+                    <div class="analytics-label">Not Started</div>
+                </div>
+            </div>
+            <p><strong>Courses containing this unit:</strong> ${courses.map(c => `${c.code} - ${c.name}`).join(', ')}</p>
+        `;
+        
+        content.innerHTML += summaryHTML;
+        
+        // Show the modal
+        const unitCompletionModal = document.getElementById('unit-completion-modal');
+        if (unitCompletionModal) {
+            unitCompletionModal.style.display = 'block';
+        }
+    } catch (e) {
+        console.error('Error showing unit completion details:', e);
     }
-    
-  } catch (error) {
-    console.error('Error showing project form:', error);
-    showToast('Error loading project form: ' + error.message, 'error');
-  }
 }
 ```
 
-Also modify your showSection function to handle the monitoring tab:
+Key Changes:
 
-```javascript
-function showSection(sectionId) {
-  try {
-    // ... your existing code
-    
-    // ADD THIS: Refresh maps when switching sections
-    setTimeout(() => {
-      switch(sectionId) {
-        case 'projects':
-          refreshMapWhenVisible('projects-map', 'projectMap');
-          break;
-        case 'monitoring':
-          // Refresh monitoring map when switching to monitoring tab
-          setTimeout(() => {
-            refreshMapWhenVisible('monitoring-location-map', 'monitoringLocationMap');
-          }, 200);
-          break;
-      }
-    }, 300);
-    
-    state.selectedTab = sectionId;
-  } catch (error) {
-    console.error('Error showing section:', error);
-    showToast('Error navigating: ' + error.message, 'error');
-  }
-}
-```
+1. Uses a Map to track unique units across all courses
+2. Aggregates statistics from all courses that contain the same unit
+3. Shows all courses that contain the unit in the tile
+4. Uses Sets to avoid duplicate student counting across multiple courses
 
-If that doesn't work completely, then also add:
-
-Modify your showMonitoringTab function:
-
-```javascript
-function showMonitoringTab(tabId) {
-  try {
-    // ... your existing code
-    
-    if (tabId === 'new') {
-      populateProjectDropdown('monitoring-project');
-      document.getElementById('monitoring-photo-preview').innerHTML = '';
-      state.tempPhotos.monitoring = [];
-      
-      // ADD THIS: Refresh the monitoring map when showing the "new" tab
-      setTimeout(() => {
-        refreshMapWhenVisible('monitoring-location-map', 'monitoringLocationMap');
-      }, 100);
-    }
-    
-  } catch (error) {
-    console.error('Error showing monitoring tab:', error);
-    showToast('Error switching tabs: ' + error.message, 'error');
-  }
-}
-```
-
-Summary of what to do:
-
-1. Add the refreshMapWhenVisible function to your script
-2. Add the refresh calls to showProjectForm, showSection, and showMonitoringTab
-
-This should solve 90% of your map display issues. The key is calling invalidateSize() on the Leaflet map after the container becomes visible, with proper timing delays.
-
-Try this first - it's much simpler than completely rewriting your map initialization code, and it will likely fix the grey map problem.
+Now each unit will appear only once in the analytics tab, with combined statistics from all courses that contain that unit, and it will show which courses include that unit.
