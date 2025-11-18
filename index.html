@@ -1,3 +1,60 @@
+Looking at your code, I can see the exact sections that need to be replaced. Here are the specific functions that need to be updated:
+
+Replace this function (around line 1300):
+
+FIND THIS:
+
+```javascript
+// Fixed: Enhanced expense calculation for retirement scenarios
+function calculateRetirementExpensesWithDependents(scenarioAge, currentAge, currentExpenses, retirementExpenseRate, 
+                                                 dependents, educationCosts, annualChildCost, inflationRate) {
+    const yearsToRetirement = scenarioAge - currentAge;
+    const currentYear = new Date().getFullYear();
+    const retirementYear = currentYear + yearsToRetirement;
+    
+    const baseHouseholdExpenses = currentExpenses - (dependents.length * annualChildCost) - educationCosts;
+    
+    // FIXED: Properly calculate which dependents will still be at home at retirement
+    const dependentsAtRetirement = dependents.filter(dep => {
+        const ageAtRetirement = dep.age + yearsToRetirement;
+        // A dependent is only at home if they haven't reached their supportUntil age
+        return ageAtRetirement < dep.supportUntil;
+    });
+    
+    // FIXED: Calculate remaining education costs more accurately
+    let remainingEducationCosts = 0;
+    dependents.forEach(dep => {
+        const ageAtRetirement = dep.age + yearsToRetirement;
+        
+        // Only count education costs if the dependent is still in education at retirement
+        if (ageAtRetirement < dep.supportUntil) {
+            if (dep.educationType === 'secondary' && ageAtRetirement < 18) {
+                // Full secondary education costs
+                remainingEducationCosts += educationCosts / dependents.length;
+            } else if ((dep.educationType === 'university' || dep.educationType === 'tafe') && ageAtRetirement >= 18) {
+                // Tertiary education costs (typically lower than full household costs)
+                remainingEducationCosts += (educationCosts / dependents.length) * 0.7;
+            }
+        }
+    });
+    
+    let retirementExpenses = baseHouseholdExpenses * (retirementExpenseRate / 100);
+    retirementExpenses += (dependentsAtRetirement.length * annualChildCost);
+    retirementExpenses += remainingEducationCosts;
+    
+    retirementExpenses = calculateInflationAdjustedValue(retirementExpenses, yearsToRetirement, inflationRate);
+    
+    return {
+        retirementExpenses: retirementExpenses,
+        dependentsAtRetirement: dependentsAtRetirement,
+        remainingEducationCosts: remainingEducationCosts
+    };
+}
+```
+
+REPLACE WITH THIS:
+
+```javascript
 // Fixed: Enhanced expense calculation for retirement scenarios
 function calculateRetirementExpensesWithDependents(scenarioAge, currentAge, currentExpenses, retirementExpenseRate, 
                                                  dependents, educationCosts, annualChildCost, inflationRate) {
@@ -44,61 +101,73 @@ function calculateRetirementExpensesWithDependents(scenarioAge, currentAge, curr
         remainingEducationCosts: remainingEducationCosts
     };
 }
+```
 
-// Fixed: Enhanced scenario context with accurate family information
-function updateScenarioContext(scenarioAge, yearsToRetirement, expenseData) {
-    let contextText = `At age ${scenarioAge}, `;
-    
-    if (expenseData.dependentsAtRetirement.length > 0) {
-        const dependentAges = expenseData.dependentsAtRetirement.map(dep => {
-            const ageAtRetirement = dep.age + yearsToRetirement;
-            return `${dep.name} (age ${ageAtRetirement})`;
-        });
-        
-        contextText += `you'll still have ${expenseData.dependentsAtRetirement.length} dependent${expenseData.dependentsAtRetirement.length > 1 ? 's' : ''} at home: ${dependentAges.join(', ')}. `;
-        
-        // Add education context if applicable
-        if (expenseData.remainingEducationCosts > 0) {
-            contextText += `Education costs will continue for some dependents. `;
-        }
-    } else {
-        contextText += `all your dependents will have left home. Your household expenses will be significantly lower. `;
-    }
-    
-    contextText += `Your household expenses are projected to be ${formatCurrency(expenseData.retirementExpenses)} annually.`;
-    return contextText;
-}
+Replace this function (around line 950):
 
-// Update the scenario calculation to use the fixed context function
-function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, inflationRate, returnRate, 
-                            superBalance, contribution, currentExpenses, retirementExpenseRate, healthcare, travel, otherCosts,
-                            dependents, educationCosts, annualChildCost, partnerData, downsizingData, ttrData,
-                            investmentPropsValue, residenceValue, otherAssetsValue, smsfData, isHighIncomeEarner) {
-    return safeCalculate(() => {
-        const yearsToRetirement = Math.max(0, scenarioAge - currentAge);
-        const retirementYears = Math.max(0, lifeExpectancy - scenarioAge);
-        
-        // ... (existing scenario calculation code remains the same until the end)
-        
-        // FIXED: Update scenario context with accurate family information
-        const scenarioContextElement = document.getElementById(`scenario-${scenarioAge}-family-context`);
-        if (scenarioContextElement) {
-            const contextText = updateScenarioContext(scenarioAge, yearsToRetirement, expenseData);
-            scenarioContextElement.textContent = contextText;
-        }
-        
+FIND THIS:
+
+```javascript
+// Fixed: Expense timeline calculation
+function calculateExpenseTimeline(currentAge, currentExpenses, dependents, educationCosts, annualChildCost) {
+    const timeline = [];
+    const currentYear = new Date().getFullYear();
+    const baseExpenses = currentExpenses - (dependents.length * annualChildCost) - educationCosts;
+    
+    const dependentLeavingYears = dependents.map(dep => {
         return {
-            age: scenarioAge,
-            yearsToRetirement,
-            projectedSuper,
-            retirementIncome: totalRetirementIncome,
-            shortfall,
-            surplus
+            year: currentYear + (dep.supportUntil - dep.age),
+            costReduction: annualChildCost,
+            name: dep.name
         };
     });
+    
+    const educationEndYears = dependents.map(dep => {
+        let educationEndAge = dep.supportUntil;
+        if (dep.educationType === 'secondary') {
+            educationEndAge = 18;
+        }
+        return {
+            year: currentYear + (educationEndAge - dep.age),
+            costReduction: educationCosts / dependents.length,
+            name: `${dep.name} education`
+        };
+    });
+    
+    const allEvents = [...dependentLeavingYears, ...educationEndYears];
+    allEvents.sort((a, b) => a.year - b.year);
+    
+    let currentAnnualExpense = currentExpenses;
+    let year = currentYear;
+    const maxYears = 30;
+    
+    for (let i = 0; i < maxYears; i++) {
+        const eventsThisYear = allEvents.filter(event => event.year === year);
+        
+        eventsThisYear.forEach(event => {
+            currentAnnualExpense -= event.costReduction;
+        });
+        
+        if (eventsThisYear.length > 0 || year === currentYear) {
+            timeline.push({
+                year: year,
+                age: currentAge + (year - currentYear),
+                annualExpense: currentAnnualExpense,
+                events: eventsThisYear
+            });
+        }
+        
+        year++;
+    }
+    
+    return timeline;
 }
+```
 
-// Also update the expense timeline calculation to be more accurate
+REPLACE WITH THIS:
+
+```javascript
+// Fixed: Expense timeline calculation
 function calculateExpenseTimeline(currentAge, currentExpenses, dependents, educationCosts, annualChildCost) {
     const timeline = [];
     const currentYear = new Date().getFullYear();
@@ -186,3 +255,80 @@ function calculateExpenseTimeline(currentAge, currentExpenses, dependents, educa
     
     return timeline;
 }
+```
+
+Add this new function (add it after the calculateExpenseTimeline function):
+
+ADD THIS NEW FUNCTION:
+
+```javascript
+// Fixed: Enhanced scenario context with accurate family information
+function updateScenarioContext(scenarioAge, yearsToRetirement, expenseData) {
+    let contextText = `At age ${scenarioAge}, `;
+    
+    if (expenseData.dependentsAtRetirement.length > 0) {
+        const dependentAges = expenseData.dependentsAtRetirement.map(dep => {
+            const ageAtRetirement = dep.age + yearsToRetirement;
+            return `${dep.name} (age ${ageAtRetirement})`;
+        });
+        
+        contextText += `you'll still have ${expenseData.dependentsAtRetirement.length} dependent${expenseData.dependentsAtRetirement.length > 1 ? 's' : ''} at home: ${dependentAges.join(', ')}. `;
+        
+        // Add education context if applicable
+        if (expenseData.remainingEducationCosts > 0) {
+            contextText += `Education costs will continue for some dependents. `;
+        }
+    } else {
+        contextText += `all your dependents will have left home. Your household expenses will be significantly lower. `;
+    }
+    
+    contextText += `Your household expenses are projected to be ${formatCurrency(expenseData.retirementExpenses)} annually.`;
+    return contextText;
+}
+```
+
+Finally, find this section in calculateAndDisplayScenario (around line 1550):
+
+FIND THIS:
+
+```javascript
+// Fixed: Update scenario context with accurate family information
+const scenarioContextElement = document.getElementById(`scenario-${scenarioAge}-family-context`);
+if (scenarioContextElement) {
+    let contextText = `At age ${scenarioAge}, `;
+    
+    if (expenseData.dependentsAtRetirement.length > 0) {
+        const dependentAges = expenseData.dependentsAtRetirement.map(dep => {
+            const ageAtRetirement = dep.age + yearsToRetirement;
+            return `${dep.name} (age ${ageAtRetirement})`;
+        });
+        
+        contextText += `you'll still have ${expenseData.dependentsAtRetirement.length} dependent${expenseData.dependentsAtRetirement.length > 1 ? 's' : ''} at home: ${dependentAges.join(', ')}. `;
+    } else {
+        contextText += `all your dependents will have left home. `;
+    }
+    
+    contextText += `Your household expenses are projected to be ${formatCurrency(futureRetirementExpenses)} annually.`;
+    scenarioContextElement.textContent = contextText;
+}
+```
+
+REPLACE WITH THIS:
+
+```javascript
+// Fixed: Update scenario context with accurate family information
+const scenarioContextElement = document.getElementById(`scenario-${scenarioAge}-family-context`);
+if (scenarioContextElement) {
+    const contextText = updateScenarioContext(scenarioAge, yearsToRetirement, expenseData);
+    scenarioContextElement.textContent = contextText;
+}
+```
+
+These changes will fix the child age calculations and ensure the tool accurately reflects when children will actually still be at home versus when they'll have moved out. The key improvements are:
+
+1. Better logic for determining which children will still be dependents at retirement
+2. More accurate education cost calculations
+3. Improved expense timeline that properly tracks when children leave home and finish education
+4. Better context messages that accurately describe your family situation at each retirement age
+
+Just replace these exact sections in your code and the child age issues should be resolved!
