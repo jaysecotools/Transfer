@@ -661,6 +661,7 @@
     let autoRotate = false;
     let is360Mode = false;
     let raycaster, mouse;
+    let animationId = null;
 
     // DOM elements
     const fileInput = document.getElementById('fileInput');
@@ -746,6 +747,15 @@
                 type.classList.add('active');
                 currentImageType = type.dataset.type;
                 console.log('Image type set to:', currentImageType);
+                
+                // If we already have an image loaded, reload it with the new type
+                if (currentImage) {
+                    if (currentImageType === '360') {
+                        init360Viewer(currentImage.src);
+                    } else {
+                        showRegularImage();
+                    }
+                }
             });
         });
 
@@ -876,6 +886,12 @@
 
     function showRegularImage() {
         console.log('Showing regular image');
+        // Stop 360 animation if running
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+        
         imageDisplay.src = currentImage.src;
         imageDisplay.style.display = 'block';
         threeContainer.style.display = 'none';
@@ -899,7 +915,11 @@
     function init360Viewer(imageSrc) {
         console.log('Starting 360 viewer initialization');
         
-        // Clear any existing content
+        // Clear any existing content and stop animation
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
         threeContainer.innerHTML = '';
         
         // Check if Three.js is loaded
@@ -920,26 +940,36 @@
             // Scene
             scene = new THREE.Scene();
             
-            // Camera
+            // Camera - FIXED: Set proper camera position and parameters
             camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
             camera.position.set(0, 0, 0.1);
             
             // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true,
+                alpha: true 
+            });
             renderer.setSize(width, height);
-            renderer.setClearColor(0x000000, 1);
+            renderer.setClearColor(0x000000, 0); // Transparent background
             threeContainer.appendChild(renderer.domElement);
             
-            // Create sphere
-            const geometry = new THREE.SphereGeometry(500, 60, 40);
+            // Create sphere with proper geometry
+            const geometry = new THREE.SphereGeometry(5, 32, 32); // Smaller radius for better viewing
             geometry.scale(-1, 1, 1); // Flip inside out
             
-            // Load texture
+            // Load texture with proper error handling
             const textureLoader = new THREE.TextureLoader();
+            console.log('Loading texture from:', imageSrc.substring(0, 50) + '...');
+            
             textureLoader.load(imageSrc, 
                 // onLoad callback
                 (texture) => {
-                    console.log('Texture loaded successfully');
+                    console.log('Texture loaded successfully, dimensions:', texture.image.width, 'x', texture.image.height);
+                    
+                    // Fix texture wrapping
+                    texture.wrapS = THREE.ClampToEdgeWrapping;
+                    texture.wrapT = THREE.ClampToEdgeWrapping;
+                    
                     const material = new THREE.MeshBasicMaterial({
                         map: texture,
                         side: THREE.DoubleSide
@@ -953,6 +983,11 @@
                         controls = new THREE.OrbitControls(camera, renderer.domElement);
                         controls.enableDamping = true;
                         controls.dampingFactor = 0.05;
+                        controls.rotateSpeed = 0.5;
+                        controls.minDistance = 0.1;
+                        controls.maxDistance = 10;
+                    } else {
+                        console.warn('OrbitControls not available');
                     }
                     
                     // Initialize raycaster for marker interaction
@@ -976,13 +1011,18 @@
                     
                     // Setup click handler for 360 viewer
                     setup360ClickHandler();
+                    
+                    // Force initial render
+                    renderer.render(scene, camera);
                 },
                 // onProgress callback (optional)
-                undefined,
+                (xhr) => {
+                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
                 // onError callback
                 (error) => {
                     console.error('Error loading texture:', error);
-                    alert('Error loading 360° image. Falling back to regular view.');
+                    alert('Error loading 360° image: ' + error.message + '. Falling back to regular view.');
                     showRegularImage();
                 }
             );
@@ -1017,17 +1057,18 @@
         if (!scene) return;
         
         // Convert 2D coordinates to 3D spherical coordinates
+        // Fix coordinate conversion
         const phi = (marker.y / 100) * Math.PI;
         const theta = (marker.x / 100) * 2 * Math.PI;
         
         // Calculate 3D position on sphere (slightly inside)
-        const radius = 495;
+        const radius = 4.9; // Slightly smaller than sphere radius
         const x = radius * Math.sin(phi) * Math.cos(theta);
         const y = radius * Math.cos(phi);
         const z = radius * Math.sin(phi) * Math.sin(theta);
         
-        // Create marker geometry
-        const markerGeometry = new THREE.SphereGeometry(5, 16, 16);
+        // Create marker geometry - make it more visible
+        const markerGeometry = new THREE.SphereGeometry(0.1, 16, 16);
         const markerMaterial = new THREE.MeshBasicMaterial({ 
             color: markerThemes[marker.type].color
         });
@@ -1150,7 +1191,7 @@
             return;
         }
         
-        requestAnimationFrame(animate360);
+        animationId = requestAnimationFrame(animate360);
         
         if (autoRotate && sphere) {
             sphere.rotation.y += 0.001;
@@ -1170,6 +1211,7 @@
         }
         if (camera) {
             camera.position.set(0, 0, 0.1);
+            camera.lookAt(0, 0, 0);
         }
         if (sphere) {
             sphere.rotation.set(0, 0, 0);
@@ -1988,648 +2030,6 @@
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
             if (currentImage) {
-                if (is360Mode && renderer) {
-                    const container = imageContainer;
-                    camera.aspect = container.offsetWidth / container.offsetHeight;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(container.offsetWidth, container.offsetHeight);
-                } else {
-                    renderAllMarkers();
-                }
-            }
-        }, 250);
-    });
-
-    // Start the app
-    document.addEventListener('DOMContentLoaded', init);
-</script>
-</body>
-</html>
-
-
-
-
-
-
-
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Image Marker</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
-    <style>
-        /* ... (keep all the existing CSS styles) ... */
-    </style>
-</head>
-<body>
-    <!-- ... (keep all the existing HTML structure) ... -->
-
-<script>
-    // Extended marker themes with custom colors
-    const markerThemes = {
-        info: { color: '#17a2b8', icon: 'info-circle' },
-        link: { color: '#28a745', icon: 'link' },
-        video: { color: '#dc3545', icon: 'video' },
-        audio: { color: '#ffc107', icon: 'volume-up' },
-        warning: { color: '#fd7e14', icon: 'exclamation-triangle' },
-        question: { color: '#6f42c1', icon: 'question-circle' }
-    };
-
-    // Simple state management
-    let markers = [];
-    let currentMarkerType = 'info';
-    let selectedMarkerId = null;
-    let currentImage = null;
-    let previewMarker = null;
-    let currentImageType = 'regular';
-
-    // History management for undo/redo
-    let history = [];
-    let historyIndex = -1;
-
-    // Three.js variables for 360° viewer
-    let scene, camera, renderer, controls, sphere, markerObjects = [];
-    let autoRotate = false;
-    let is360Mode = false;
-    let raycaster, mouse;
-    let animationId = null;
-
-    // DOM elements
-    const fileInput = document.getElementById('fileInput');
-    const imageUpload = document.getElementById('imageUpload');
-    const imageDisplay = document.getElementById('imageDisplay');
-    const threeContainer = document.getElementById('threeContainer');
-    const imageContainer = document.getElementById('imageContainer');
-    const emptyState = document.getElementById('emptyState');
-    const imageTypes = document.querySelectorAll('.image-type');
-    const markerTypes = document.querySelectorAll('.marker-type');
-    const markerTitle = document.getElementById('markerTitle');
-    const markerDescription = document.getElementById('markerDescription');
-    const markerLink = document.getElementById('markerLink');
-    const markerVideo = document.getElementById('markerVideo');
-    const markerAudio = document.getElementById('markerAudio');
-    const linkField = document.querySelector('.link-field');
-    const videoField = document.querySelector('.video-field');
-    const audioField = document.querySelector('.audio-field');
-    const saveMarker = document.getElementById('saveMarker');
-    const deleteMarker = document.getElementById('deleteMarker');
-    const clearMarkers = document.getElementById('clearMarkers');
-    const markerList = document.getElementById('markerList');
-    const saveProject = document.getElementById('saveProject');
-    const loadProject = document.getElementById('loadProject');
-    const exportHTML = document.getElementById('exportHTML');
-    const markerPopup = document.getElementById('markerPopup');
-    const popupTitle = document.getElementById('popupTitle');
-    const popupDescription = document.getElementById('popupDescription');
-    const popupLink = document.getElementById('popupLink');
-    const popupMedia = document.getElementById('popupMedia');
-    const closePopup = document.getElementById('closePopup');
-    const markerSearch = document.getElementById('markerSearch');
-    const undoBtn = document.getElementById('undoBtn');
-    const redoBtn = document.getElementById('redoBtn');
-    const viewerControls = document.getElementById('viewerControls');
-    const resetView = document.getElementById('resetView');
-    const toggleAutoRotate = document.getElementById('toggleAutoRotate');
-
-    // Initialize app
-    function init() {
-        console.log('App initialized');
-        
-        // Event listeners
-        fileInput.addEventListener('click', () => {
-            imageUpload.click();
-        });
-
-        imageUpload.addEventListener('change', handleImageUpload);
-
-        // Drag and drop support
-        fileInput.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            fileInput.classList.add('dragover');
-        });
-
-        fileInput.addEventListener('dragleave', () => {
-            fileInput.classList.remove('dragover');
-        });
-
-        fileInput.addEventListener('drop', (e) => {
-            e.preventDefault();
-            fileInput.classList.remove('dragover');
-            if (e.dataTransfer.files.length) {
-                const file = e.dataTransfer.files[0];
-                if (file && file.type.startsWith('image/')) {
-                    // Create a proper file input event
-                    const dataTransfer = new DataTransfer();
-                    dataTransfer.items.add(file);
-                    imageUpload.files = dataTransfer.files;
-                    
-                    const event = new Event('change', { bubbles: true });
-                    imageUpload.dispatchEvent(event);
-                } else {
-                    alert('Please drop a valid image file');
-                }
-            }
-        });
-
-        // Image type selection
-        imageTypes.forEach(type => {
-            type.addEventListener('click', () => {
-                imageTypes.forEach(t => t.classList.remove('active'));
-                type.classList.add('active');
-                currentImageType = type.dataset.type;
-                console.log('Image type set to:', currentImageType);
-                
-                // If we already have an image loaded, reload it with the new type
-                if (currentImage) {
-                    if (currentImageType === '360') {
-                        init360Viewer(currentImage.src);
-                    } else {
-                        showRegularImage();
-                    }
-                }
-            });
-        });
-
-        markerTypes.forEach(type => {
-            type.addEventListener('click', () => {
-                markerTypes.forEach(t => t.classList.remove('active'));
-                type.classList.add('active');
-                currentMarkerType = type.dataset.type;
-                updateFieldsVisibility();
-            });
-        });
-
-        saveMarker.addEventListener('click', saveMarkerHandler);
-        deleteMarker.addEventListener('click', deleteMarkerHandler);
-        clearMarkers.addEventListener('click', clearMarkersHandler);
-        saveProject.addEventListener('click', saveProjectHandler);
-        loadProject.addEventListener('click', loadProjectHandler);
-        exportHTML.addEventListener('click', exportHTMLHandler);
-        closePopup.addEventListener('click', hidePopup);
-        
-        // History controls
-        undoBtn.addEventListener('click', undo);
-        redoBtn.addEventListener('click', redo);
-        
-        // 360° viewer controls
-        resetView.addEventListener('click', reset360View);
-        toggleAutoRotate.addEventListener('click', toggleAutoRotation);
-
-        // Click handler for adding markers
-        imageContainer.addEventListener('click', addMarker);
-        imageContainer.addEventListener('mousemove', handleImageMouseMove);
-
-        // Search functionality
-        markerSearch.addEventListener('input', filterMarkers);
-
-        // Initialize field visibility
-        updateFieldsVisibility();
-        
-        // Initialize history
-        saveToHistory();
-        
-        // Keyboard shortcuts
-        document.addEventListener('keydown', handleKeyboardShortcuts);
-    }
-
-    function handleImageUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            alert('Please upload a valid image file');
-            return;
-        }
-        
-        // Validate file size (e.g., 10MB limit)
-        if (file.size > 10 * 1024 * 1024) {
-            alert('Image file too large. Please choose a file smaller than 10MB');
-            return;
-        }
-
-        // Show loading state
-        fileInput.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-        
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const img = new Image();
-            img.onload = function() {
-                // Restore file input UI
-                fileInput.innerHTML = '<i class="fas fa-cloud-upload-alt" style="font-size: 24px; margin-bottom: 10px;"></i><div>Click to upload image or drag & drop</div>';
-                
-                currentImage = {
-                    src: e.target.result,
-                    width: img.width,
-                    height: img.height
-                };
-                
-                console.log('Image loaded - dimensions:', img.width, 'x', img.height);
-                
-                // Check if this is likely a 360° image (2:1 aspect ratio)
-                const is360Candidate = Math.abs(img.width / img.height - 2) < 0.1;
-                
-                console.log('Image type:', currentImageType, '360 candidate:', is360Candidate);
-                
-                // If user selected 360° mode or image looks like a 360° image, use 360° viewer
-                if (currentImageType === '360' || (is360Candidate && currentImageType === 'regular')) {
-                    // Ask user if they want to use 360° mode for this image
-                    if (currentImageType === 'regular' && is360Candidate) {
-                        if (confirm('This image appears to be a 360° panorama. Would you like to use 360° mode?')) {
-                            currentImageType = '360';
-                            imageTypes.forEach(t => t.classList.remove('active'));
-                            const threeSixtyType = document.querySelector('.image-type[data-type="360"]');
-                            if (threeSixtyType) threeSixtyType.classList.add('active');
-                        }
-                    }
-                    
-                    if (currentImageType === '360') {
-                        console.log('Attempting to initialize 360 viewer');
-                        init360Viewer(currentImage.src);
-                    } else {
-                        // User chose not to use 360° mode, show regular image
-                        console.log('Showing regular image (user choice)');
-                        showRegularImage();
-                    }
-                } else {
-                    // Regular image mode
-                    console.log('Showing regular image (not 360 candidate)');
-                    showRegularImage();
-                }
-                
-                markers = [];
-                updateMarkerList();
-                renderAllMarkers();
-                saveToHistory();
-            };
-            img.onerror = function() {
-                fileInput.innerHTML = '<i class="fas fa-cloud-upload-alt" style="font-size: 24px; margin-bottom: 10px;"></i><div>Click to upload image or drag & drop</div>';
-                alert('Error loading image. Please try another file.');
-            };
-            img.src = e.target.result;
-        };
-        reader.onerror = function() {
-            fileInput.innerHTML = '<i class="fas fa-cloud-upload-alt" style="font-size: 24px; margin-bottom: 10px;"></i><div>Click to upload image or drag & drop</div>';
-            alert('Error reading file. Please try again.');
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function showRegularImage() {
-        console.log('Showing regular image');
-        // Stop 360 animation if running
-        if (animationId) {
-            cancelAnimationFrame(animationId);
-            animationId = null;
-        }
-        
-        imageDisplay.src = currentImage.src;
-        imageDisplay.style.display = 'block';
-        threeContainer.style.display = 'none';
-        viewerControls.style.display = 'none';
-        emptyState.style.display = 'none';
-        is360Mode = false;
-        
-        // Clear any existing Three.js scene
-        if (renderer) {
-            threeContainer.innerHTML = '';
-            renderer = null;
-            scene = null;
-            camera = null;
-            controls = null;
-            sphere = null;
-            markerObjects = [];
-        }
-    }
-
-    // Initialize Three.js 360° viewer - WITH MARKER SUPPORT
-    function init360Viewer(imageSrc) {
-        console.log('Starting 360 viewer initialization');
-        
-        // Clear any existing content and stop animation
-        if (animationId) {
-            cancelAnimationFrame(animationId);
-            animationId = null;
-        }
-        threeContainer.innerHTML = '';
-        
-        // Check if Three.js is loaded
-        if (typeof THREE === 'undefined') {
-            console.error('Three.js not loaded');
-            alert('Three.js library failed to load. Please refresh the page and try again.');
-            showRegularImage();
-            return;
-        }
-
-        try {
-            // Basic Three.js setup
-            const width = imageContainer.clientWidth;
-            const height = imageContainer.clientHeight;
-            
-            console.log('Creating Three.js scene with dimensions:', width, 'x', height);
-            
-            // Scene
-            scene = new THREE.Scene();
-            
-            // Camera - FIXED: Set proper camera position and parameters
-            camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-            camera.position.set(0, 0, 0.1);
-            
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ 
-                antialias: true,
-                alpha: true 
-            });
-            renderer.setSize(width, height);
-            renderer.setClearColor(0x000000, 0); // Transparent background
-            threeContainer.appendChild(renderer.domElement);
-            
-            // Create sphere with proper geometry
-            const geometry = new THREE.SphereGeometry(5, 32, 32); // Smaller radius for better viewing
-            geometry.scale(-1, 1, 1); // Flip inside out
-            
-            // Load texture with proper error handling
-            const textureLoader = new THREE.TextureLoader();
-            console.log('Loading texture from:', imageSrc.substring(0, 50) + '...');
-            
-            textureLoader.load(imageSrc, 
-                // onLoad callback
-                (texture) => {
-                    console.log('Texture loaded successfully, dimensions:', texture.image.width, 'x', texture.image.height);
-                    
-                    // Fix texture wrapping
-                    texture.wrapS = THREE.ClampToEdgeWrapping;
-                    texture.wrapT = THREE.ClampToEdgeWrapping;
-                    
-                    const material = new THREE.MeshBasicMaterial({
-                        map: texture,
-                        side: THREE.DoubleSide
-                    });
-                    
-                    sphere = new THREE.Mesh(geometry, material);
-                    scene.add(sphere);
-                    
-                    // Set up controls if available
-                    if (typeof THREE.OrbitControls !== 'undefined') {
-                        controls = new THREE.OrbitControls(camera, renderer.domElement);
-                        controls.enableDamping = true;
-                        controls.dampingFactor = 0.05;
-                        controls.rotateSpeed = 0.5;
-                        controls.minDistance = 0.1;
-                        controls.maxDistance = 10;
-                    } else {
-                        console.warn('OrbitControls not available');
-                    }
-                    
-                    // Initialize raycaster for marker interaction
-                    raycaster = new THREE.Raycaster();
-                    mouse = new THREE.Vector2();
-                    
-                    // Show the 360 viewer
-                    imageDisplay.style.display = 'none';
-                    threeContainer.style.display = 'block';
-                    viewerControls.style.display = 'flex';
-                    emptyState.style.display = 'none';
-                    is360Mode = true;
-                    
-                    console.log('360° viewer ready');
-                    
-                    // Start animation
-                    animate360();
-                    
-                    // Render existing markers
-                    render360Markers();
-                    
-                    // Setup click handler for 360 viewer
-                    setup360ClickHandler();
-                    
-                    // Force initial render
-                    renderer.render(scene, camera);
-                },
-                // onProgress callback (optional)
-                (xhr) => {
-                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-                },
-                // onError callback
-                (error) => {
-                    console.error('Error loading texture:', error);
-                    alert('Error loading 360° image: ' + error.message + '. Falling back to regular view.');
-                    showRegularImage();
-                }
-            );
-            
-        } catch (error) {
-            console.error('Error in 360 viewer:', error);
-            alert('Error setting up 360° viewer: ' + error.message);
-            showRegularImage();
-        }
-    }
-
-    // Render all 360° markers
-    function render360Markers() {
-        if (!scene) return;
-        
-        // Clear existing markers
-        markerObjects.forEach(obj => {
-            if (obj && obj.parent) {
-                scene.remove(obj);
-            }
-        });
-        markerObjects = [];
-        
-        // Create markers
-        markers.forEach(marker => {
-            create360Marker(marker);
-        });
-    }
-
-    // Create a single 360° marker
-    function create360Marker(marker) {
-        if (!scene) return;
-        
-        // Convert 2D coordinates to 3D spherical coordinates
-        // Fix coordinate conversion
-        const phi = (marker.y / 100) * Math.PI;
-        const theta = (marker.x / 100) * 2 * Math.PI;
-        
-        // Calculate 3D position on sphere (slightly inside)
-        const radius = 4.9; // Slightly smaller than sphere radius
-        const x = radius * Math.sin(phi) * Math.cos(theta);
-        const y = radius * Math.cos(phi);
-        const z = radius * Math.sin(phi) * Math.sin(theta);
-        
-        // Create marker geometry - make it more visible
-        const markerGeometry = new THREE.SphereGeometry(0.1, 16, 16);
-        const markerMaterial = new THREE.MeshBasicMaterial({ 
-            color: markerThemes[marker.type].color
-        });
-        
-        // Create marker mesh
-        const markerMesh = new THREE.Mesh(markerGeometry, markerMaterial);
-        markerMesh.position.set(x, y, z);
-        markerMesh.userData = { 
-            markerId: marker.id,
-            marker: marker
-        };
-        
-        scene.add(markerMesh);
-        markerObjects.push(markerMesh);
-        
-        return markerMesh;
-    }
-
-    // Setup click handler for 360° viewer
-    function setup360ClickHandler() {
-        if (!renderer) return;
-        
-        // Remove existing event listeners
-        const newRenderer = renderer.domElement.cloneNode(true);
-        renderer.domElement.parentNode.replaceChild(newRenderer, renderer.domElement);
-        renderer.domElement = newRenderer;
-        
-        // Add click event listener
-        renderer.domElement.addEventListener('click', on360ViewerClick, false);
-    }
-
-    function on360ViewerClick(event) {
-        if (!raycaster || !camera || !renderer) return;
-        
-        // Calculate mouse position in normalized device coordinates
-        const rect = renderer.domElement.getBoundingClientRect();
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        
-        // Update the raycaster
-        raycaster.setFromCamera(mouse, camera);
-        
-        // Check for intersections with markers first
-        if (markerObjects.length > 0) {
-            const intersects = raycaster.intersectObjects(markerObjects);
-            if (intersects.length > 0) {
-                const markerMesh = intersects[0].object;
-                if (markerMesh.userData.marker) {
-                    selectMarker(markerMesh.userData.marker.id);
-                    showMarkerInfo(markerMesh.userData.marker);
-                }
-                event.stopPropagation();
-                return;
-            }
-        }
-        
-        // If no marker was clicked, add a new marker at click position
-        add360MarkerAtClick(event);
-    }
-
-    function add360MarkerAtClick(event) {
-        if (!camera || !renderer || !sphere) return;
-        
-        const rect = renderer.domElement.getBoundingClientRect();
-        const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        
-        // Use different variable name to avoid conflict with global mouse
-        const clickPosition = new THREE.Vector2(mouseX, mouseY);
-        const tempRaycaster = new THREE.Raycaster();
-        tempRaycaster.setFromCamera(clickPosition, camera);
-        
-        // Intersect with sphere to get 3D position
-        const intersects = tempRaycaster.intersectObject(sphere);
-        
-        if (intersects.length > 0) {
-            const point = intersects[0].point;
-            point.normalize();
-            
-            // Convert 3D point to spherical coordinates
-            const phi = Math.acos(Math.max(-1, Math.min(1, point.y)));
-            const theta = Math.atan2(point.z, point.x);
-            
-            // Convert to percentage coordinates
-            const imageX = ((theta + Math.PI) / (2 * Math.PI)) * 100;
-            const imageY = (phi / Math.PI) * 100;
-            
-            const markerData = {
-                id: Date.now() + Math.random(),
-                type: currentMarkerType,
-                x: imageX,
-                y: imageY,
-                displayX: 50,
-                displayY: 50,
-                title: '360 Marker',
-                description: 'Click to edit this marker',
-                link: '',
-                video: '',
-                audio: ''
-            };
-
-            markers.push(markerData);
-            create360Marker(markerData);
-            updateMarkerList();
-            saveToHistory();
-
-            // Select and edit the new marker
-            selectMarker(markerData.id);
-            populateMarkerForm(markerData);
-            deleteMarker.style.display = 'inline-block';
-            
-            console.log('360 marker added at:', imageX, imageY);
-        }
-    }
-
-    // Animation loop for 360° viewer
-    function animate360() {
-        if (!renderer || !scene || !camera) {
-            console.log('Stopping animation - missing components');
-            return;
-        }
-        
-        animationId = requestAnimationFrame(animate360);
-        
-        if (autoRotate && sphere) {
-            sphere.rotation.y += 0.001;
-        }
-        
-        if (controls) {
-            controls.update();
-        }
-        
-        renderer.render(scene, camera);
-    }
-
-    // Reset 360° view to initial position
-    function reset360View() {
-        if (controls) {
-            controls.reset();
-        }
-        if (camera) {
-            camera.position.set(0, 0, 0.1);
-            camera.lookAt(0, 0, 0);
-        }
-        if (sphere) {
-            sphere.rotation.set(0, 0, 0);
-        }
-    }
-
-    // Toggle auto rotation for 360° viewer
-    function toggleAutoRotation() {
-        autoRotate = !autoRotate;
-        toggleAutoRotate.innerHTML = autoRotate ? 
-            '<i class="fas fa-pause"></i> Stop Rotate' : 
-            '<i class="fas fa-sync"></i> Auto Rotate';
-    }
-
-    // ... (rest of the functions remain the same - handleImageMouseMove, showMarkerPreview, etc.)
-
-    // Handle window resize to reposition markers (with debouncing)
-    let resizeTimeout;
-    window.addEventListener('resize', function() {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-            if (currentImage) {
                 if (is360Mode && renderer && camera) {
                     const container = imageContainer;
                     camera.aspect = container.offsetWidth / container.offsetHeight;
@@ -2646,15 +2046,5 @@
     // Start the app
     document.addEventListener('DOMContentLoaded', init);
 </script>
-
-<!-- IMPORTANT: Include the rest of the JavaScript functions from the previous complete code -->
-<!-- These include: handleImageMouseMove, showMarkerPreview, addMarker, populateMarkerForm, -->
-<!-- validateMarkerData, isValidUrl, renderMarker, renderAllMarkers, selectMarker, -->
-<!-- showMarkerInfo, createMediaElement, getEmbedUrl, hidePopup, saveMarkerHandler, -->
-<!-- deleteMarkerHandler, clearMarkersHandler, filterMarkers, updateMarkerList, -->
-<!-- updateFieldsVisibility, resetForm, saveToHistory, undo, redo, updateHistoryButtons, -->
-<!-- handleKeyboardShortcuts, saveProjectHandler, loadProjectHandler, exportHTMLHandler, -->
-<!-- createExportHTML -->
-
 </body>
 </html>
