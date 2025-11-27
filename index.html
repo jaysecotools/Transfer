@@ -1,794 +1,230 @@
-<!doctype html>
-<html lang="en-GB">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Batch Code Cleaner & Splitter — Jay's Tools</title>
-<meta name="description" content="Clean, beautify, split inline CSS/JS and download files or ZIP. Drop files or folders.">
-<script src="https://cdn.jsdelivr.net/npm/js-beautify@1.14.7/js/lib/beautify.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/js-beautify@1.14.7/js/lib/beautify-css.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/js-beautify@1.14.7/js/lib/beautify-html.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.0/dist/jszip.min.js"></script>
+Yes — mostly good, but I spotted a few safety/compatibility/usability wrinkles you should fix. Below I’ll (1) list the important issues, then (2) give a small drop-in patch you can paste into your file to make the page reliably accept dropped folders/files, preserve DOCTYPE/BOM, avoid aggressive minification that mangles <pre>/<code>/<textarea>, and tidy the download URL revocation timing.
 
-<style>
-:root{--bg:#04101a;--panel:#071229;--muted:#9aa6b2;--accent:#7cc6ff;}
-*{box-sizing:border-box}
-body{font-family:Inter,Segoe UI,system-ui,Roboto,Arial;margin:0;padding:18px;background:linear-gradient(180deg,#031017,#04101a);color:#e6eef6}
-.container{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 420px;gap:14px}
-.card{background:rgba(255,255,255,0.02);padding:12px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.6)}
-h1{margin:0 0 8px 0;font-size:1.05rem}
-.drop{border:2px dashed rgba(255,255,255,0.04);padding:18px;border-radius:8px;text-align:center;color:var(--muted);cursor:pointer;transition:all 0.3s ease}
-.drop.active{border-color:var(--accent);background:rgba(124,198,255,0.05)}
-.btn{padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--accent);cursor:pointer;transition:all 0.2s ease}
-.btn:hover{background:rgba(124,198,255,0.1)}
-.btn:disabled{opacity:0.5;cursor:not-allowed}
-.btn.ghost{color:var(--muted);border-color:rgba(255,255,255,0.03)}
-.opts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:0.9rem}
-ul.files{list-style:none;padding:0;margin:8px 0 0 0;max-height:56vh;overflow:auto}
-li.file{padding:8px;border-radius:6px;background:rgba(255,255,255,0.01);margin-bottom:6px;display:flex;justify-content:space-between;gap:8px;align-items:center}
-li.file.processed{cursor:pointer}
-li.file.processed:hover{background:rgba(124,198,255,0.05)}
-.small{font-size:0.85rem;color:var(--muted)}
-textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed rgba(255,255,255,0.03);background:rgba(255,255,255,0.02);color:inherit;font-family:ui-monospace,Menlo,monospace}
-.controls{display:flex;gap:8px;align-items:center;margin-top:8px}
-@media (max-width:980px){.container{grid-template-columns:1fr}.card{padding:10px}}
-.meta{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.progress{height:4px;background:rgba(255,255,255,0.05);border-radius:2px;margin-top:8px;overflow:hidden}
-.progress-bar{height:100%;background:var(--accent);transition:width 0.3s ease}
-.status{display:none;padding:6px 10px;border-radius:4px;font-size:0.85rem;margin-top:8px}
-.status.info{background:rgba(124,198,255,0.1);color:var(--accent);display:block}
-.status.error{background:rgba(255,100,100,0.1);color:#ff6b6b;display:block}
-.status.success{background:rgba(100,255,100,0.1);color:#6bff6b;display:block}
-.file-input-label{display:inline-block;cursor:pointer}
-.file-type{font-size:0.75rem;padding:2px 6px;background:rgba(255,255,255,0.05);border-radius:4px;margin-left:8px}
-.preview-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.preview-filename{font-family:ui-monospace,Menlo,monospace;font-size:0.9rem;color:var(--muted)}
-</style>
-</head>
-<body>
-  <div class="container">
-    <div class="card">
-      <h1>Batch Code Cleaner & Splitter</h1>
-      <div class="small">Drop files or choose a folder. HTML/CSS/JS/JSON/TXT supported. Inline &lt;style&gt; and &lt;script&gt; can be extracted into separate cleaned files.</div>
+Problems found (brief)
 
-      <div style="margin-top:10px" class="drop" id="dropzone">
-        <div id="dropText">Drop files or folders here — or 
-          <label class="btn file-input-label">
-            Choose files
-            <input id="fileInput" type="file" multiple style="display:none" />
-          </label>
-        </div>
-      </div>
+Drop only handles dataTransfer.files so folder drops won't work in Chrome/Edge (they need webkitGetAsEntry traversal).
 
-      <div class="opts" style="margin-top:10px">
-        <label><input id="extractSeparate" type="checkbox"> Extract inline &lt;style&gt; &lt;script&gt; into separate files</label>
-        <label><input id="replaceWithLinks" type="checkbox" checked> Replace inline blocks in cleaned HTML with external link/script tags</label>
-        <label><input id="minifyOutput" type="checkbox"> Minify output</label>
-        <label>Indent size: <input id="indentSize" type="number" value="2" min="0" max="8" style="width:64px"></label>
-      </div>
+fileInput is missing webkitdirectory if you want folder selection.
 
-      <div style="margin-top:12px" class="meta">
-        <div>
-          <button id="processBtn" class="btn">Process files</button>
-          <button id="clearBtn" class="btn ghost">Clear list</button>
-          <button id="zipBtn" class="btn">Download all (ZIP)</button>
-          <button id="codeSepBtn" class="btn ghost">CodeSeparator</button>
-        </div>
-        <div class="small">Files: <span id="fileCount">0</span> | Processed: <span id="processedCount">0</span></div>
-      </div>
-      
-      <div class="progress" id="progressContainer" style="display:none">
-        <div class="progress-bar" id="progressBar" style="width:0%"></div>
-      </div>
-      
-      <div class="status info" id="statusMessage">Ready to add files</div>
+minifyHTML / minifyJS / minifyCSS are very naive and may corrupt content inside <pre>, <code> or <textarea> and some JS strings.
 
-      <h2 style="margin-top:12px;font-size:0.95rem">Files to Process</h2>
-      <ul id="fileList" class="files"></ul>
+downloadString() calls URL.revokeObjectURL(url) immediately; revoke should be delayed after click() so the download completes.
 
-      <h2 style="margin-top:12px;font-size:0.95rem">Processed Files</h2>
-      <ul id="processedList" class="files"></ul>
-    </div>
+Serialising HTML via XMLSerializer().serializeToString(doc) can drop DOCTYPE or change namespaces; better to preserve DOCTYPE.
 
-    <div class="card">
-      <div class="preview-header">
-        <h1>Preview & Actions</h1>
-        <div id="previewFilename" class="preview-filename">No file selected</div>
-      </div>
-      <div class="small">Click a processed file to preview it. You can download individual files or generate a ZIP.</div>
-      <textarea id="previewArea" placeholder="Select a processed file to preview..." readonly></textarea>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button id="downloadPreview" class="btn">Download this file</button>
-        <button id="copyPreview" class="btn ghost">Copy to clipboard</button>
-      </div>
+When extracting inline resources, name collisions may occur across files with the same base name — consider uniqueName().
 
-      <div style="margin-top:12px" class="small">Log</div>
-      <pre id="log" style="background:rgba(255,255,255,0.02);padding:8px;border-radius:6px;height:140px;overflow:auto;color:var(--muted)"></pre>
-    </div>
-  </div>
 
-<script>
-// Simple and reliable file handling
-const dropzone = document.getElementById('dropzone');
-const fileInput = document.getElementById('fileInput');
-const fileListEl = document.getElementById('fileList');
-const processedListEl = document.getElementById('processedList');
-const processBtn = document.getElementById('processBtn');
-const clearBtn = document.getElementById('clearBtn');
-const zipBtn = document.getElementById('zipBtn');
-const codeSepBtn = document.getElementById('codeSepBtn');
-const previewArea = document.getElementById('previewArea');
-const previewFilename = document.getElementById('previewFilename');
-const logEl = document.getElementById('log');
-const fileCountEl = document.getElementById('fileCount');
-const processedCountEl = document.getElementById('processedCount');
-const progressContainer = document.getElementById('progressContainer');
-const progressBar = document.getElementById('progressBar');
-const statusMessage = document.getElementById('statusMessage');
 
-let filesToProcess = []; // {name, file}
-let processed = {}; // name -> {content, type}
-let currentPreviewFile = null;
+---
 
-function log(msg) { 
-  const ts = new Date().toLocaleTimeString('en-GB'); 
-  logEl.textContent += `[${ts}] ${msg}\n`; 
-  logEl.scrollTop = logEl.scrollHeight; 
+Drop-in patch
+
+Replace the following parts in your file:
+
+1. Replace the <input id="fileInput" ... /> element (make it allow folder selection in Chrome/Edge). Find the element and replace with this:
+
+
+
+<!-- Replace your fileInput element with this to support folder selection (Chrome/Edge) -->
+<input id="fileInput" type="file" webkitdirectory directory multiple style="display:none" />
+
+2. Replace the current drag/drop handler (the simple drop event and dragover ones) with this more robust code that supports folder drops and files:
+
+
+
+/* ===== Robust drag/drop and folder handling ===== */
+function safeEntriesFromDataTransfer(dt) {
+  const items = dt.items ? Array.from(dt.items) : [];
+  if (items.length && typeof items[0].webkitGetAsEntry === 'function') {
+    return { type: 'entries', entries: items.map(it => it.webkitGetAsEntry()).filter(Boolean) };
+  }
+  if (dt.files && dt.files.length) return { type: 'files', files: Array.from(dt.files) };
+  // fallback: try getAsFile
+  const files = [];
+  for (const it of items) {
+    try {
+      const f = it.getAsFile && it.getAsFile();
+      if (f) files.push(f);
+    } catch (e) {}
+  }
+  return files.length ? { type: 'files', files } : { type: 'none' };
 }
 
-function showStatus(message, type = 'info') {
-  statusMessage.textContent = message;
-  statusMessage.className = 'status ' + type;
+// Recursively read directory entries (webkit)
+async function processEntries(entries, path = '') {
+  for (const entry of entries) {
+    if (!entry) continue;
+    try {
+      if (entry.isFile) {
+        const file = await new Promise((resolve, reject) => entry.file(resolve, reject));
+        const fullPath = path ? `${path}/${file.name}` : file.name;
+        if (!filesToProcess.some(f => f.name === fullPath)) filesToProcess.push({ name: fullPath, file });
+      } else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        // collect batches
+        let batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+        const all = [];
+        while (batch && batch.length) {
+          all.push(...batch);
+          batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+        }
+        const newPath = path ? `${path}/${entry.name}` : entry.name;
+        await processEntries(all, newPath);
+      }
+    } catch (err) {
+      log(`Error reading entry ${entry && entry.name ? entry.name : '(unknown)'}: ${err && err.message ? err.message : err}`);
+    }
+  }
+  renderFileList();
 }
 
-function updateFileCount() {
-  fileCountEl.textContent = filesToProcess.length;
-}
-
-function reset() {
-  filesToProcess = []; 
-  processed = {}; 
-  fileListEl.innerHTML = ''; 
-  processedListEl.innerHTML = '';
-  previewArea.value = ''; 
-  previewFilename.textContent = 'No file selected';
-  currentPreviewFile = null;
-  logEl.textContent = ''; 
-  fileCountEl.textContent = '0';
-  processedCountEl.textContent = '0';
-  progressContainer.style.display = 'none';
-  showStatus('Ready to add files', 'info');
-}
-
-function updateProgress(percent) {
-  progressBar.style.width = percent + '%';
-}
-
-// SIMPLE DRAG AND DROP - This will work reliably
+// Robust drop handlers
 dropzone.addEventListener('dragover', (e) => {
   e.preventDefault();
   dropzone.classList.add('active');
+  e.dataTransfer.dropEffect = 'copy';
 });
-
 dropzone.addEventListener('dragleave', (e) => {
   e.preventDefault();
-  // Only remove active class if we're actually leaving the dropzone
-  if (!dropzone.contains(e.relatedTarget)) {
+  const rect = dropzone.getBoundingClientRect();
+  if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
     dropzone.classList.remove('active');
   }
 });
-
-dropzone.addEventListener('drop', (e) => {
+dropzone.addEventListener('drop', async (e) => {
   e.preventDefault();
   dropzone.classList.remove('active');
-  
-  const files = e.dataTransfer.files;
-  if (files && files.length > 0) {
-    handleFileList(files);
+  const info = safeEntriesFromDataTransfer(e.dataTransfer);
+  if (info.type === 'entries') {
+    await processEntries(info.entries);
+  } else if (info.type === 'files') {
+    handleFileList(info.files);
   } else {
-    showStatus('No files were dropped', 'error');
+    showStatus('Dropped data did not contain files or folders', 'error');
+    log('Drop did not contain files or folder entries');
   }
 });
 
-// File input change handler
-fileInput.addEventListener('change', (e) => {
-  if (e.target.files.length > 0) {
-    handleFileList(e.target.files);
-    // Reset input to allow selecting same files again
-    fileInput.value = '';
-  }
-});
+3. Replace downloadString() with safer revoke timing — find your function and replace with:
 
-// Handle file list - SIMPLE AND RELIABLE
-function handleFileList(fileList) {
-  let addedCount = 0;
-  let skippedCount = 0;
-  
-  for (let i = 0; i < fileList.length; i++) {
-    const file = fileList[i];
-    
-    // Check if file is already in the list
-    const isDuplicate = filesToProcess.some(f => 
-      f.name === file.name && f.size === file.size
-    );
-    
-    if (!isDuplicate) {
-      filesToProcess.push({
-        name: file.name,
-        file: file,
-        size: file.size,
-        type: file.type
-      });
-      addedCount++;
-    } else {
-      skippedCount++;
-    }
-  }
-  
-  if (addedCount > 0) {
-    renderFileList();
-    let statusMsg = `Added ${addedCount} file(s)`;
-    if (skippedCount > 0) {
-      statusMsg += `, skipped ${skippedCount} duplicate(s)`;
-    }
-    showStatus(statusMsg, 'success');
-    log(`Added ${addedCount} file(s)`);
-  } else if (skippedCount > 0) {
-    showStatus(`All ${skippedCount} files were duplicates`, 'info');
-  } else {
-    showStatus('No files were added', 'error');
-  }
-}
 
-// Render file list
-function renderFileList() {
-  fileListEl.innerHTML = '';
-  updateFileCount();
-  
-  if (filesToProcess.length === 0) {
-    fileListEl.innerHTML = '<li class="small" style="text-align:center;padding:20px;color:var(--muted)">No files added yet</li>';
+
+function downloadString(content, filename, mime = 'application/octet-stream') {
+  // Accept either Blob or string
+  if (content instanceof Blob) {
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // revoke after a short delay so the download can start
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
     return;
   }
-  
-  filesToProcess.forEach((fileObj, index) => {
-    const li = document.createElement('li');
-    li.className = 'file';
-    
-    const fileExt = getFileExtension(fileObj.name);
-    const displayType = getDisplayType(fileExt);
-    
-    li.innerHTML = `
-      <div style="min-width:0;flex:1">
-        <div style="display:flex;align-items:center;gap:8px">
-          <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fileObj.name}</strong>
-          <span class="file-type">${displayType}</span>
-        </div>
-        <div class="small">${formatFileSize(fileObj.size)}</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn ghost remove-btn" data-index="${index}" title="Remove">×</button>
-      </div>
-    `;
-    fileListEl.appendChild(li);
-  });
-  
-  // Add event listeners to remove buttons
-  document.querySelectorAll('.remove-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const index = parseInt(e.target.getAttribute('data-index'));
-      const removedFile = filesToProcess[index];
-      filesToProcess.splice(index, 1);
-      renderFileList();
-      log(`Removed file: ${removedFile.name}`);
-      showStatus(`Removed: ${removedFile.name}`, 'info');
-    });
-  });
-}
-
-// Render processed files list with preview capability
-function renderProcessedList() {
-  processedListEl.innerHTML = '';
-  const names = Object.keys(processed).sort();
-  processedCountEl.textContent = names.length;
-  
-  if (names.length === 0) {
-    processedListEl.innerHTML = '<li class="small" style="text-align:center;padding:20px;color:var(--muted)">No processed files yet</li>';
-    return;
-  }
-  
-  names.forEach((name, index) => {
-    const fileData = processed[name];
-    const li = document.createElement('li');
-    li.className = 'file processed';
-    li.setAttribute('data-filename', name);
-    
-    const fileExt = getFileExtension(name);
-    const displayType = getDisplayType(fileExt);
-    const fileSize = new Blob([fileData.content]).size;
-    
-    li.innerHTML = `
-      <div style="min-width:0;flex:1">
-        <div style="display:flex;align-items:center;gap:8px">
-          <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</strong>
-          <span class="file-type">${displayType}</span>
-        </div>
-        <div class="small">${formatFileSize(fileSize)} • ${fileData.type}</div>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <button class="btn ghost download-single-btn" data-filename="${name}" title="Download this file">↓</button>
-      </div>
-    `;
-    processedListEl.appendChild(li);
-  });
-  
-  // Add event listeners for preview
-  processedListEl.querySelectorAll('.file.processed').forEach(item => {
-    item.addEventListener('click', (e) => {
-      // Don't trigger if download button was clicked
-      if (!e.target.classList.contains('download-single-btn')) {
-        const filename = item.getAttribute('data-filename');
-        previewFile(filename);
-      }
-    });
-  });
-  
-  // Add event listeners for individual file downloads
-  processedListEl.querySelectorAll('.download-single-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation(); // Prevent triggering the preview
-      const filename = btn.getAttribute('data-filename');
-      downloadSingleFile(filename);
-    });
-  });
-}
-
-// Preview a processed file
-function previewFile(filename) {
-  if (processed[filename]) {
-    currentPreviewFile = filename;
-    previewArea.value = processed[filename].content;
-    previewFilename.textContent = filename;
-    log(`Previewing: ${filename}`);
-  }
-}
-
-// Download a single processed file
-function downloadSingleFile(filename) {
-  if (processed[filename]) {
-    downloadString(processed[filename].content, filename);
-    log(`Downloaded: ${filename}`);
-    showStatus(`Downloaded: ${filename}`, 'success');
-  }
-}
-
-// Helper functions
-function getFileExtension(filename) {
-  return filename.split('.').pop().toLowerCase();
-}
-
-function getDisplayType(ext) {
-  const types = {
-    'html': 'HTML', 'htm': 'HTML',
-    'css': 'CSS',
-    'js': 'JS', 'mjs': 'JS', 'cjs': 'JS',
-    'json': 'JSON',
-    'txt': 'TXT', 'md': 'MD',
-    'xml': 'XML', 'svg': 'SVG'
-  };
-  return types[ext] || ext.toUpperCase();
-}
-
-function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-// Clear button
-clearBtn.addEventListener('click', () => {
-  if (filesToProcess.length > 0 || Object.keys(processed).length > 0) {
-    if (confirm('Clear all files and processing results?')) {
-      reset();
-      log('Cleared all files and results.');
-    }
-  } else {
-    reset();
-  }
-});
-
-// Process files
-processBtn.addEventListener('click', async () => {
-  if (!filesToProcess.length) {
-    showStatus('No files to process.', 'error');
-    log('No files to process.');
-    return;
-  }
-  
-  log('Processing files...');
-  showStatus('Processing files...', 'info');
-  processBtn.disabled = true;
-  progressContainer.style.display = 'block';
-  
-  processed = {};
-  const opts = {
-    extractSeparate: document.getElementById('extractSeparate').checked,
-    replaceWithLinks: document.getElementById('replaceWithLinks').checked,
-    minify: document.getElementById('minifyOutput').checked,
-    indent: parseInt(document.getElementById('indentSize').value, 10) || 2
-  };
-  
-  let processedCount = 0;
-  let errorCount = 0;
-  
-  for (let i = 0; i < filesToProcess.length; i++) {
-    const fileObj = filesToProcess[i];
-    
-    // Update progress
-    updateProgress(((i + 1) / filesToProcess.length) * 100);
-    
-    try {
-      const text = await readFileAsText(fileObj.file);
-      const ext = getFileExtension(fileObj.name);
-      
-      let result;
-      
-      // Process based on file type
-      switch (ext) {
-        case 'html':
-        case 'htm':
-          result = processHTML(text, fileObj.name, opts);
-          Object.assign(processed, result.files);
-          log(`Processed HTML: ${fileObj.name}${opts.extractSeparate ? ` (extracted ${result.extractedCount} resources)` : ''}`);
-          processedCount++;
-          break;
-          
-        case 'css':
-          processed[fileObj.name] = { 
-            content: processCSS(text, opts), 
-            type: 'text/css' 
-          };
-          log(`Processed CSS: ${fileObj.name}`);
-          processedCount++;
-          break;
-          
-        case 'js':
-        case 'mjs':
-        case 'cjs':
-          processed[fileObj.name] = { 
-            content: processJS(text, opts), 
-            type: 'application/javascript' 
-          };
-          log(`Processed JS: ${fileObj.name}`);
-          processedCount++;
-          break;
-          
-        case 'json':
-          processed[fileObj.name] = { 
-            content: processJSON(text, opts), 
-            type: 'application/json' 
-          };
-          log(`Processed JSON: ${fileObj.name}`);
-          processedCount++;
-          break;
-          
-        default:
-          // For other text files, just store as-is
-          processed[fileObj.name] = { 
-            content: text, 
-            type: 'text/plain' 
-          };
-          log(`Added text file: ${fileObj.name}`);
-          processedCount++;
-      }
-    } catch (e) {
-      log(`Error processing ${fileObj.name}: ${e.message}`);
-      errorCount++;
-    }
-  }
-  
-  // Final progress update
-  updateProgress(100);
-  
-  renderProcessedList();
-  
-  // Re-enable button
-  processBtn.disabled = false;
-  progressContainer.style.display = 'none';
-  
-  if (errorCount === 0) {
-    showStatus(`Processing complete. Successfully processed ${processedCount} files.`, 'success');
-    log(`Processing complete. Success: ${processedCount}, Errors: ${errorCount}`);
-  } else {
-    showStatus(`Processing complete with ${errorCount} error(s). Check log for details.`, 'error');
-    log(`Processing complete. Success: ${processedCount}, Errors: ${errorCount}`);
-  }
-});
-
-// File reading helper
-function readFileAsText(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result);
-    reader.onerror = (e) => reject(new Error('Failed to read file'));
-    reader.readAsText(file);
-  });
-}
-
-// Processing functions
-function processHTML(content, filename, opts) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(content, 'text/html');
-  const baseName = filename.replace(/\.[^/.]+$/, '');
-  const extractedFiles = {};
-  let extractedCount = 0;
-
-  // Extract and process inline styles
-  if (opts.extractSeparate) {
-    doc.querySelectorAll('style').forEach((style, index) => {
-      const cssContent = style.textContent || '';
-      const processedCSS = opts.minify ? 
-        minifyCSS(cssContent) : 
-        beautifyCSS(cssContent, opts.indent);
-      
-      const cssFilename = `${baseName}.style${index + 1}.css`;
-      extractedFiles[cssFilename] = { 
-        content: processedCSS, 
-        type: 'text/css' 
-      };
-      extractedCount++;
-
-      if (opts.replaceWithLinks) {
-        const link = doc.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = cssFilename;
-        style.parentNode.replaceChild(link, style);
-      } else {
-        style.remove();
-      }
-    });
-
-    // Extract and process inline scripts
-    doc.querySelectorAll('script').forEach((script, index) => {
-      if (script.src) return; // Skip external scripts
-      
-      const jsContent = script.textContent || '';
-      const processedJS = opts.minify ? 
-        minifyJS(jsContent) : 
-        beautifyJS(jsContent, opts.indent);
-      
-      const jsFilename = `${baseName}.script${index + 1}.js`;
-      extractedFiles[jsFilename] = { 
-        content: processedJS, 
-        type: 'application/javascript' 
-      };
-      extractedCount++;
-
-      if (opts.replaceWithLinks) {
-        const newScript = doc.createElement('script');
-        newScript.src = jsFilename;
-        script.parentNode.replaceChild(newScript, script);
-      } else {
-        script.remove();
-      }
-    });
-  } else {
-    // Just beautify inline content without extraction
-    doc.querySelectorAll('style').forEach(style => {
-      style.textContent = opts.minify ? 
-        minifyCSS(style.textContent || '') : 
-        beautifyCSS(style.textContent || '', opts.indent);
-    });
-    
-    doc.querySelectorAll('script').forEach(script => {
-      if (!script.src) {
-        script.textContent = opts.minify ? 
-          minifyJS(script.textContent || '') : 
-          beautifyJS(script.textContent || '', opts.indent);
-      }
-    });
-  }
-
-  // Serialize HTML
-  const serializer = new XMLSerializer();
-  let htmlContent = serializer.serializeToString(doc);
-  
-  // Clean up the HTML
-  htmlContent = htmlContent.replace(/ xmlns="[^"]*"/g, '');
-  
-  const processedHTML = opts.minify ? 
-    minifyHTML(htmlContent) : 
-    beautifyHTML(htmlContent, opts.indent);
-
-  return {
-    files: {
-      [filename]: { content: processedHTML, type: 'text/html' },
-      ...extractedFiles
-    },
-    extractedCount
-  };
-}
-
-function processCSS(content, opts) {
-  return opts.minify ? 
-    minifyCSS(content) : 
-    beautifyCSS(content, opts.indent);
-}
-
-function processJS(content, opts) {
-  return opts.minify ? 
-    minifyJS(content) : 
-    beautifyJS(content, opts.indent);
-}
-
-function processJSON(content, opts) {
-  try {
-    const parsed = JSON.parse(content);
-    return opts.minify ? 
-      JSON.stringify(parsed) : 
-      JSON.stringify(parsed, null, opts.indent);
-  } catch (e) {
-    return content; // Return original if not valid JSON
-  }
-}
-
-// Minification functions
-function minifyHTML(content) {
-  return content
-    .replace(/\s+/g, ' ')
-    .replace(/>\s+</g, '><')
-    .trim();
-}
-
-function minifyCSS(content) {
-  return content
-    .replace(/\/\*[\s\S]*?\*\//g, '') // Remove comments
-    .replace(/\s+/g, ' ')
-    .replace(/\s*([{:;,])\s*/g, '$1')
-    .replace(/;}/g, '}')
-    .trim();
-}
-
-function minifyJS(content) {
-  return content
-    .replace(/\/\/[^\n]*/g, '') // Remove single-line comments
-    .replace(/\/\*[\s\S]*?\*\//g, '') // Remove multi-line comments
-    .replace(/\s+/g, ' ')
-    .replace(/\s*([=+\-*/(),{}:;])\s*/g, '$1')
-    .trim();
-}
-
-// Beautify functions
-function beautifyCSS(src, indentSize) {
-  return window.css_beautify ? 
-    css_beautify(src, { indent_size: indentSize }) : 
-    src;
-}
-
-function beautifyJS(src, indentSize) {
-  return window.js_beautify ? 
-    js_beautify(src, { indent_size: indentSize }) : 
-    src;
-}
-
-function beautifyHTML(src, indentSize) {
-  return window.html_beautify ? 
-    html_beautify(src, { indent_size: indentSize }) : 
-    src;
-}
-
-// Download functionality
-function downloadString(content, filename) {
-  const blob = new Blob([content], { type: 'application/octet-stream' });
+  const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-// ZIP download
-zipBtn.addEventListener('click', async () => {
-  const names = Object.keys(processed);
-  if (!names.length) {
-    showStatus('No processed files to download.', 'error');
-    return;
-  }
+4. Use a safer HTML minify that protects pre/code/textarea (replace your existing minifyHTML with this):
 
-  if (typeof JSZip === 'undefined') {
-    showStatus('JSZip library not loaded.', 'error');
-    return;
-  }
 
-  showStatus('Creating ZIP archive...', 'info');
-  
-  try {
-    const zip = new JSZip();
-    names.forEach(name => {
-      zip.file(name, processed[name].content);
+
+function minifyHTML(content) {
+  // protect blocks that should keep whitespace
+  const protectTags = ['pre','code','textarea'];
+  const tokens = [];
+  let i = 0;
+  protectTags.forEach(tag => {
+    const re = new RegExp(`<${tag}([\\s\\S]*?)>([\\s\\S]*?)<\\/${tag}>`, 'gi');
+    content = content.replace(re, (m) => {
+      const token = `__PROTECT_${i}__`;
+      tokens.push({ token, m });
+      i++;
+      return token;
     });
-    
-    const content = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(content);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'cleaned-files.zip';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    showStatus('ZIP download started.', 'success');
-    log('ZIP download started.');
-  } catch (e) {
-    showStatus('Error creating ZIP: ' + e.message, 'error');
-    log('Error creating ZIP: ' + e.message);
-  }
-});
-
-// Preview download
-document.getElementById('downloadPreview').addEventListener('click', () => {
-  if (currentPreviewFile && processed[currentPreviewFile]) {
-    downloadSingleFile(currentPreviewFile);
-  } else {
-    showStatus('No file selected to download.', 'error');
-  }
-});
-
-// Copy preview
-document.getElementById('copyPreview').addEventListener('click', async () => {
-  if (previewArea.value) {
-    try {
-      await navigator.clipboard.writeText(previewArea.value);
-      showStatus('Content copied to clipboard.', 'success');
-      log('Preview copied to clipboard.');
-    } catch (e) {
-      showStatus('Failed to copy to clipboard.', 'error');
-      log('Clipboard failed: ' + e.message);
-    }
-  } else {
-    showStatus('No content to copy.', 'error');
-  }
-});
-
-// CodeSeparator integration
-codeSepBtn.addEventListener('click', () => {
-  integrationWithCodeSeparator();
-});
-
-function integrationWithCodeSeparator() {
-  // Check if we have processed HTML files that could benefit from code separation
-  const htmlFiles = Object.keys(processed).filter(name => 
-    name.endsWith('.html') || name.endsWith('.htm')
-  );
-  
-  if (htmlFiles.length > 0) {
-    showStatus(`Opening CodeSeparator with ${htmlFiles.length} HTML file(s)`, 'info');
-    log(`Opening CodeSeparator with ${htmlFiles.length} HTML file(s) ready for further processing`);
-    
-    // You can enhance this to actually pass data to CodeSeparator
-    // For now, just open the tool
-    const url = 'https://jaysecotools.github.io/WebCodeSeparator/';
-    window.open(url, '_blank');
-  } else {
-    showStatus('No processed HTML files available for CodeSeparator', 'info');
-    log('No processed HTML files available for CodeSeparator integration');
-    
-    // Still open CodeSeparator but show a message
-    const url = 'https://jaysecotools.github.io/WebCodeSeparator/';
-    window.open(url, '_blank');
-  }
+  });
+  // safe collapse
+  content = content.replace(/\s+/g, ' ').replace(/>\s+</g, '><').trim();
+  // restore tokens
+  tokens.forEach(t => content = content.replace(t.token, t.m));
+  return content;
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-  log('Batch Code Cleaner & Splitter ready. Drop files or click to select.');
-  showStatus('Ready to add files', 'info');
-});
-</script>
-</body>
-</html>
+5. Preserve DOCTYPE when serialising — replace your serialise call XMLSerializer().serializeToString(doc) with:
+
+
+
+function serializeDoc(doc) {
+  let doctype = '';
+  const dt = doc.doctype;
+  if (dt) {
+    doctype = '<!DOCTYPE ' + dt.name;
+    if (dt.publicId) doctype += ' PUBLIC "' + dt.publicId + '"';
+    if (dt.systemId) doctype += ' "' + dt.systemId + '"';
+    doctype += '>\n';
+  }
+  const html = doc.documentElement ? doc.documentElement.outerHTML : new XMLSerializer().serializeToString(doc);
+  return doctype + html;
+}
+
+6. (Optional but recommended) Add uniqueName helper if you extract inline resources, to avoid collisions:
+
+
+
+function uniqueName(base, ext, processedObj) {
+  let name = base + ext, idx = 1;
+  while (processedObj[name]) {
+    name = `${base}(${idx})${ext}`;
+    idx++;
+  }
+  return name;
+}
+
+When creating extracted files use uniqueName(base, '.css', processed) and uniqueName(base, '.js', processed).
+
+
+---
+
+How to apply
+
+Paste (1) into your HTML where the file input currently is.
+
+Replace the old drag/drop code and processEntries with (2).
+
+Replace downloadString() with (3).
+
+Swap minifyHTML() with (4).
+
+Replace any serializeToString usage with serializeDoc() from (5).
+
+Optionally add uniqueName() and use it when assigning names for extracted files.
+
+
+
+---
+
+Quick sanity checklist after patch
+
+Try dragging a folder from your desktop (Chrome/Edge) — you should see nested files added with their relative paths.
+
+Try dragging single files (any browser) — they should be added.
+
+Process an HTML with <pre> containing lots of whitespace — minification should not break the whitespace inside <pre>.
+
+Download a processed file and check it opens (the delayed revoke prevents premature URL invalidation).
+
+
+
+---
+
+If you’d prefer, I can paste a complete updated single-file HTML with all these exact changes applied so you can save it and test immediately. Want me to do that?
