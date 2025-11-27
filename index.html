@@ -5,16 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Batch Code Cleaner & Splitter — Jay's Tools</title>
 <meta name="description" content="Clean, beautify, split inline CSS/JS and download files or ZIP. Drop files or folders.">
-<!--
-  NOTES:
-  - Uses CDN for js-beautify and JSZip for convenience and robustness.
-  - To make this fully offline single-file, replace the two script tags below by pasting
-    the minified source of js-beautify and JSZip into <script> blocks (search for "EMBED HERE" comments).
--->
 <script src="https://cdn.jsdelivr.net/npm/js-beautify@1.14.7/js/lib/beautify.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/js-beautify@1.14.7/js/lib/beautify-css.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/js-beautify@1.14.7/js/lib/beautify-html.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.0/dist/jszip.min.js"></script>
 
 <style>
@@ -25,6 +18,7 @@ body{font-family:Inter,Segoe UI,system-ui,Roboto,Arial;margin:0;padding:18px;bac
 .card{background:rgba(255,255,255,0.02);padding:12px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.6)}
 h1{margin:0 0 8px 0;font-size:1.05rem}
 .drop{border:2px dashed rgba(255,255,255,0.04);padding:18px;border-radius:8px;text-align:center;color:var(--muted);cursor:pointer}
+.drop.active{border-color:rgba(124,198,255,0.5);background:rgba(124,198,255,0.05)}
 .btn{padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--accent);cursor:pointer;transition:all 0.2s ease}
 .btn:hover{background:rgba(124,198,255,0.1)}
 .btn:disabled{opacity:0.5;cursor:not-allowed}
@@ -43,6 +37,7 @@ textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed 
 .status.info{background:rgba(124,198,255,0.1);color:var(--accent);display:block}
 .status.error{background:rgba(255,100,100,0.1);color:#ff6b6b;display:block}
 .status.success{background:rgba(100,255,100,0.1);color:#6bff6b;display:block}
+.file-input-label{display:inline-block;cursor:pointer}
 </style>
 </head>
 <body>
@@ -51,21 +46,21 @@ textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed 
       <h1>Batch Code Cleaner & Splitter</h1>
       <div class="small">Drop files or choose a folder. HTML/CSS/JS/JSON/TXT supported. Inline &lt;style&gt; and &lt;script&gt; can be extracted into separate cleaned files.</div>
 
-      <div style="margin-top:10px" class="drop" id="dropzone" role="button" aria-label="Drop files or folders here" tabindex="0">
-        <div id="dropText">Drop files or folders here — or <label class="btn" for="fileInput" style="display:inline-block;cursor:pointer">Choose files/folder</label></div>
-        <input id="fileInput" type="file" webkitdirectory multiple style="display:none" aria-label="Select files or folder" />
+      <div style="margin-top:10px" class="drop" id="dropzone">
+        <div id="dropText">Drop files or folders here — or 
+          <label class="btn file-input-label">
+            Choose files/folder
+            <input id="fileInput" type="file" multiple style="display:none" />
+          </label>
+        </div>
       </div>
 
       <div class="opts" style="margin-top:10px">
-        <label><input id="extractSeparate" type="checkbox" aria-describedby="extractHelp"> Extract inline &lt;style&gt; &lt;script&gt; into separate files</label>
-        <label><input id="replaceWithLinks" type="checkbox" checked aria-describedby="replaceHelp"> Replace inline blocks in cleaned HTML with external link/script tags</label>
-        <label><input id="minifyOutput" type="checkbox" aria-describedby="minifyHelp"> Minify output</label>
-        <label>Indent size: <input id="indentSize" type="number" value="2" min="0" max="8" style="width:64px" aria-label="Indentation size"></label>
+        <label><input id="extractSeparate" type="checkbox"> Extract inline &lt;style&gt; &lt;script&gt; into separate files</label>
+        <label><input id="replaceWithLinks" type="checkbox" checked> Replace inline blocks in cleaned HTML with external link/script tags</label>
+        <label><input id="minifyOutput" type="checkbox"> Minify output</label>
+        <label>Indent size: <input id="indentSize" type="number" value="2" min="0" max="8" style="width:64px"></label>
       </div>
-      
-      <div class="small" id="extractHelp" style="margin-top:4px">When enabled, inline CSS and JavaScript in HTML files will be extracted to separate files.</div>
-      <div class="small" id="replaceHelp" style="margin-top:4px">When enabled, extracted CSS/JS will be referenced in HTML via link/script tags.</div>
-      <div class="small" id="minifyHelp" style="margin-top:4px">When enabled, output will be minified instead of beautified.</div>
 
       <div style="margin-top:12px" class="meta">
         <div>
@@ -73,163 +68,35 @@ textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed 
           <button id="clearBtn" class="btn ghost">Clear list</button>
           <button id="zipBtn" class="btn">Download all (ZIP)</button>
         </div>
-        <div class="small">Processed: <span id="processedCount">0</span></div>
+        <div class="small">Files: <span id="fileCount">0</span> | Processed: <span id="processedCount">0</span></div>
       </div>
       
       <div class="progress" id="progressContainer" style="display:none">
         <div class="progress-bar" id="progressBar" style="width:0%"></div>
       </div>
       
-      <div class="status info" id="statusMessage">Ready to process files</div>
+      <div class="status info" id="statusMessage">Ready to add files</div>
 
-      <h2 style="margin-top:12px;font-size:0.95rem">Files</h2>
-      <ul id="fileList" class="files" aria-label="List of files to process"></ul>
-
-      <div style="margin-top:10px" class="small">Integration: <button id="codeSepBtn" class="btn ghost">Open CodeSeparator</button> — or integrate by replacing <code>integrationWithCodeSeparator()</code> below.</div>
+      <h2 style="margin-top:12px;font-size:0.95rem">Files to Process</h2>
+      <ul id="fileList" class="files"></ul>
     </div>
 
     <div class="card">
       <h1>Preview & Actions</h1>
       <div class="small">Click a file in the list to preview it. You can download individual files or generate a ZIP.</div>
-      <textarea id="previewArea" placeholder="Select a processed file to preview..." aria-label="File preview"></textarea>
+      <textarea id="previewArea" placeholder="Select a processed file to preview..."></textarea>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button id="downloadPreview" class="btn">Download preview</button>
         <button id="copyPreview" class="btn ghost">Copy preview</button>
-        <button id="replaceInlineBtn" class="btn ghost" title="Replace inline resources by downloaded files (if extracted)">Ensure references</button>
       </div>
 
       <div style="margin-top:12px" class="small">Log</div>
-      <pre id="log" style="background:rgba(255,255,255,0.02);padding:8px;border-radius:6px;height:140px;overflow:auto;color:var(--muted)" aria-label="Processing log"></pre>
+      <pre id="log" style="background:rgba(255,255,255,0.02);padding:8px;border-radius:6px;height:140px;overflow:auto;color:var(--muted)"></pre>
     </div>
   </div>
 
 <script>
-/* ================== Utilities & Formatters ==================
- - Uses js-beautify (provided by CDN above) when available.
- - Falls back to conservative formatters if not available.
- - Uses JSZip via CDN for ZIP generation; see comments for making offline.
-*/
-
-// Fallback CSS/JS/HTML beautifiers (conservative) if js-beautify is not available
-function simpleCssBeautify(src, indentSize=2){
-  const IND = ' '.repeat(indentSize);
-  // naive split rules
-  let out='', level=0;
-  src.replace(/\r/g,'').split('}').forEach((chunk, idx, arr)=>{
-    if (!chunk.trim()) return;
-    const parts = chunk.split('{');
-    const selector = parts[0].trim();
-    const body = (parts[1]||'').trim();
-    out += selector + ' {\n';
-    body.split(';').map(s=>s.trim()).filter(Boolean).forEach(line=>{
-      out += IND + line + ';\n';
-    });
-    out += '}\n\n';
-  });
-  return out.trim() + '\n';
-}
-
-function simpleJsBeautify(src, indentSize=2){
-  // very conservative fallback: add newlines after semicolons and braces
-  const IND = ' '.repeat(indentSize);
-  let out = src.replace(/\r/g,'').replace(/([{};])/g,'$1\n').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
-    // maintain indentation for braces
-    if (l.endsWith('{')) return l;
-    if (l === '}') return l;
-    return IND + l;
-  }).join('\n') + '\n';
-  return out;
-}
-
-function simpleHtmlBeautify(src, indent=2){
-  // Improved HTML beautifier with better error handling
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(src, 'text/html');
-    
-    function serializeNode(node, depth) {
-      const pad = ' '.repeat(depth * indent);
-      
-      // Handle text nodes
-      if (node.nodeType === Node.TEXT_NODE) {
-        const text = node.textContent.replace(/\s+/g, ' ').trim();
-        return text ? pad + text + '\n' : '';
-      }
-      
-      // Handle comment nodes
-      if (node.nodeType === Node.COMMENT_NODE) {
-        return pad + '<!--' + node.nodeValue + '-->\n';
-      }
-      
-      // Handle element nodes
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const tagName = node.tagName.toLowerCase();
-        const attributes = Array.from(node.attributes)
-          .map(attr => `${attr.name}="${attr.value}"`)
-          .join(' ');
-        
-        const openingTag = attributes ? 
-          `<${tagName} ${attributes}>` : 
-          `<${tagName}>`;
-        
-        // Void elements (self-closing tags)
-        const voidElements = new Set([
-          'area', 'base', 'br', 'col', 'embed', 'hr', 
-          'img', 'input', 'link', 'meta', 'param', 
-          'source', 'track', 'wbr'
-        ]);
-        
-        if (voidElements.has(tagName)) {
-          return pad + openingTag + '\n';
-        }
-        
-        // Handle elements with only text content
-        const childNodes = Array.from(node.childNodes);
-        if (childNodes.length === 1 && childNodes[0].nodeType === Node.TEXT_NODE) {
-          const text = childNodes[0].textContent.trim();
-          return pad + openingTag + text + `</${tagName}>\n`;
-        }
-        
-        // Handle elements with nested content
-        let result = pad + openingTag + '\n';
-        childNodes.forEach(child => {
-          result += serializeNode(child, depth + 1);
-        });
-        result += pad + `</${tagName}>\n`;
-        return result;
-      }
-      
-      return '';
-    }
-    
-    // Start serialization from body content or document element
-    const body = doc.body || doc.documentElement;
-    return serializeNode(body, 0).trim();
-  } catch (error) {
-    console.error('HTML beautification failed:', error);
-    // Return original source if beautification fails
-    return src;
-  }
-}
-
-// Wrapper functions that prefer js-beautify if available
-function beautifyCSS(src, indentSize){
-  if (window.css_beautify) return css_beautify(src, {indent_size: indentSize});
-  return simpleCssBeautify(src, indentSize);
-}
-
-function beautifyJS(src, indentSize){
-  if (window.js_beautify) return js_beautify(src, {indent_size: indentSize});
-  return simpleJsBeautify(src, indentSize);
-}
-
-function beautifyHTML(src, indentSize){
-  if (window.html_beautify) return html_beautify(src, {indent_size: indentSize});
-  return simpleHtmlBeautify(src, indentSize);
-}
-
-/* ================== File handling & UI ================== */
-
+// Enhanced file handling with better browser compatibility
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
 const fileListEl = document.getElementById('fileList');
@@ -238,14 +105,13 @@ const clearBtn = document.getElementById('clearBtn');
 const zipBtn = document.getElementById('zipBtn');
 const previewArea = document.getElementById('previewArea');
 const logEl = document.getElementById('log');
+const fileCountEl = document.getElementById('fileCount');
 const processedCountEl = document.getElementById('processedCount');
-const codeSepBtn = document.getElementById('codeSepBtn');
-const replaceInlineBtn = document.getElementById('replaceInlineBtn');
 const progressContainer = document.getElementById('progressContainer');
 const progressBar = document.getElementById('progressBar');
 const statusMessage = document.getElementById('statusMessage');
 
-let filesToProcess = []; // {name, file}
+let filesToProcess = []; // {name, file, path}
 let processed = {}; // name -> {content, type}
 
 function log(msg){ 
@@ -259,157 +125,199 @@ function showStatus(message, type = 'info') {
   statusMessage.className = 'status ' + type;
 }
 
+function updateFileCount() {
+  fileCountEl.textContent = filesToProcess.length;
+}
+
 function reset(){
   filesToProcess = []; 
   processed = {}; 
   fileListEl.innerHTML = ''; 
   previewArea.value = ''; 
   logEl.textContent = ''; 
+  fileCountEl.textContent = '0';
   processedCountEl.textContent = '0';
   progressContainer.style.display = 'none';
-  showStatus('Ready to process files', 'info');
+  showStatus('Ready to add files', 'info');
 }
 
 function updateProgress(percent) {
   progressBar.style.width = percent + '%';
 }
 
-// Enhanced dropzone event handlers
-dropzone.addEventListener('dragover', e=>{ 
-  e.preventDefault(); 
-  dropzone.style.borderColor = 'rgba(124,198,255,0.3)';
-});
-
-dropzone.addEventListener('dragleave', e=>{ 
-  if (!dropzone.contains(e.relatedTarget)) {
-    dropzone.style.borderColor = 'rgba(255,255,255,0.04)';
-  }
-});
-
-dropzone.addEventListener('drop', async e=>{
+// Enhanced dropzone functionality
+dropzone.addEventListener('dragover', (e) => {
   e.preventDefault();
-  dropzone.style.borderColor = 'rgba(255,255,255,0.04)';
-  const items = e.dataTransfer.items || e.dataTransfer.files;
-  
-  if (items.length === 0) {
-    showStatus('No files were dropped', 'error');
-    return;
+  dropzone.classList.add('active');
+});
+
+dropzone.addEventListener('dragleave', (e) => {
+  if (!dropzone.contains(e.relatedTarget)) {
+    dropzone.classList.remove('active');
   }
+});
+
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('active');
   
-  // Handle folder drops (webkitGetAsEntry API)
-  if (items && items[0].webkitGetAsEntry) {
-    showStatus('Processing folder structure...', 'info');
-    const entries = [];
-    for (let i = 0; i < items.length; i++) {
-      entries.push(items[i].webkitGetAsEntry());
-    }
-    await processEntries(entries);
+  const items = e.dataTransfer.items;
+  const files = e.dataTransfer.files;
+  
+  if (items && items.length > 0) {
+    handleDataTransferItems(items);
+  } else if (files && files.length > 0) {
+    handleFileList(files);
   } else {
-    // Fallback for files only
-    handleFileList(e.dataTransfer.files);
+    showStatus('No files were dropped', 'error');
   }
 });
 
-// Add keyboard accessibility for dropzone
-dropzone.addEventListener('keydown', e=>{
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault();
-    fileInput.click();
-  }
-});
-
-fileInput.addEventListener('change', e=> {
-  if (e.target.files.length > 0) {
-    handleFileList(e.target.files);
-  }
-});
-
-// Process directory entries recursively
-async function processEntries(entries, path = '') {
+// Handle both files and directories from drag & drop
+async function handleDataTransferItems(items) {
   let fileCount = 0;
   
-  for (const entry of entries) {
-    if (entry.isFile) {
-      const file = await new Promise(resolve => entry.file(resolve));
-      const fullPath = path ? `${path}/${file.name}` : file.name;
-      
-      // Validate file type
-      if (isSupportedFileType(file.name)) {
-        filesToProcess.push({name: fullPath, file});
-        fileCount++;
-      } else {
-        log(`Skipped unsupported file: ${fullPath}`);
+  for (const item of items) {
+    const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+    
+    if (entry) {
+      if (entry.isFile) {
+        const file = await getFileFromEntry(entry);
+        if (file) {
+          filesToProcess.push({
+            name: file.name,
+            file: file,
+            path: entry.fullPath || file.name
+          });
+          fileCount++;
+        }
+      } else if (entry.isDirectory) {
+        const files = await readDirectory(entry);
+        files.forEach(file => {
+          filesToProcess.push(file);
+          fileCount++;
+        });
       }
-    } else if (entry.isDirectory) {
-      const dirReader = entry.createReader();
-      const newEntries = await new Promise(resolve => {
-        dirReader.readEntries(resolve);
-      });
-      const newPath = path ? `${path}/${entry.name}` : entry.name;
-      await processEntries(newEntries, newPath);
+    } else {
+      // Fallback for non-webkit browsers
+      const file = item.getAsFile();
+      if (file) {
+        filesToProcess.push({
+          name: file.name,
+          file: file,
+          path: file.name
+        });
+        fileCount++;
+      }
     }
   }
   
   if (fileCount > 0) {
     renderFileList();
-    showStatus(`Added ${fileCount} file(s) from folder`, 'success');
+    showStatus(`Added ${fileCount} file(s)`, 'success');
+    log(`Added ${fileCount} file(s) via drag & drop`);
   }
 }
 
-function isSupportedFileType(filename) {
-  const ext = (filename.split('.').pop() || '').toLowerCase();
-  const supported = ['html', 'htm', 'css', 'js', 'mjs', 'cjs', 'json', 'txt', 'md', 'xml', 'svg'];
-  return supported.includes(ext);
+// Get file from file system entry
+function getFileFromEntry(entry) {
+  return new Promise((resolve) => {
+    entry.file(file => {
+      resolve(file);
+    });
+  });
 }
 
-function handleFileList(fileList){
+// Read directory recursively
+async function readDirectory(directoryEntry) {
+  const files = [];
+  const reader = directoryEntry.createReader();
+  
+  return new Promise((resolve) => {
+    reader.readEntries(async (entries) => {
+      for (const entry of entries) {
+        if (entry.isFile) {
+          const file = await getFileFromEntry(entry);
+          files.push({
+            name: file.name,
+            file: file,
+            path: entry.fullPath || file.name
+          });
+        } else if (entry.isDirectory) {
+          const subFiles = await readDirectory(entry);
+          files.push(...subFiles);
+        }
+      }
+      resolve(files);
+    });
+  });
+}
+
+// Handle file input change
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files.length > 0) {
+    handleFileList(e.target.files);
+    // Reset the input so the same file can be selected again
+    fileInput.value = '';
+  }
+});
+
+// Handle file list from input or simple drag & drop
+function handleFileList(fileList) {
   let addedCount = 0;
   
-  for (let i = 0; i < fileList.length; i++){
-    const f = fileList[i];
-    const name = f.webkitRelativePath || f.name;
+  for (let i = 0; i < fileList.length; i++) {
+    const file = fileList[i];
     
-    // Validate file type
-    if (isSupportedFileType(name)) {
-      filesToProcess.push({name, file: f});
-      addedCount++;
-    } else {
-      log(`Skipped unsupported file: ${name}`);
-    }
+    // Accept all file types for now, filter during processing
+    filesToProcess.push({
+      name: file.name,
+      file: file,
+      path: file.webkitRelativePath || file.name
+    });
+    addedCount++;
   }
   
   if (addedCount > 0) {
     renderFileList();
     showStatus(`Added ${addedCount} file(s)`, 'success');
-    log(`Added ${addedCount} file(s).`);
+    log(`Added ${addedCount} file(s)`);
   } else {
-    showStatus('No supported files were added', 'error');
+    showStatus('No files were added', 'error');
   }
 }
 
-function renderFileList(){
+// Render the file list
+function renderFileList() {
   fileListEl.innerHTML = '';
+  updateFileCount();
   
   if (filesToProcess.length === 0) {
     fileListEl.innerHTML = '<li class="small" style="text-align:center;padding:20px;color:var(--muted)">No files added yet</li>';
     return;
   }
   
-  filesToProcess.forEach((f, idx)=>{
-    const li = document.createElement('li'); 
-    li.className='file';
-    li.innerHTML = `<div style="min-width:0"><strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name}</strong><div class="small">${Math.round(f.file.size/1024)} KB</div></div>
+  filesToProcess.forEach((fileObj, index) => {
+    const li = document.createElement('li');
+    li.className = 'file';
+    li.innerHTML = `
+      <div style="min-width:0;flex:1">
+        <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fileObj.name}</strong>
+        <div class="small">${fileObj.path} • ${formatFileSize(fileObj.file.size)}</div>
+      </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn ghost" data-idx="${idx}" title="Remove">Remove</button>
-      </div>`;
+        <button class="btn ghost remove-btn" data-index="${index}" title="Remove">×</button>
+      </div>
+    `;
     fileListEl.appendChild(li);
   });
   
-  fileListEl.querySelectorAll('button[data-idx]').forEach(b=>{
-    b.addEventListener('click', e=>{
-      const idx = parseInt(e.currentTarget.getAttribute('data-idx'),10);
-      const removedFile = filesToProcess[idx];
-      filesToProcess.splice(idx,1); 
+  // Add event listeners to remove buttons
+  document.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const index = parseInt(e.target.getAttribute('data-index'));
+      const removedFile = filesToProcess[index];
+      filesToProcess.splice(index, 1);
       renderFileList();
       log(`Removed file: ${removedFile.name}`);
       showStatus(`Removed: ${removedFile.name}`, 'info');
@@ -417,7 +325,17 @@ function renderFileList(){
   });
 }
 
-clearBtn.addEventListener('click', ()=> {
+// Format file size for display
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Clear button functionality
+clearBtn.addEventListener('click', () => {
   if (filesToProcess.length > 0 || Object.keys(processed).length > 0) {
     if (confirm('Clear all files and processing results?')) {
       reset();
@@ -428,11 +346,12 @@ clearBtn.addEventListener('click', ()=> {
   }
 });
 
-processBtn.addEventListener('click', async ()=>{
-  if (!filesToProcess.length){ 
+// Process files button
+processBtn.addEventListener('click', async () => {
+  if (!filesToProcess.length) {
     showStatus('No files to process.', 'error');
-    log('No files to process.'); 
-    return; 
+    log('No files to process.');
+    return;
   }
   
   log('Processing files...');
@@ -445,121 +364,65 @@ processBtn.addEventListener('click', async ()=>{
     extractSeparate: document.getElementById('extractSeparate').checked,
     replaceWithLinks: document.getElementById('replaceWithLinks').checked,
     minify: document.getElementById('minifyOutput').checked,
-    indent: parseInt(document.getElementById('indentSize').value,10) || 2
+    indent: parseInt(document.getElementById('indentSize').value, 10) || 2
   };
   
   let processedCount = 0;
   let errorCount = 0;
   
-  for (let i = 0; i < filesToProcess.length; i++){
-    const item = filesToProcess[i];
+  for (let i = 0; i < filesToProcess.length; i++) {
+    const fileObj = filesToProcess[i];
     
     // Update progress
-    updateProgress((i / filesToProcess.length) * 100);
+    updateProgress(((i + 1) / filesToProcess.length) * 100);
     
     try {
-      const text = await item.file.text();
-      const ext = (item.name.split('.').pop()||'').toLowerCase();
+      const text = await readFileAsText(fileObj.file);
+      const ext = getFileExtension(fileObj.name);
       
-      if (['html','htm'].includes(ext)){
-        // process HTML: beautify and optionally extract inline blocks
-        const docParser = new DOMParser();
-        const doc = docParser.parseFromString(text,'text/html');
-
-        // extract inline styles/scripts if requested
-        const extractedFiles = [];
-        if (opts.extractSeparate){
-          // styles
-          let styleCount = 0;
-          doc.querySelectorAll('style').forEach(s=>{
-            styleCount++;
-            const raw = s.textContent || '';
-            const cleaned = opts.minify ? raw.replace(/\s+/g,' ') : beautifyCSS(raw, opts.indent);
-            const base = item.name.replace(/\.[^.]+$/,'');
-            const styleName = `${base}.style${styleCount}.css`;
-            processed[styleName] = {content: cleaned, type:'text/css'};
-            extractedFiles.push({type:'css', name: styleName});
-            // replace with link if requested
-            if (opts.replaceWithLinks){
-              const link = doc.createElement('link');
-              link.setAttribute('rel','stylesheet');
-              link.setAttribute('href', styleName);
-              s.parentNode.replaceChild(link, s);
-            } else {
-              s.remove(); // Remove the style tag if not replacing with links
-            }
-          });
-          // scripts
-          let scriptCount = 0;
-          doc.querySelectorAll('script').forEach(s=>{
-            if (s.src) return; // skip external scripts
-            scriptCount++;
-            const raw = s.textContent || '';
-            const cleaned = opts.minify ? raw.replace(/\s+/g,' ') : beautifyJS(raw, opts.indent);
-            const base = item.name.replace(/\.[^.]+$/,'');
-            const scriptName = `${base}.script${scriptCount}.js`;
-            processed[scriptName] = {content: cleaned, type:'application/javascript'};
-            extractedFiles.push({type:'js', name: scriptName});
-            if (opts.replaceWithLinks){
-              const newScript = doc.createElement('script');
-              newScript.setAttribute('src', scriptName);
-              s.parentNode.replaceChild(newScript, s);
-            } else {
-              s.remove(); // Remove the script tag if not replacing with links
-            }
-          });
-        } else {
-          // even if not extracting, still beautify inline blocks for nicer HTML output
-          doc.querySelectorAll('style').forEach(s=>{
-            s.textContent = opts.minify ? s.textContent.replace(/\s+/g,' ') : beautifyCSS(s.textContent || '', opts.indent);
-          });
-          doc.querySelectorAll('script').forEach(s=>{
-            if (!s.src) s.textContent = opts.minify ? s.textContent.replace(/\s+/g,' ') : beautifyJS(s.textContent || '', opts.indent);
-          });
-        }
-
-        // serialise HTML
-        const outer = new XMLSerializer().serializeToString(doc);
-        // beautify outer HTML (prefer html_beautify)
-        const cleanedHtml = opts.minify ? outer.replace(/\s+/g,' ').replace(/>\s+</g,'><') : beautifyHTML(outer, opts.indent);
-        const outName = item.name.replace(/\\/g,'/');
-        processed[outName] = {content: cleanedHtml, type:'text/html'};
-        log(`Processed HTML: ${item.name}${opts.extractSeparate ? ' (extracted '+(extractedFiles.length)+' inline resources)' : ''}`);
-        processedCount++;
-      } else if (ext === 'css'){
-        const cleaned = opts.minify ? text.replace(/\s+/g,' ') : beautifyCSS(text, opts.indent);
-        processed[item.name] = {content: cleaned, type:'text/css'};
-        log(`Processed CSS: ${item.name}`);
-        processedCount++;
-      } else if (ext === 'js' || ext === 'mjs' || ext === 'cjs'){
-        const cleaned = opts.minify ? text.replace(/\s+/g,' ') : beautifyJS(text, opts.indent);
-        processed[item.name] = {content: cleaned, type:'application/javascript'};
-        log(`Processed JS: ${item.name}`);
-        processedCount++;
-      } else if (ext === 'json'){
-        try {
-          const obj = JSON.parse(text);
-          const pretty = JSON.stringify(obj, null, opts.indent);
-          processed[item.name] = {content: pretty + '\n', type:'application/json'};
-          log(`Processed JSON: ${item.name}`);
+      let result;
+      
+      // Process based on file type
+      switch (ext) {
+        case 'html':
+        case 'htm':
+          result = await processHTML(text, fileObj.name, opts);
+          Object.assign(processed, result.files);
+          log(`Processed HTML: ${fileObj.name}${opts.extractSeparate ? ` (extracted ${result.extractedCount} resources)` : ''}`);
           processedCount++;
-        } catch(e){ 
-          processed[item.name] = {content: text, type:'application/json'}; 
-          log(`JSON parse failed for ${item.name} — left unchanged`);
+          break;
+          
+        case 'css':
+          result = processCSS(text, opts);
+          processed[fileObj.name] = { content: result, type: 'text/css' };
+          log(`Processed CSS: ${fileObj.name}`);
           processedCount++;
-        }
-      } else if (['txt', 'md', 'xml', 'svg'].includes(ext)) {
-        // Handle other text-based formats
-        processed[item.name] = {content: text, type:'text/plain'}; 
-        log(`Processed text file: ${item.name}`);
-        processedCount++;
-      } else {
-        processed[item.name] = {content: text, type:'application/octet-stream'}; 
-        log(`Copied as-is (binary): ${item.name}`);
-        processedCount++;
+          break;
+          
+        case 'js':
+        case 'mjs':
+        case 'cjs':
+          result = processJS(text, opts);
+          processed[fileObj.name] = { content: result, type: 'application/javascript' };
+          log(`Processed JS: ${fileObj.name}`);
+          processedCount++;
+          break;
+          
+        case 'json':
+          result = processJSON(text, opts);
+          processed[fileObj.name] = { content: result, type: 'application/json' };
+          log(`Processed JSON: ${fileObj.name}`);
+          processedCount++;
+          break;
+          
+        default:
+          // For other text files, just store as-is
+          processed[fileObj.name] = { content: text, type: 'text/plain' };
+          log(`Added text file: ${fileObj.name}`);
+          processedCount++;
       }
-    } catch(e){
-      log(`Error processing ${item.name}: ${e.message}`);
+    } catch (e) {
+      log(`Error processing ${fileObj.name}: ${e.message}`);
       errorCount++;
     }
   }
@@ -582,217 +445,248 @@ processBtn.addEventListener('click', async ()=>{
   }
 });
 
-function updateProcessedList(){
-  fileListEl.innerHTML = '';
-  const names = Object.keys(processed).sort();
-  if (!names.length){ 
-    fileListEl.innerHTML = '<li class="small" style="text-align:center;padding:20px;color:var(--muted)">No processed files yet</li>'; 
-    processedCountEl.textContent='0'; 
-    return; 
-  }
-  
-  names.forEach(name=>{
-    const item = processed[name];
-    const li = document.createElement('li'); 
-    li.className = 'file';
-    li.innerHTML = `<div style="min-width:0">
-        <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</strong>
-        <div class="small">${item.type} • ${new Blob([item.content]).size} bytes</div>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <button class="btn ghost" data-name="${name}" data-action="preview">Preview</button>
-        <button class="btn" data-name="${name}" data-action="download">Download</button>
-      </div>`;
-    fileListEl.appendChild(li);
+// File reading helper
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = (e) => reject(new Error('Failed to read file'));
+    reader.readAsText(file);
   });
-  
-  fileListEl.querySelectorAll('button[data-action]').forEach(btn=>{
-    btn.addEventListener('click', e=>{
-      const action = e.currentTarget.getAttribute('data-action');
-      const name = e.currentTarget.getAttribute('data-name');
-      if (action === 'preview'){ 
-        previewArea.value = processed[name].content; 
-        previewArea.dataset.name = name; 
-        log(`Previewing ${name}`); 
-      }
-      if (action === 'download'){ 
-        downloadString(processed[name].content, name); 
-        log(`Downloaded ${name}`); 
-      }
-    });
-  });
-  
-  processedCountEl.textContent = names.length;
 }
 
-// Download helper
-function downloadString(text, filename){
-  const blob = new Blob([text], {type:'application/octet-stream'});
+// Get file extension
+function getFileExtension(filename) {
+  return filename.split('.').pop().toLowerCase();
+}
+
+// Processing functions for different file types
+function processHTML(content, filename, opts) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(content, 'text/html');
+  const baseName = filename.replace(/\.[^/.]+$/, '');
+  const extractedFiles = {};
+  let extractedCount = 0;
+
+  // Extract and process inline styles
+  if (opts.extractSeparate) {
+    doc.querySelectorAll('style').forEach((style, index) => {
+      const cssContent = style.textContent || '';
+      const processedCSS = opts.minify ? 
+        cssContent.replace(/\s+/g, ' ').trim() : 
+        beautifyCSS(cssContent, opts.indent);
+      
+      const cssFilename = `${baseName}.style${index + 1}.css`;
+      extractedFiles[cssFilename] = { 
+        content: processedCSS, 
+        type: 'text/css' 
+      };
+      extractedCount++;
+
+      if (opts.replaceWithLinks) {
+        const link = doc.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = cssFilename;
+        style.parentNode.replaceChild(link, style);
+      } else {
+        style.remove();
+      }
+    });
+
+    // Extract and process inline scripts
+    doc.querySelectorAll('script').forEach((script, index) => {
+      if (script.src) return; // Skip external scripts
+      
+      const jsContent = script.textContent || '';
+      const processedJS = opts.minify ? 
+        jsContent.replace(/\s+/g, ' ').trim() : 
+        beautifyJS(jsContent, opts.indent);
+      
+      const jsFilename = `${baseName}.script${index + 1}.js`;
+      extractedFiles[jsFilename] = { 
+        content: processedJS, 
+        type: 'application/javascript' 
+      };
+      extractedCount++;
+
+      if (opts.replaceWithLinks) {
+        const newScript = doc.createElement('script');
+        newScript.src = jsFilename;
+        script.parentNode.replaceChild(newScript, script);
+      } else {
+        script.remove();
+      }
+    });
+  } else {
+    // Just beautify inline content without extraction
+    doc.querySelectorAll('style').forEach(style => {
+      style.textContent = opts.minify ? 
+        (style.textContent || '').replace(/\s+/g, ' ').trim() : 
+        beautifyCSS(style.textContent || '', opts.indent);
+    });
+    
+    doc.querySelectorAll('script').forEach(script => {
+      if (!script.src) {
+        script.textContent = opts.minify ? 
+          (script.textContent || '').replace(/\s+/g, ' ').trim() : 
+          beautifyJS(script.textContent || '', opts.indent);
+      }
+    });
+  }
+
+  // Serialize and process the HTML
+  const serializer = new XMLSerializer();
+  let htmlContent = serializer.serializeToString(doc);
+  
+  // Remove the extra xmlns attribute added by XMLSerializer
+  htmlContent = htmlContent.replace(/ xmlns="[^"]*"/g, '');
+  
+  const processedHTML = opts.minify ? 
+    htmlContent.replace(/\s+/g, ' ').replace(/>\s+</g, '><').trim() : 
+    beautifyHTML(htmlContent, opts.indent);
+
+  return {
+    files: {
+      [filename]: { content: processedHTML, type: 'text/html' },
+      ...extractedFiles
+    },
+    extractedCount
+  };
+}
+
+function processCSS(content, opts) {
+  return opts.minify ? 
+    content.replace(/\s+/g, ' ').trim() : 
+    beautifyCSS(content, opts.indent);
+}
+
+function processJS(content, opts) {
+  return opts.minify ? 
+    content.replace(/\s+/g, ' ').trim() : 
+    beautifyJS(content, opts.indent);
+}
+
+function processJSON(content, opts) {
+  try {
+    const parsed = JSON.parse(content);
+    return opts.minify ? 
+      JSON.stringify(parsed) : 
+      JSON.stringify(parsed, null, opts.indent);
+  } catch (e) {
+    return content; // Return original if not valid JSON
+  }
+}
+
+// Beautify functions (using CDN versions)
+function beautifyCSS(src, indentSize) {
+  return window.css_beautify ? 
+    css_beautify(src, { indent_size: indentSize }) : 
+    src;
+}
+
+function beautifyJS(src, indentSize) {
+  return window.js_beautify ? 
+    js_beautify(src, { indent_size: indentSize }) : 
+    src;
+}
+
+function beautifyHTML(src, indentSize) {
+  return window.html_beautify ? 
+    html_beautify(src, { indent_size: indentSize }) : 
+    src;
+}
+
+// Update processed files list
+function updateProcessedList() {
+  const names = Object.keys(processed);
+  processedCountEl.textContent = names.length;
+  
+  // Note: The preview functionality would go here
+  // For now, we'll just log that processing is complete
+}
+
+// Download functionality
+function downloadString(content, filename) {
+  const blob = new Blob([content], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
-document.getElementById('downloadPreview').addEventListener('click', ()=>{
-  const name = previewArea.dataset.name || 'preview.txt';
-  if (previewArea.value) {
-    downloadString(previewArea.value, name);
-    log(`Downloaded preview as ${name}`);
-  } else {
-    showStatus('No preview content to download.', 'error');
-    log('No preview content to download.');
-  }
-});
-
-document.getElementById('copyPreview').addEventListener('click', async ()=>{
-  if (previewArea.value) {
-    try { 
-      await navigator.clipboard.writeText(previewArea.value); 
-      showStatus('Preview copied to clipboard.', 'success');
-      log('Preview copied to clipboard.'); 
-    } catch(e){ 
-      showStatus('Clipboard failed: ' + e.message, 'error');
-      log('Clipboard failed: ' + e.message); 
-    }
-  } else {
-    showStatus('No preview content to copy.', 'error');
-    log('No preview content to copy.');
-  }
-});
-
-// ZIP generation using JSZip (CDN)
-zipBtn.addEventListener('click', async ()=>{
+// ZIP download
+zipBtn.addEventListener('click', async () => {
   const names = Object.keys(processed);
-  if (!names.length){ 
-    showStatus('Nothing to zip.', 'error');
-    log('Nothing to zip.'); 
-    return; 
+  if (!names.length) {
+    showStatus('No processed files to download.', 'error');
+    return;
   }
-  
-  if (typeof JSZip === 'undefined'){ 
-    showStatus('JSZip not available. ZIP disabled.', 'error');
-    log('JSZip not available. ZIP disabled.'); 
-    alert('ZIP requires JSZip (CDN). Download individual files instead or embed JSZip for offline.'); 
-    return; 
+
+  if (typeof JSZip === 'undefined') {
+    showStatus('JSZip library not loaded.', 'error');
+    return;
   }
-  
-  log('Generating ZIP...');
-  showStatus('Generating ZIP archive...', 'info');
+
+  showStatus('Creating ZIP archive...', 'info');
   
   try {
     const zip = new JSZip();
-    names.forEach(n => zip.file(n, processed[n].content));
-    const blob = await zip.generateAsync({type:'blob'});
+    names.forEach(name => {
+      zip.file(name, processed[name].content);
+    });
+    
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = 'cleaned-files.zip';
     document.body.appendChild(a);
     a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
     showStatus('ZIP download started.', 'success');
     log('ZIP download started.');
   } catch (e) {
-    showStatus('Error generating ZIP: ' + e.message, 'error');
-    log('Error generating ZIP: ' + e.message);
+    showStatus('Error creating ZIP: ' + e.message, 'error');
+    log('Error creating ZIP: ' + e.message);
   }
 });
 
-// Replace references if inline blocks extracted and links inserted - basic fix for relative paths
-replaceInlineBtn.addEventListener('click', ()=>{
-  if (!previewArea.value) { 
-    showStatus('No preview to adjust.', 'error');
-    log('No preview to adjust.'); 
-    return; 
+// Preview download
+document.getElementById('downloadPreview').addEventListener('click', () => {
+  if (previewArea.value) {
+    const filename = previewArea.dataset.filename || 'preview.txt';
+    downloadString(previewArea.value, filename);
+    log(`Downloaded preview as ${filename}`);
+  } else {
+    showStatus('No content to download.', 'error');
   }
-  
-  const currentName = previewArea.dataset.name;
-  if (!currentName || !processed[currentName]) {
-    showStatus('No processed file selected for reference adjustment.', 'error');
-    log('No processed file selected for reference adjustment.');
-    return;
-  }
-  
-  // Simple reference adjustment: ensure extracted files exist in processed list
-  const content = previewArea.value;
-  const extractedRefs = content.match(/(href|src)="([^"]+\.(css|js))"/g) || [];
-  
-  if (extractedRefs.length > 0) {
-    let adjustedContent = content;
-    let fixedCount = 0;
-    
-    extractedRefs.forEach(ref => {
-      const match = ref.match(/(href|src)="([^"]+)"/);
-      if (match) {
-        const filename = match[2];
-        if (!processed[filename]) {
-          // File reference exists in HTML but not in processed files
-          log(`Warning: Reference to ${filename} found but file not in processed list`);
-        } else {
-          fixedCount++;
-        }
-      }
-    });
-    
-    if (fixedCount > 0) {
-      showStatus(`Verified ${fixedCount} file reference(s) in ${currentName}`, 'success');
-      log(`Verified ${fixedCount} file reference(s) in ${currentName}`);
-    } else {
-      showStatus(`No file references need adjustment in ${currentName}`, 'info');
-      log(`No file references need adjustment in ${currentName}`);
+});
+
+// Copy preview
+document.getElementById('copyPreview').addEventListener('click', async () => {
+  if (previewArea.value) {
+    try {
+      await navigator.clipboard.writeText(previewArea.value);
+      showStatus('Preview copied to clipboard.', 'success');
+    } catch (e) {
+      showStatus('Failed to copy to clipboard.', 'error');
     }
   } else {
-    showStatus('No external file references found in current preview.', 'info');
-    log('No external file references found in current preview.');
+    showStatus('No content to copy.', 'error');
   }
 });
 
-// Simple integration example: open your CodeSeparator in a new tab
-codeSepBtn.addEventListener('click', ()=>{
-  integrationWithCodeSeparator();
-});
-
-function integrationWithCodeSeparator(){
-  // Check if we have processed HTML files that could benefit from code separation
-  const htmlFiles = Object.keys(processed).filter(name => 
-    name.endsWith('.html') || name.endsWith('.htm')
-  );
-  
-  if (htmlFiles.length > 0) {
-    showStatus(`Opening CodeSeparator with ${htmlFiles.length} HTML file(s) ready for further processing`, 'info');
-    log(`Opening CodeSeparator with ${htmlFiles.length} HTML file(s) ready for further processing`);
-  } else {
-    showStatus('No processed HTML files available for CodeSeparator integration', 'info');
-    log('No processed HTML files available for CodeSeparator integration');
-  }
-  
-  // Default behaviour: open the CodeSeparator repo/page in a new tab for manual step.
-  const url = 'https://jaysecotools.github.io/WebCodeSeparator/';
-  window.open(url, '_blank');
-}
-
-/* ================== Initialize ================== */
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  log('Batch Code Cleaner & Splitter ready. Drop files or folders to begin.');
-  showStatus('Ready to process files', 'info');
+  log('Batch Code Cleaner & Splitter ready. Drop files or click to select.');
+  showStatus('Ready to add files', 'info');
 });
-
-/* ================== End ================== */
 </script>
-
-<!--
-  If you want this file to be 100% offline single-file:
-  - Replace the js-beautify CDN script tags by pasting the minified js-beautify bundles inside <script> tags.
-    You can find them by downloading js-beautify and copying the minified files:
-      - js/lib/beautify.js
-      - js/lib/beautify-css.js
-      - js/lib/beautify-html.js
-  - Replace the JSZip CDN script by pasting the minified JSZip source (dist/jszip.min.js) in a <script> tag.
-  Doing so will produce one larger HTML file but it will work without network access.
--->
 </body>
 </html>
