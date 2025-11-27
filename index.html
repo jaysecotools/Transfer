@@ -17,8 +17,8 @@ body{font-family:Inter,Segoe UI,system-ui,Roboto,Arial;margin:0;padding:18px;bac
 .container{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 420px;gap:14px}
 .card{background:rgba(255,255,255,0.02);padding:12px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.6)}
 h1{margin:0 0 8px 0;font-size:1.05rem}
-.drop{border:2px dashed rgba(255,255,255,0.04);padding:18px;border-radius:8px;text-align:center;color:var(--muted);cursor:pointer}
-.drop.active{border-color:rgba(124,198,255,0.5);background:rgba(124,198,255,0.05)}
+.drop{border:2px dashed rgba(255,255,255,0.04);padding:18px;border-radius:8px;text-align:center;color:var(--muted);cursor:pointer;transition:all 0.3s ease}
+.drop.active{border-color:var(--accent);background:rgba(124,198,255,0.05)}
 .btn{padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--accent);cursor:pointer;transition:all 0.2s ease}
 .btn:hover{background:rgba(124,198,255,0.1)}
 .btn:disabled{opacity:0.5;cursor:not-allowed}
@@ -38,6 +38,7 @@ textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed 
 .status.error{background:rgba(255,100,100,0.1);color:#ff6b6b;display:block}
 .status.success{background:rgba(100,255,100,0.1);color:#6bff6b;display:block}
 .file-input-label{display:inline-block;cursor:pointer}
+.file-type{font-size:0.75rem;padding:2px 6px;background:rgba(255,255,255,0.05);border-radius:4px;margin-left:8px}
 </style>
 </head>
 <body>
@@ -49,7 +50,7 @@ textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed 
       <div style="margin-top:10px" class="drop" id="dropzone">
         <div id="dropText">Drop files or folders here — or 
           <label class="btn file-input-label">
-            Choose files/folder
+            Choose files
             <input id="fileInput" type="file" multiple style="display:none" />
           </label>
         </div>
@@ -83,7 +84,7 @@ textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed 
 
     <div class="card">
       <h1>Preview & Actions</h1>
-      <div class="small">Click a file in the list to preview it. You can download individual files or generate a ZIP.</div>
+      <div class="small">Click a processed file to preview it. You can download individual files or generate a ZIP.</div>
       <textarea id="previewArea" placeholder="Select a processed file to preview..."></textarea>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button id="downloadPreview" class="btn">Download preview</button>
@@ -96,7 +97,7 @@ textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed 
   </div>
 
 <script>
-// Enhanced file handling with better browser compatibility
+// Simple and reliable file handling
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
 const fileListEl = document.getElementById('fileList');
@@ -111,10 +112,10 @@ const progressContainer = document.getElementById('progressContainer');
 const progressBar = document.getElementById('progressBar');
 const statusMessage = document.getElementById('statusMessage');
 
-let filesToProcess = []; // {name, file, path}
+let filesToProcess = []; // {name, file}
 let processed = {}; // name -> {content, type}
 
-function log(msg){ 
+function log(msg) { 
   const ts = new Date().toLocaleTimeString('en-GB'); 
   logEl.textContent += `[${ts}] ${msg}\n`; 
   logEl.scrollTop = logEl.scrollHeight; 
@@ -129,7 +130,7 @@ function updateFileCount() {
   fileCountEl.textContent = filesToProcess.length;
 }
 
-function reset(){
+function reset() {
   filesToProcess = []; 
   processed = {}; 
   fileListEl.innerHTML = ''; 
@@ -145,13 +146,15 @@ function updateProgress(percent) {
   progressBar.style.width = percent + '%';
 }
 
-// Enhanced dropzone functionality
+// SIMPLE DRAG AND DROP - This will work reliably
 dropzone.addEventListener('dragover', (e) => {
   e.preventDefault();
   dropzone.classList.add('active');
 });
 
 dropzone.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  // Only remove active class if we're actually leaving the dropzone
   if (!dropzone.contains(e.relatedTarget)) {
     dropzone.classList.remove('active');
   }
@@ -161,133 +164,65 @@ dropzone.addEventListener('drop', (e) => {
   e.preventDefault();
   dropzone.classList.remove('active');
   
-  const items = e.dataTransfer.items;
   const files = e.dataTransfer.files;
-  
-  if (items && items.length > 0) {
-    handleDataTransferItems(items);
-  } else if (files && files.length > 0) {
+  if (files && files.length > 0) {
     handleFileList(files);
   } else {
     showStatus('No files were dropped', 'error');
   }
 });
 
-// Handle both files and directories from drag & drop
-async function handleDataTransferItems(items) {
-  let fileCount = 0;
-  
-  for (const item of items) {
-    const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
-    
-    if (entry) {
-      if (entry.isFile) {
-        const file = await getFileFromEntry(entry);
-        if (file) {
-          filesToProcess.push({
-            name: file.name,
-            file: file,
-            path: entry.fullPath || file.name
-          });
-          fileCount++;
-        }
-      } else if (entry.isDirectory) {
-        const files = await readDirectory(entry);
-        files.forEach(file => {
-          filesToProcess.push(file);
-          fileCount++;
-        });
-      }
-    } else {
-      // Fallback for non-webkit browsers
-      const file = item.getAsFile();
-      if (file) {
-        filesToProcess.push({
-          name: file.name,
-          file: file,
-          path: file.name
-        });
-        fileCount++;
-      }
-    }
-  }
-  
-  if (fileCount > 0) {
-    renderFileList();
-    showStatus(`Added ${fileCount} file(s)`, 'success');
-    log(`Added ${fileCount} file(s) via drag & drop`);
-  }
-}
-
-// Get file from file system entry
-function getFileFromEntry(entry) {
-  return new Promise((resolve) => {
-    entry.file(file => {
-      resolve(file);
-    });
-  });
-}
-
-// Read directory recursively
-async function readDirectory(directoryEntry) {
-  const files = [];
-  const reader = directoryEntry.createReader();
-  
-  return new Promise((resolve) => {
-    reader.readEntries(async (entries) => {
-      for (const entry of entries) {
-        if (entry.isFile) {
-          const file = await getFileFromEntry(entry);
-          files.push({
-            name: file.name,
-            file: file,
-            path: entry.fullPath || file.name
-          });
-        } else if (entry.isDirectory) {
-          const subFiles = await readDirectory(entry);
-          files.push(...subFiles);
-        }
-      }
-      resolve(files);
-    });
-  });
-}
-
-// Handle file input change
+// File input change handler
 fileInput.addEventListener('change', (e) => {
   if (e.target.files.length > 0) {
     handleFileList(e.target.files);
-    // Reset the input so the same file can be selected again
+    // Reset input to allow selecting same files again
     fileInput.value = '';
   }
 });
 
-// Handle file list from input or simple drag & drop
+// Handle file list - SIMPLE AND RELIABLE
 function handleFileList(fileList) {
   let addedCount = 0;
+  let skippedCount = 0;
   
   for (let i = 0; i < fileList.length; i++) {
     const file = fileList[i];
     
-    // Accept all file types for now, filter during processing
-    filesToProcess.push({
-      name: file.name,
-      file: file,
-      path: file.webkitRelativePath || file.name
-    });
-    addedCount++;
+    // Check if file is already in the list
+    const isDuplicate = filesToProcess.some(f => 
+      f.name === file.name && f.size === file.size
+    );
+    
+    if (!isDuplicate) {
+      filesToProcess.push({
+        name: file.name,
+        file: file,
+        size: file.size,
+        type: file.type
+      });
+      addedCount++;
+    } else {
+      skippedCount++;
+    }
   }
   
   if (addedCount > 0) {
     renderFileList();
-    showStatus(`Added ${addedCount} file(s)`, 'success');
+    let statusMsg = `Added ${addedCount} file(s)`;
+    if (skippedCount > 0) {
+      statusMsg += `, skipped ${skippedCount} duplicate(s)`;
+    }
+    showStatus(statusMsg, 'success');
     log(`Added ${addedCount} file(s)`);
+  } else if (skippedCount > 0) {
+    showStatus(`All ${skippedCount} files were duplicates`, 'info');
   } else {
     showStatus('No files were added', 'error');
   }
 }
 
-// Render the file list
+// Render file list
 function renderFileList() {
   fileListEl.innerHTML = '';
   updateFileCount();
@@ -300,10 +235,17 @@ function renderFileList() {
   filesToProcess.forEach((fileObj, index) => {
     const li = document.createElement('li');
     li.className = 'file';
+    
+    const fileExt = getFileExtension(fileObj.name);
+    const displayType = getDisplayType(fileExt);
+    
     li.innerHTML = `
       <div style="min-width:0;flex:1">
-        <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fileObj.name}</strong>
-        <div class="small">${fileObj.path} • ${formatFileSize(fileObj.file.size)}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fileObj.name}</strong>
+          <span class="file-type">${displayType}</span>
+        </div>
+        <div class="small">${formatFileSize(fileObj.size)}</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="btn ghost remove-btn" data-index="${index}" title="Remove">×</button>
@@ -325,7 +267,23 @@ function renderFileList() {
   });
 }
 
-// Format file size for display
+// Helper functions
+function getFileExtension(filename) {
+  return filename.split('.').pop().toLowerCase();
+}
+
+function getDisplayType(ext) {
+  const types = {
+    'html': 'HTML', 'htm': 'HTML',
+    'css': 'CSS',
+    'js': 'JS', 'mjs': 'JS', 'cjs': 'JS',
+    'json': 'JSON',
+    'txt': 'TXT', 'md': 'MD',
+    'xml': 'XML', 'svg': 'SVG'
+  };
+  return types[ext] || ext.toUpperCase();
+}
+
 function formatFileSize(bytes) {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
@@ -334,7 +292,7 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// Clear button functionality
+// Clear button
 clearBtn.addEventListener('click', () => {
   if (filesToProcess.length > 0 || Object.keys(processed).length > 0) {
     if (confirm('Clear all files and processing results?')) {
@@ -346,7 +304,7 @@ clearBtn.addEventListener('click', () => {
   }
 });
 
-// Process files button
+// Process files
 processBtn.addEventListener('click', async () => {
   if (!filesToProcess.length) {
     showStatus('No files to process.', 'error');
@@ -386,15 +344,17 @@ processBtn.addEventListener('click', async () => {
       switch (ext) {
         case 'html':
         case 'htm':
-          result = await processHTML(text, fileObj.name, opts);
+          result = processHTML(text, fileObj.name, opts);
           Object.assign(processed, result.files);
           log(`Processed HTML: ${fileObj.name}${opts.extractSeparate ? ` (extracted ${result.extractedCount} resources)` : ''}`);
           processedCount++;
           break;
           
         case 'css':
-          result = processCSS(text, opts);
-          processed[fileObj.name] = { content: result, type: 'text/css' };
+          processed[fileObj.name] = { 
+            content: processCSS(text, opts), 
+            type: 'text/css' 
+          };
           log(`Processed CSS: ${fileObj.name}`);
           processedCount++;
           break;
@@ -402,22 +362,29 @@ processBtn.addEventListener('click', async () => {
         case 'js':
         case 'mjs':
         case 'cjs':
-          result = processJS(text, opts);
-          processed[fileObj.name] = { content: result, type: 'application/javascript' };
+          processed[fileObj.name] = { 
+            content: processJS(text, opts), 
+            type: 'application/javascript' 
+          };
           log(`Processed JS: ${fileObj.name}`);
           processedCount++;
           break;
           
         case 'json':
-          result = processJSON(text, opts);
-          processed[fileObj.name] = { content: result, type: 'application/json' };
+          processed[fileObj.name] = { 
+            content: processJSON(text, opts), 
+            type: 'application/json' 
+          };
           log(`Processed JSON: ${fileObj.name}`);
           processedCount++;
           break;
           
         default:
           // For other text files, just store as-is
-          processed[fileObj.name] = { content: text, type: 'text/plain' };
+          processed[fileObj.name] = { 
+            content: text, 
+            type: 'text/plain' 
+          };
           log(`Added text file: ${fileObj.name}`);
           processedCount++;
       }
@@ -455,12 +422,7 @@ function readFileAsText(file) {
   });
 }
 
-// Get file extension
-function getFileExtension(filename) {
-  return filename.split('.').pop().toLowerCase();
-}
-
-// Processing functions for different file types
+// Processing functions
 function processHTML(content, filename, opts) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(content, 'text/html');
@@ -473,7 +435,7 @@ function processHTML(content, filename, opts) {
     doc.querySelectorAll('style').forEach((style, index) => {
       const cssContent = style.textContent || '';
       const processedCSS = opts.minify ? 
-        cssContent.replace(/\s+/g, ' ').trim() : 
+        minifyCSS(cssContent) : 
         beautifyCSS(cssContent, opts.indent);
       
       const cssFilename = `${baseName}.style${index + 1}.css`;
@@ -499,7 +461,7 @@ function processHTML(content, filename, opts) {
       
       const jsContent = script.textContent || '';
       const processedJS = opts.minify ? 
-        jsContent.replace(/\s+/g, ' ').trim() : 
+        minifyJS(jsContent) : 
         beautifyJS(jsContent, opts.indent);
       
       const jsFilename = `${baseName}.script${index + 1}.js`;
@@ -521,28 +483,28 @@ function processHTML(content, filename, opts) {
     // Just beautify inline content without extraction
     doc.querySelectorAll('style').forEach(style => {
       style.textContent = opts.minify ? 
-        (style.textContent || '').replace(/\s+/g, ' ').trim() : 
+        minifyCSS(style.textContent || '') : 
         beautifyCSS(style.textContent || '', opts.indent);
     });
     
     doc.querySelectorAll('script').forEach(script => {
       if (!script.src) {
         script.textContent = opts.minify ? 
-          (script.textContent || '').replace(/\s+/g, ' ').trim() : 
+          minifyJS(script.textContent || '') : 
           beautifyJS(script.textContent || '', opts.indent);
       }
     });
   }
 
-  // Serialize and process the HTML
+  // Serialize HTML
   const serializer = new XMLSerializer();
   let htmlContent = serializer.serializeToString(doc);
   
-  // Remove the extra xmlns attribute added by XMLSerializer
+  // Clean up the HTML
   htmlContent = htmlContent.replace(/ xmlns="[^"]*"/g, '');
   
   const processedHTML = opts.minify ? 
-    htmlContent.replace(/\s+/g, ' ').replace(/>\s+</g, '><').trim() : 
+    minifyHTML(htmlContent) : 
     beautifyHTML(htmlContent, opts.indent);
 
   return {
@@ -556,13 +518,13 @@ function processHTML(content, filename, opts) {
 
 function processCSS(content, opts) {
   return opts.minify ? 
-    content.replace(/\s+/g, ' ').trim() : 
+    minifyCSS(content) : 
     beautifyCSS(content, opts.indent);
 }
 
 function processJS(content, opts) {
   return opts.minify ? 
-    content.replace(/\s+/g, ' ').trim() : 
+    minifyJS(content) : 
     beautifyJS(content, opts.indent);
 }
 
@@ -577,7 +539,33 @@ function processJSON(content, opts) {
   }
 }
 
-// Beautify functions (using CDN versions)
+// Minification functions
+function minifyHTML(content) {
+  return content
+    .replace(/\s+/g, ' ')
+    .replace(/>\s+</g, '><')
+    .trim();
+}
+
+function minifyCSS(content) {
+  return content
+    .replace(/\/\*[\s\S]*?\*\//g, '') // Remove comments
+    .replace(/\s+/g, ' ')
+    .replace(/\s*([{:;,])\s*/g, '$1')
+    .replace(/;}/g, '}')
+    .trim();
+}
+
+function minifyJS(content) {
+  return content
+    .replace(/\/\/[^\n]*/g, '') // Remove single-line comments
+    .replace(/\/\*[\s\S]*?\*\//g, '') // Remove multi-line comments
+    .replace(/\s+/g, ' ')
+    .replace(/\s*([=+\-*/(),{}:;])\s*/g, '$1')
+    .trim();
+}
+
+// Beautify functions
 function beautifyCSS(src, indentSize) {
   return window.css_beautify ? 
     css_beautify(src, { indent_size: indentSize }) : 
@@ -601,8 +589,8 @@ function updateProcessedList() {
   const names = Object.keys(processed);
   processedCountEl.textContent = names.length;
   
-  // Note: The preview functionality would go here
-  // For now, we'll just log that processing is complete
+  // For now, just update the count
+  // You can add preview functionality here later
 }
 
 // Download functionality
@@ -660,7 +648,7 @@ zipBtn.addEventListener('click', async () => {
 // Preview download
 document.getElementById('downloadPreview').addEventListener('click', () => {
   if (previewArea.value) {
-    const filename = previewArea.dataset.filename || 'preview.txt';
+    const filename = 'preview.txt';
     downloadString(previewArea.value, filename);
     log(`Downloaded preview as ${filename}`);
   } else {
@@ -686,6 +674,9 @@ document.getElementById('copyPreview').addEventListener('click', async () => {
 document.addEventListener('DOMContentLoaded', () => {
   log('Batch Code Cleaner & Splitter ready. Drop files or click to select.');
   showStatus('Ready to add files', 'info');
+  
+  // Test that drag and drop is working
+  console.log('Drag and drop initialized');
 });
 </script>
 </body>
