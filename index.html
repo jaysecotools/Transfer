@@ -1,116 +1,659 @@
-1) Small bugfix — removal log uses wrong index
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Batch Code Cleaner & Splitter — Jay's Tools</title>
+<meta name="description" content="Clean, beautify, split inline CSS/JS and download files or ZIP. Drop files or folders.">
+<!--
+  NOTES:
+  - Uses CDN for js-beautify and JSZip for convenience and robustness.
+  - To make this fully offline single-file, replace the two script tags below by pasting
+    the minified source of js-beautify and JSZip into <script> blocks (search for "EMBED HERE" comments).
+-->
+<script src="https://cdn.jsdelivr.net/npm/js-beautify@1.14.7/js/lib/beautify.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/js-beautify@1.14.7/js/lib/beautify-css.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/js-beautify@1.14.7/js/lib/beautify-html.js"></script>
 
-You splice the array then log using the same index; the log may show unknown. Swap the order or capture the name first:
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.0/dist/jszip.min.js"></script>
 
-// replace current remove handler in renderFileList
-b.addEventListener('click', e=>{
-  const idx = parseInt(e.currentTarget.getAttribute('data-idx'),10);
-  const removedName = filesToProcess[idx]?.name;
-  filesToProcess.splice(idx,1);
-  renderFileList();
-  log(`Removed file: ${removedName || 'unknown'}`);
-});
+<style>
+:root{--bg:#04101a;--panel:#071229;--muted:#9aa6b2;--accent:#7cc6ff;}
+*{box-sizing:border-box}
+body{font-family:Inter,Segoe UI,system-ui,Roboto,Arial;margin:0;padding:18px;background:linear-gradient(180deg,#031017,#04101a);color:#e6eef6}
+.container{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 420px;gap:14px}
+.card{background:rgba(255,255,255,0.02);padding:12px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.6)}
+h1{margin:0 0 8px 0;font-size:1.05rem}
+.drop{border:2px dashed rgba(255,255,255,0.04);padding:18px;border-radius:8px;text-align:center;color:var(--muted);cursor:pointer}
+.btn{padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--accent);cursor:pointer}
+.btn.ghost{color:var(--muted);border-color:rgba(255,255,255,0.03)}
+.opts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:0.9rem}
+ul.files{list-style:none;padding:0;margin:8px 0 0 0;max-height:56vh;overflow:auto}
+li.file{padding:8px;border-radius:6px;background:rgba(255,255,255,0.01);margin-bottom:6px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.small{font-size:0.85rem;color:var(--muted)}
+textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed rgba(255,255,255,0.03);background:rgba(255,255,255,0.02);color:inherit;font-family:ui-monospace,Menlo,monospace}
+.controls{display:flex;gap:8px;align-items:center;margin-top:8px}
+@media (max-width:980px){.container{grid-template-columns:1fr}.card{padding:10px}}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.progress{display:none;margin-top:10px;padding:8px;background:rgba(255,255,255,0.02);border-radius:6px}
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Batch Code Cleaner & Splitter</h1>
+      <div class="small">Drop files or choose a folder. HTML/CSS/JS/JSON/TXT supported. Inline &lt;style&gt; and &lt;script&gt; can be extracted into separate cleaned files.</div>
 
-2) Prefer outerHTML rather than XMLSerializer for HTML output
+      <div style="margin-top:10px" class="drop" id="dropzone">
+        <div id="dropText">Drop files or folders here — or <label class="btn" for="fileInput" style="display:inline-block;cursor:pointer">Choose files/folder</label></div>
+        <input id="fileInput" type="file" webkitdirectory multiple style="display:none" />
+      </div>
 
-XMLSerializer().serializeToString(doc) can produce XHTML-ish output or different escaping. Using doc.documentElement.outerHTML is more predictable in browsers:
+      <div class="opts" style="margin-top:10px">
+        <label><input id="extractSeparate" type="checkbox"> Extract inline &lt;style&gt; &lt;script&gt; into separate files</label>
+        <label><input id="replaceWithLinks" type="checkbox" checked> Replace inline blocks in cleaned HTML with external link/script tags</label>
+        <label><input id="minifyOutput" type="checkbox"> Minify output</label>
+        <label>Indent size: <input id="indentSize" type="number" value="2" min="0" max="8" style="width:64px"></label>
+      </div>
 
-// instead of:
-// const outer = new XMLSerializer().serializeToString(doc);
-// use:
-const outer = doc.documentElement ? doc.documentElement.outerHTML : new XMLSerializer().serializeToString(doc);
+      <div id="progressWrap" class="progress small">
+        Progress: <span id="prog">0</span>/<span id="total">0</span>
+      </div>
 
-3) Handle duplicate extracted filenames robustly
+      <div style="margin-top:12px" class="meta">
+        <div>
+          <button id="processBtn" class="btn">Process files</button>
+          <button id="clearBtn" class="btn ghost">Clear list</button>
+          <button id="zipBtn" class="btn">Download all (ZIP)</button>
+        </div>
+        <div class="small">Processed: <span id="processedCount">0</span></div>
+      </div>
 
-When extracting inline styles/scripts, append an incrementing suffix if the same name already exists in processed:
+      <h2 style="margin-top:12px;font-size:0.95rem">Files</h2>
+      <ul id="fileList" class="files"></ul>
 
-function uniqueName(base, ext){
+      <div style="margin-top:10px" class="small">Integration: <button id="codeSepBtn" class="btn ghost">Open CodeSeparator</button> — or integrate by replacing <code>integrationWithCodeSeparator()</code> below.</div>
+    </div>
+
+    <div class="card">
+      <h1>Preview & Actions</h1>
+      <div class="small">Click a file in the list to preview it. You can download individual files or generate a ZIP.</div>
+      <textarea id="previewArea" placeholder="Select a processed file to preview..."></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="downloadPreview" class="btn">Download preview</button>
+        <button id="copyPreview" class="btn ghost">Copy preview</button>
+        <button id="replaceInlineBtn" class="btn ghost" title="Replace inline resources by downloaded files (if extracted)">Ensure references</button>
+      </div>
+
+      <div style="margin-top:12px" class="small">Log</div>
+      <pre id="log" style="background:rgba(255,255,255,0.02);padding:8px;border-radius:6px;height:140px;overflow:auto;color:var(--muted)"></pre>
+    </div>
+  </div>
+
+<script>
+/* ================== Utilities & Formatters ==================
+ - Uses js-beautify (provided by CDN above) when available.
+ - Falls back to conservative formatters if not available.
+ - Uses JSZip via CDN for ZIP generation; see comments for making offline.
+*/
+
+// Fallback CSS/JS/HTML beautifiers (conservative) if js-beautify is not available
+function simpleCssBeautify(src, indentSize=2){
+  const IND = ' '.repeat(indentSize);
+  // naive split rules
+  let out='', level=0;
+  src.replace(/\r/g,'').split('}').forEach((chunk, idx, arr)=>{
+    if (!chunk.trim()) return;
+    const parts = chunk.split('{');
+    const selector = parts[0].trim();
+    const body = (parts[1]||'').trim();
+    out += selector + ' {\n';
+    body.split(';').map(s=>s.trim()).filter(Boolean).forEach(line=>{
+      out += IND + line + ';\n';
+    });
+    out += '}\n\n';
+  });
+  return out.trim() + '\n';
+}
+function simpleJsBeautify(src, indentSize=2){
+  // very conservative fallback: add newlines after semicolons and braces
+  const IND = ' '.repeat(indentSize);
+  let out = src.replace(/\r/g,'').replace(/([{};])/g,'$1\n').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+    // maintain indentation for braces
+    if (l.endsWith('{')) return l;
+    if (l === '}') return l;
+    return IND + l;
+  }).join('\n') + '\n';
+  return out;
+}
+function simpleHtmlBeautify(src, indent=2){
+  // wrap in parser then use a simple serializer similar to earlier tool
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(src, 'text/html');
+  function ser(node, depth){
+    const pad = ' '.repeat(depth*indent);
+    if (node.nodeType === Node.TEXT_NODE){
+      const t = node.textContent.replace(/\s+/g,' ').trim();
+      if (!t) return '';
+      return pad + t + '\n';
+    }
+    if (node.nodeType === Node.COMMENT_NODE){
+      return pad + '<!--' + node.nodeValue + '-->\n';
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    const tag = node.tagName.toLowerCase();
+    const attrs = Array.from(node.attributes||[]).map(a=>`${a.name}="${a.value}"`).join(' ');
+    const open = attrs ? `<${tag} ${attrs}>` : `<${tag}>`;
+    const voidTags = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
+    if (voidTags.has(tag)) return pad + open + '\n';
+    if (node.childNodes.length === 1 && node.childNodes[0].nodeType === Node.TEXT_NODE){
+      const t = node.childNodes[0].textContent.trim();
+      return pad + open + t + `</${tag}>\n`;
+    }
+    let out = pad + open + '\n';
+    node.childNodes.forEach(ch=> out += ser(ch, depth+1));
+    out += pad + `</${tag}>\n`;
+    return out;
+  }
+  return ser(doc.documentElement, 0);
+}
+
+// Wrapper functions that prefer js-beautify if available
+function beautifyCSS(src, indentSize){
+  if (window.css_beautify) return css_beautify(src, {indent_size: indentSize});
+  return simpleCssBeautify(src, indentSize);
+}
+function beautifyJS(src, indentSize){
+  if (window.js_beautify) return js_beautify(src, {indent_size: indentSize});
+  return simpleJsBeautify(src, indentSize);
+}
+function beautifyHTML(src, indentSize){
+  if (window.html_beautify) return html_beautify(src, {indent_size: indentSize});
+  return simpleHtmlBeautify(src, indentSize);
+}
+
+// Unique filename generator
+function uniqueName(base, ext, processed){
   let name = base + ext, i = 1;
   while(processed[name]){ name = `${base}(${i})${ext}`; i++; }
   return name;
 }
-// usage
-const scriptName = uniqueName(base + '.script' + scriptCount, '.js');
 
-4) Avoid blocking UI for large files — show progress and consider a Worker
-
-Add a simple progress indicator so users know the loop is working:
-
-<div id="progressWrap" class="small" style="display:none">Progress: <span id="prog">0</span>/<span id="total">0</span></div>
-
-// before processing
-document.getElementById('progressWrap').style.display='block';
-document.getElementById('total').textContent = filesToProcess.length;
-let idx = 0;
-for(const item of filesToProcess){
-  // ... processing ...
-  idx++;
-  document.getElementById('prog').textContent = idx;
-  await new Promise(r => setTimeout(r,0)); // yield to UI thread
+// Safe path for ZIP files
+function safePath(p){ 
+  return p.replace(/\0/g,'').replace(/\.\.\//g,'').replace(/^\//,''); 
 }
-document.getElementById('progressWrap').style.display='none';
 
+/* ================== File handling & UI ================== */
 
-For heavy usage, move cleaning to a Web Worker so the UI stays responsive.
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fileListEl = document.getElementById('fileList');
+const processBtn = document.getElementById('processBtn');
+const clearBtn = document.getElementById('clearBtn');
+const zipBtn = document.getElementById('zipBtn');
+const previewArea = document.getElementById('previewArea');
+const logEl = document.getElementById('log');
+const processedCountEl = document.getElementById('processedCount');
+const codeSepBtn = document.getElementById('codeSepBtn');
+const replaceInlineBtn = document.getElementById('replaceInlineBtn');
+const progressWrap = document.getElementById('progressWrap');
+const progEl = document.getElementById('prog');
+const totalEl = document.getElementById('total');
 
-5) Improve parsing edge-cases
+let filesToProcess = []; // {name, file}
+let processed = {}; // name -> {content, type}
 
-Preserve <template> contents (they're not part of doc.body in some parsers).
+function log(msg){ const ts = new Date().toLocaleTimeString('en-GB'); logEl.textContent += `[${ts}] ${msg}\n`; logEl.scrollTop = logEl.scrollHeight; }
 
-Handle <script type="module"> and type="application/ld+json" specially (don’t try to beautify JSON-LD as JS).
+function reset(){
+  filesToProcess = []; processed = {}; fileListEl.innerHTML = ''; previewArea.value = ''; logEl.textContent = ''; processedCountEl.textContent = '0';
+  progressWrap.style.display = 'none';
+}
 
-Keep existing charset meta tags — if you reserialise HTML you might lose original <meta charset> placement.
-
-Example guard for JSON-LD:
-
-doc.querySelectorAll('script[type="application/ld+json"]').forEach(s=>{
-  try{ JSON.parse(s.textContent); /* pretty-print if wanted */ }catch(e){}
+dropzone.addEventListener('dragover', e=>{ e.preventDefault(); dropzone.style.borderColor = 'rgba(124,198,255,0.3)';});
+dropzone.addEventListener('dragleave', e=>{ dropzone.style.borderColor = 'rgba(255,255,255,0.04)';});
+dropzone.addEventListener('drop', async e=>{
+  e.preventDefault();
+  dropzone.style.borderColor = 'rgba(255,255,255,0.04)';
+  const items = e.dataTransfer.items || e.dataTransfer.files;
+  
+  // Handle folder drops (webkitGetAsEntry API)
+  if (items && items[0].webkitGetAsEntry) {
+    const entries = [];
+    for (let i = 0; i < items.length; i++) {
+      entries.push(items[i].webkitGetAsEntry());
+    }
+    await processEntries(entries);
+  } else {
+    // Fallback for files only
+    handleFileList(e.dataTransfer.files);
+  }
 });
 
-6) Safer downloads / content types
+fileInput.addEventListener('change', e=> handleFileList(e.target.files));
 
-When offering downloads, set a MIME matching the file type so OS/browser can open appropriately:
+// Process directory entries recursively
+async function processEntries(entries, path = '') {
+  for (const entry of entries) {
+    if (entry.isFile) {
+      const file = await new Promise(resolve => entry.file(resolve));
+      const fullPath = path ? `${path}/${file.name}` : file.name;
+      filesToProcess.push({name: fullPath, file});
+    } else if (entry.isDirectory) {
+      const dirReader = entry.createReader();
+      const newEntries = await new Promise(resolve => {
+        dirReader.readEntries(resolve);
+      });
+      const newPath = path ? `${path}/${entry.name}` : entry.name;
+      await processEntries(newEntries, newPath);
+    }
+  }
+  renderFileList();
+}
 
-const mime = processed[name].type || 'application/octet-stream';
-const blob = new Blob([processed[name].content], {type: mime});
+function handleFileList(fileList){
+  for (let i=0;i<fileList.length;i++){
+    const f = fileList[i];
+    const name = f.webkitRelativePath || f.name;
+    filesToProcess.push({name, file: f});
+  }
+  renderFileList();
+  log(`Added ${fileList.length} file(s).`);
+}
 
-7) Zip filename sanitisation & folder structure
+function renderFileList(){
+  fileListEl.innerHTML = '';
+  
+  if (filesToProcess.length === 0) {
+    fileListEl.innerHTML = '<li class="small" style="text-align:center;padding:20px;color:var(--muted)">No files added yet</li>';
+    return;
+  }
+  
+  filesToProcess.forEach((f, idx)=>{
+    const li = document.createElement('li'); li.className='file';
+    li.innerHTML = `<div style="min-width:0"><strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name}</strong><div class="small">${Math.round(f.file.size/1024)} KB</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn ghost" data-idx="${idx}" title="Remove">Remove</button>
+      </div>`;
+    fileListEl.appendChild(li);
+  });
+  
+  fileListEl.querySelectorAll('button[data-idx]').forEach(b=>{
+    b.addEventListener('click', e=>{
+      const idx = parseInt(e.currentTarget.getAttribute('data-idx'),10);
+      const removedName = filesToProcess[idx]?.name;
+      filesToProcess.splice(idx,1);
+      renderFileList();
+      log(`Removed file: ${removedName || 'unknown'}`);
+    });
+  });
+}
 
-Sanitise names and optionally keep original folder paths (you already do fullPath for folder drops — keep it in ZIP). Strip any leading ../ or null bytes.
+clearBtn.addEventListener('click', ()=> {
+  if (filesToProcess.length > 0 || Object.keys(processed).length > 0) {
+    if (confirm('Clear all files and processing results?')) {
+      reset();
+      log('Cleared all files and results.');
+    }
+  } else {
+    reset();
+  }
+});
 
-function safePath(p){ return p.replace(/\0/g,'').replace(/\.\.\//g,'').replace(/^\//,''); }
-zip.file(safePath(n), processed[n].content);
+processBtn.addEventListener('click', async ()=>{
+  if (!filesToProcess.length){ log('No files to process.'); return; }
+  log('Processing files...');
+  processed = {};
+  const opts = {
+    extractSeparate: document.getElementById('extractSeparate').checked,
+    replaceWithLinks: document.getElementById('replaceWithLinks').checked,
+    minify: document.getElementById('minifyOutput').checked,
+    indent: parseInt(document.getElementById('indentSize').value,10) || 2
+  };
+  
+  // Show progress
+  progressWrap.style.display = 'block';
+  totalEl.textContent = filesToProcess.length;
+  progEl.textContent = '0';
+  
+  let processedCount = 0;
+  let errorCount = 0;
+  let idx = 0;
+  
+  for (const item of filesToProcess){
+    try {
+      const text = await item.file.text();
+      const ext = (item.name.split('.').pop()||'').toLowerCase();
+      
+      if (['html','htm'].includes(ext)){
+        // process HTML: beautify and optionally extract inline blocks
+        const docParser = new DOMParser();
+        const doc = docParser.parseFromString(text,'text/html');
 
-8) UX niceties to add (low effort, high payoff)
+        // Handle template contents
+        doc.querySelectorAll('template').forEach(template => {
+          // Template content is in a separate document fragment
+          // We'll preserve it as-is for now
+        });
 
-Progress spinner + per-file success/error icons in the file list.
+        // Handle JSON-LD scripts specially
+        doc.querySelectorAll('script[type="application/ld+json"]').forEach(s=>{
+          try{ 
+            const obj = JSON.parse(s.textContent);
+            if (!opts.minify) {
+              s.textContent = JSON.stringify(obj, null, opts.indent);
+            }
+          }catch(e){
+            // Leave as-is if not valid JSON
+          }
+        });
 
-Toggle to preserve BOM for UTF-8 files.
+        // extract inline styles/scripts if requested
+        const extractedFiles = [];
+        if (opts.extractSeparate){
+          // styles
+          let styleCount = 0;
+          doc.querySelectorAll('style').forEach(s=>{
+            styleCount++;
+            const raw = s.textContent || '';
+            const cleaned = opts.minify ? raw.replace(/\s+/g,' ') : beautifyCSS(raw, opts.indent);
+            const base = item.name.replace(/\.[^.]+$/,'');
+            const styleName = uniqueName(`${base}.style${styleCount}`, '.css', processed);
+            processed[styleName] = {content: cleaned, type:'text/css'};
+            extractedFiles.push({type:'css', name: styleName});
+            // replace with link if requested
+            if (opts.replaceWithLinks){
+              const link = doc.createElement('link');
+              link.setAttribute('rel','stylesheet');
+              link.setAttribute('href', styleName);
+              s.parentNode.replaceChild(link, s);
+            } else {
+              s.remove(); // Remove the style tag if not replacing with links
+            }
+          });
+          // scripts (skip JSON-LD and modules)
+          let scriptCount = 0;
+          doc.querySelectorAll('script').forEach(s=>{
+            if (s.src || s.type === 'application/ld+json' || s.type === 'module') return; // skip external scripts and special types
+            scriptCount++;
+            const raw = s.textContent || '';
+            const cleaned = opts.minify ? raw.replace(/\s+/g,' ') : beautifyJS(raw, opts.indent);
+            const base = item.name.replace(/\.[^.]+$/,'');
+            const scriptName = uniqueName(`${base}.script${scriptCount}`, '.js', processed);
+            processed[scriptName] = {content: cleaned, type:'application/javascript'};
+            extractedFiles.push({type:'js', name: scriptName});
+            if (opts.replaceWithLinks){
+              const newScript = doc.createElement('script');
+              newScript.setAttribute('src', scriptName);
+              s.parentNode.replaceChild(newScript, s);
+            } else {
+              s.remove(); // Remove the script tag if not replacing with links
+            }
+          });
+        } else {
+          // even if not extracting, still beautify inline blocks for nicer HTML output
+          doc.querySelectorAll('style').forEach(s=>{
+            s.textContent = opts.minify ? s.textContent.replace(/\s+/g,' ') : beautifyCSS(s.textContent || '', opts.indent);
+          });
+          doc.querySelectorAll('script').forEach(s=>{
+            if (!s.src && s.type !== 'application/ld+json' && s.type !== 'module') {
+              s.textContent = opts.minify ? s.textContent.replace(/\s+/g,' ') : beautifyJS(s.textContent || '', opts.indent);
+            }
+          });
+        }
 
-Option to inline link rel="stylesheet" as <style> (reverse operation).
+        // serialise HTML using outerHTML for better predictability
+        const outer = doc.documentElement ? doc.documentElement.outerHTML : new XMLSerializer().serializeToString(doc);
+        // beautify outer HTML (prefer html_beautify)
+        const cleanedHtml = opts.minify ? outer.replace(/\s+/g,' ').replace(/>\s+</g,'><') : beautifyHTML(outer, opts.indent);
+        const outName = item.name.replace(/\\/g,'/');
+        processed[outName] = {content: cleanedHtml, type:'text/html'};
+        log(`Processed HTML: ${item.name}${opts.extractSeparate ? ' (extracted '+(extractedFiles.length)+' inline resources)' : ''}`);
+        processedCount++;
+      } else if (ext === 'css'){
+        const cleaned = opts.minify ? text.replace(/\s+/g,' ') : beautifyCSS(text, opts.indent);
+        processed[item.name] = {content: cleaned, type:'text/css'};
+        log(`Processed CSS: ${item.name}`);
+        processedCount++;
+      } else if (ext === 'js' || ext === 'mjs' || ext === 'cjs'){
+        const cleaned = opts.minify ? text.replace(/\s+/g,' ') : beautifyJS(text, opts.indent);
+        processed[item.name] = {content: cleaned, type:'application/javascript'};
+        log(`Processed JS: ${item.name}`);
+        processedCount++;
+      } else if (ext === 'json'){
+        try {
+          const obj = JSON.parse(text);
+          const pretty = JSON.stringify(obj, null, opts.indent);
+          processed[item.name] = {content: pretty + '\n', type:'application/json'};
+          log(`Processed JSON: ${item.name}`);
+          processedCount++;
+        } catch(e){ 
+          processed[item.name] = {content: text, type:'application/json'}; 
+          log(`JSON parse failed for ${item.name} — left unchanged`);
+          processedCount++;
+        }
+      } else if (['txt', 'md', 'xml', 'svg'].includes(ext)) {
+        // Handle other text-based formats
+        processed[item.name] = {content: text, type:'text/plain'}; 
+        log(`Processed text file: ${item.name}`);
+        processedCount++;
+      } else {
+        processed[item.name] = {content: text, type:'application/octet-stream'}; 
+        log(`Copied as-is (binary): ${item.name}`);
+        processedCount++;
+      }
+    } catch(e){
+      log(`Error processing ${item.name}: ${e.message}`);
+      errorCount++;
+    }
+    
+    // Update progress and yield to UI thread
+    idx++;
+    progEl.textContent = idx;
+    await new Promise(r => setTimeout(r, 0));
+  }
+  
+  progressWrap.style.display = 'none';
+  updateProcessedList();
+  log(`Processing complete. Success: ${processedCount}, Errors: ${errorCount}`);
+});
 
-A settings export/import so users can save preferred options (indent, minify toggle).
+function updateProcessedList(){
+  fileListEl.innerHTML = '';
+  const names = Object.keys(processed).sort();
+  if (!names.length){ 
+    fileListEl.innerHTML = '<li class="small" style="text-align:center;padding:20px;color:var(--muted)">No processed files yet</li>'; 
+    processedCountEl.textContent='0'; 
+    return; 
+  }
+  
+  names.forEach(name=>{
+    const item = processed[name];
+    const li = document.createElement('li'); 
+    li.className = 'file';
+    li.innerHTML = `<div style="min-width:0">
+        <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</strong>
+        <div class="small">${item.type} • ${new Blob([item.content]).size} bytes</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn ghost" data-name="${name}" data-action="preview">Preview</button>
+        <button class="btn" data-name="${name}" data-action="download">Download</button>
+      </div>`;
+    fileListEl.appendChild(li);
+  });
+  
+  fileListEl.querySelectorAll('button[data-action]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const action = e.currentTarget.getAttribute('data-action');
+      const name = e.currentTarget.getAttribute('data-name');
+      if (action === 'preview'){ 
+        previewArea.value = processed[name].content; 
+        previewArea.dataset.name = name; 
+        log(`Previewing ${name}`); 
+      }
+      if (action === 'download'){ 
+        downloadString(processed[name].content, name, processed[name].type); 
+        log(`Downloaded ${name}`); 
+      }
+    });
+  });
+  
+  processedCountEl.textContent = names.length;
+}
 
-Drag handle to reorder filesToProcess before processing.
+// Download helper with proper MIME types
+function downloadString(text, filename, mimeType = 'application/octet-stream'){
+  const mime = mimeType || 'application/octet-stream';
+  const blob = new Blob([text], {type: mime});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
 
-9) Offline single-file build
+document.getElementById('downloadPreview').addEventListener('click', ()=>{
+  const name = previewArea.dataset.name || 'preview.txt';
+  if (previewArea.value) {
+    const mime = processed[name]?.type || 'text/plain';
+    downloadString(previewArea.value, name, mime);
+    log(`Downloaded preview as ${name}`);
+  } else {
+    log('No preview content to download.');
+  }
+});
 
-You already documented this — 👍. To reduce bundle size but remain offline, consider:
+document.getElementById('copyPreview').addEventListener('click', async ()=>{
+  if (previewArea.value) {
+    try { 
+      await navigator.clipboard.writeText(previewArea.value); 
+      log('Preview copied to clipboard.'); 
+    } catch(e){ 
+      log('Clipboard failed: ' + e.message); 
+    }
+  } else {
+    log('No preview content to copy.');
+  }
+});
 
-Inlining only js-beautify bundles you actually call (css/js/html) and enable tree-shaking when building.
+// ZIP generation using JSZip (CDN) with safe paths
+zipBtn.addEventListener('click', async ()=>{
+  const names = Object.keys(processed);
+  if (!names.length){ log('Nothing to zip.'); return; }
+  if (typeof JSZip === 'undefined'){ 
+    log('JSZip not available. ZIP disabled.'); 
+    alert('ZIP requires JSZip (CDN). Download individual files instead or embed JSZip for offline.'); 
+    return; 
+  }
+  
+  log('Generating ZIP...');
+  try {
+    const zip = new JSZip();
+    names.forEach(n => {
+      const safeName = safePath(n);
+      const mime = processed[n].type || 'application/octet-stream';
+      zip.file(safeName, processed[n].content);
+    });
+    const blob = await zip.generateAsync({type:'blob'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'cleaned-files.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+    log('ZIP download started.');
+  } catch (e) {
+    log('Error generating ZIP: ' + e.message);
+  }
+});
 
-Optionally lazy-load JSZip only when the user clicks Download ZIP.
+// Replace references if inline blocks extracted and links inserted - basic fix for relative paths
+replaceInlineBtn.addEventListener('click', ()=>{
+  if (!previewArea.value) { 
+    log('No preview to adjust.'); 
+    return; 
+  }
+  
+  const currentName = previewArea.dataset.name;
+  if (!currentName || !processed[currentName]) {
+    log('No processed file selected for reference adjustment.');
+    return;
+  }
+  
+  // Simple reference adjustment: ensure extracted files exist in processed list
+  const content = previewArea.value;
+  const extractedRefs = content.match(/(href|src)="([^"]+\.(css|js))"/g) || [];
+  
+  if (extractedRefs.length > 0) {
+    let adjustedContent = content;
+    let fixedCount = 0;
+    
+    extractedRefs.forEach(ref => {
+      const match = ref.match(/(href|src)="([^"]+)"/);
+      if (match) {
+        const filename = match[2];
+        if (!processed[filename]) {
+          // File reference exists in HTML but not in processed files
+          log(`Warning: Reference to ${filename} found but file not in processed list`);
+        } else {
+          fixedCount++;
+        }
+      }
+    });
+    
+    if (fixedCount > 0) {
+      log(`Verified ${fixedCount} file reference(s) in ${currentName}`);
+    } else {
+      log(`No file references need adjustment in ${currentName}`);
+    }
+  } else {
+    log('No external file references found in current preview.');
+  }
+});
 
-10) Tests to run with your cleaner/beautifier
+// Simple integration example: open your CodeSeparator in a new tab
+codeSepBtn.addEventListener('click', ()=>{
+  integrationWithCodeSeparator();
+});
 
-Use these as edge cases for your splitter tool:
+function integrationWithCodeSeparator(){
+  // Check if we have processed HTML files that could benefit from code separation
+  const htmlFiles = Object.keys(processed).filter(name => 
+    name.endsWith('.html') || name.endsWith('.htm')
+  );
+  
+  if (htmlFiles.length > 0) {
+    log(`Opening CodeSeparator with ${htmlFiles.length} HTML file(s) ready for further processing`);
+  } else {
+    log('No processed HTML files available for CodeSeparator integration');
+  }
+  
+  // Default behaviour: open the CodeSeparator repo/page in a new tab for manual step.
+  const url = 'https://jaysecotools.github.io/WebCodeSeparator/';
+  window.open(url, '_blank');
+}
 
-HTML with multiple <style> tags in <head> and inline style attributes.
+/* ================== Initialize ================== */
+document.addEventListener('DOMContentLoaded', () => {
+  log('Batch Code Cleaner & Splitter ready. Drop files or folders to begin.');
+});
 
-<script> tags with <!-- --> comment wrappers (old pattern).
+/* ================== End ================== */
+</script>
 
-Minified JS that contains </script> inside a string (must not break naive parsing).
-
-SVG inlined inside HTML (preserve namespaces).
-
-Files with Windows CRLF vs Unix line endings and BOM.
+<!--
+  If you want this file to be 100% offline single-file:
+  - Replace the js-beautify CDN script tags by pasting the minified js-beautify bundles inside <script> tags.
+    You can find them by downloading js-beautify and copying the minified files:
+      - js/lib/beautify.js
+      - js/lib/beautify-css.js
+      - js/lib/beautify-html.js
+  - Replace the JSZip CDN script by pasting the minified JSZip source (dist/jszip.min.js) in a <script> tag.
+  Doing so will produce one larger HTML file but it will work without network access.
+-->
+</body>
+</html>
