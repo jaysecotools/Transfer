@@ -26,6 +26,8 @@ h1{margin:0 0 8px 0;font-size:1.05rem}
 .opts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:0.9rem}
 ul.files{list-style:none;padding:0;margin:8px 0 0 0;max-height:56vh;overflow:auto}
 li.file{padding:8px;border-radius:6px;background:rgba(255,255,255,0.01);margin-bottom:6px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+li.file.processed{cursor:pointer}
+li.file.processed:hover{background:rgba(124,198,255,0.05)}
 .small{font-size:0.85rem;color:var(--muted)}
 textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed rgba(255,255,255,0.03);background:rgba(255,255,255,0.02);color:inherit;font-family:ui-monospace,Menlo,monospace}
 .controls{display:flex;gap:8px;align-items:center;margin-top:8px}
@@ -39,6 +41,8 @@ textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed 
 .status.success{background:rgba(100,255,100,0.1);color:#6bff6b;display:block}
 .file-input-label{display:inline-block;cursor:pointer}
 .file-type{font-size:0.75rem;padding:2px 6px;background:rgba(255,255,255,0.05);border-radius:4px;margin-left:8px}
+.preview-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.preview-filename{font-family:ui-monospace,Menlo,monospace;font-size:0.9rem;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -68,6 +72,7 @@ textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed 
           <button id="processBtn" class="btn">Process files</button>
           <button id="clearBtn" class="btn ghost">Clear list</button>
           <button id="zipBtn" class="btn">Download all (ZIP)</button>
+          <button id="codeSepBtn" class="btn ghost">CodeSeparator</button>
         </div>
         <div class="small">Files: <span id="fileCount">0</span> | Processed: <span id="processedCount">0</span></div>
       </div>
@@ -80,15 +85,21 @@ textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed 
 
       <h2 style="margin-top:12px;font-size:0.95rem">Files to Process</h2>
       <ul id="fileList" class="files"></ul>
+
+      <h2 style="margin-top:12px;font-size:0.95rem">Processed Files</h2>
+      <ul id="processedList" class="files"></ul>
     </div>
 
     <div class="card">
-      <h1>Preview & Actions</h1>
+      <div class="preview-header">
+        <h1>Preview & Actions</h1>
+        <div id="previewFilename" class="preview-filename">No file selected</div>
+      </div>
       <div class="small">Click a processed file to preview it. You can download individual files or generate a ZIP.</div>
-      <textarea id="previewArea" placeholder="Select a processed file to preview..."></textarea>
+      <textarea id="previewArea" placeholder="Select a processed file to preview..." readonly></textarea>
       <div style="display:flex;gap:8px;margin-top:8px">
-        <button id="downloadPreview" class="btn">Download preview</button>
-        <button id="copyPreview" class="btn ghost">Copy preview</button>
+        <button id="downloadPreview" class="btn">Download this file</button>
+        <button id="copyPreview" class="btn ghost">Copy to clipboard</button>
       </div>
 
       <div style="margin-top:12px" class="small">Log</div>
@@ -101,10 +112,13 @@ textarea{width:100%;height:48vh;padding:8px;border-radius:6px;border:1px dashed 
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
 const fileListEl = document.getElementById('fileList');
+const processedListEl = document.getElementById('processedList');
 const processBtn = document.getElementById('processBtn');
 const clearBtn = document.getElementById('clearBtn');
 const zipBtn = document.getElementById('zipBtn');
+const codeSepBtn = document.getElementById('codeSepBtn');
 const previewArea = document.getElementById('previewArea');
+const previewFilename = document.getElementById('previewFilename');
 const logEl = document.getElementById('log');
 const fileCountEl = document.getElementById('fileCount');
 const processedCountEl = document.getElementById('processedCount');
@@ -114,6 +128,7 @@ const statusMessage = document.getElementById('statusMessage');
 
 let filesToProcess = []; // {name, file}
 let processed = {}; // name -> {content, type}
+let currentPreviewFile = null;
 
 function log(msg) { 
   const ts = new Date().toLocaleTimeString('en-GB'); 
@@ -134,7 +149,10 @@ function reset() {
   filesToProcess = []; 
   processed = {}; 
   fileListEl.innerHTML = ''; 
+  processedListEl.innerHTML = '';
   previewArea.value = ''; 
+  previewFilename.textContent = 'No file selected';
+  currentPreviewFile = null;
   logEl.textContent = ''; 
   fileCountEl.textContent = '0';
   processedCountEl.textContent = '0';
@@ -267,6 +285,82 @@ function renderFileList() {
   });
 }
 
+// Render processed files list with preview capability
+function renderProcessedList() {
+  processedListEl.innerHTML = '';
+  const names = Object.keys(processed).sort();
+  processedCountEl.textContent = names.length;
+  
+  if (names.length === 0) {
+    processedListEl.innerHTML = '<li class="small" style="text-align:center;padding:20px;color:var(--muted)">No processed files yet</li>';
+    return;
+  }
+  
+  names.forEach((name, index) => {
+    const fileData = processed[name];
+    const li = document.createElement('li');
+    li.className = 'file processed';
+    li.setAttribute('data-filename', name);
+    
+    const fileExt = getFileExtension(name);
+    const displayType = getDisplayType(fileExt);
+    const fileSize = new Blob([fileData.content]).size;
+    
+    li.innerHTML = `
+      <div style="min-width:0;flex:1">
+        <div style="display:flex;align-items:center;gap:8px">
+          <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</strong>
+          <span class="file-type">${displayType}</span>
+        </div>
+        <div class="small">${formatFileSize(fileSize)} • ${fileData.type}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn ghost download-single-btn" data-filename="${name}" title="Download this file">↓</button>
+      </div>
+    `;
+    processedListEl.appendChild(li);
+  });
+  
+  // Add event listeners for preview
+  processedListEl.querySelectorAll('.file.processed').forEach(item => {
+    item.addEventListener('click', (e) => {
+      // Don't trigger if download button was clicked
+      if (!e.target.classList.contains('download-single-btn')) {
+        const filename = item.getAttribute('data-filename');
+        previewFile(filename);
+      }
+    });
+  });
+  
+  // Add event listeners for individual file downloads
+  processedListEl.querySelectorAll('.download-single-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent triggering the preview
+      const filename = btn.getAttribute('data-filename');
+      downloadSingleFile(filename);
+    });
+  });
+}
+
+// Preview a processed file
+function previewFile(filename) {
+  if (processed[filename]) {
+    currentPreviewFile = filename;
+    previewArea.value = processed[filename].content;
+    previewFilename.textContent = filename;
+    log(`Previewing: ${filename}`);
+  }
+}
+
+// Download a single processed file
+function downloadSingleFile(filename) {
+  if (processed[filename]) {
+    downloadString(processed[filename].content, filename);
+    log(`Downloaded: ${filename}`);
+    showStatus(`Downloaded: ${filename}`, 'success');
+  }
+}
+
 // Helper functions
 function getFileExtension(filename) {
   return filename.split('.').pop().toLowerCase();
@@ -397,7 +491,7 @@ processBtn.addEventListener('click', async () => {
   // Final progress update
   updateProgress(100);
   
-  updateProcessedList();
+  renderProcessedList();
   
   // Re-enable button
   processBtn.disabled = false;
@@ -584,15 +678,6 @@ function beautifyHTML(src, indentSize) {
     src;
 }
 
-// Update processed files list
-function updateProcessedList() {
-  const names = Object.keys(processed);
-  processedCountEl.textContent = names.length;
-  
-  // For now, just update the count
-  // You can add preview functionality here later
-}
-
 // Download functionality
 function downloadString(content, filename) {
   const blob = new Blob([content], { type: 'application/octet-stream' });
@@ -647,12 +732,10 @@ zipBtn.addEventListener('click', async () => {
 
 // Preview download
 document.getElementById('downloadPreview').addEventListener('click', () => {
-  if (previewArea.value) {
-    const filename = 'preview.txt';
-    downloadString(previewArea.value, filename);
-    log(`Downloaded preview as ${filename}`);
+  if (currentPreviewFile && processed[currentPreviewFile]) {
+    downloadSingleFile(currentPreviewFile);
   } else {
-    showStatus('No content to download.', 'error');
+    showStatus('No file selected to download.', 'error');
   }
 });
 
@@ -661,22 +744,50 @@ document.getElementById('copyPreview').addEventListener('click', async () => {
   if (previewArea.value) {
     try {
       await navigator.clipboard.writeText(previewArea.value);
-      showStatus('Preview copied to clipboard.', 'success');
+      showStatus('Content copied to clipboard.', 'success');
+      log('Preview copied to clipboard.');
     } catch (e) {
       showStatus('Failed to copy to clipboard.', 'error');
+      log('Clipboard failed: ' + e.message);
     }
   } else {
     showStatus('No content to copy.', 'error');
   }
 });
 
+// CodeSeparator integration
+codeSepBtn.addEventListener('click', () => {
+  integrationWithCodeSeparator();
+});
+
+function integrationWithCodeSeparator() {
+  // Check if we have processed HTML files that could benefit from code separation
+  const htmlFiles = Object.keys(processed).filter(name => 
+    name.endsWith('.html') || name.endsWith('.htm')
+  );
+  
+  if (htmlFiles.length > 0) {
+    showStatus(`Opening CodeSeparator with ${htmlFiles.length} HTML file(s)`, 'info');
+    log(`Opening CodeSeparator with ${htmlFiles.length} HTML file(s) ready for further processing`);
+    
+    // You can enhance this to actually pass data to CodeSeparator
+    // For now, just open the tool
+    const url = 'https://jaysecotools.github.io/WebCodeSeparator/';
+    window.open(url, '_blank');
+  } else {
+    showStatus('No processed HTML files available for CodeSeparator', 'info');
+    log('No processed HTML files available for CodeSeparator integration');
+    
+    // Still open CodeSeparator but show a message
+    const url = 'https://jaysecotools.github.io/WebCodeSeparator/';
+    window.open(url, '_blank');
+  }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   log('Batch Code Cleaner & Splitter ready. Drop files or click to select.');
   showStatus('Ready to add files', 'info');
-  
-  // Test that drag and drop is working
-  console.log('Drag and drop initialized');
 });
 </script>
 </body>
