@@ -1,11 +1,1436 @@
-Looking at your code, the issue is that manually entered units (from the "Other Units" section) aren't being properly saved and loaded with the rest of the student data. Here are the key changes needed:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CIII CEM Unit Planner (Multi-Group)</title>
+  <style>
+    :root {
+      --primary-color: #2c7d4d;
+      --primary-light: #e8f5e9;
+      --secondary-color: #1565c0;
+      --accent-color: #ff9800;
+      --error-color: #d32f2f;
+      --success-color: #388e3c;
+      --warning-color: #ffa000;
+      --text-color: #333;
+      --light-gray: #f5f5f5;
+      --medium-gray: #e0e0e0;
+      --dark-gray: #757575;
+      --white: #ffffff;
+      --shadow: 0 2px 8px rgba(0,0,0,0.1);
+      --border-radius: 6px;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      color: var(--text-color);
+      background: var(--light-gray);
+      padding: 0;
+      margin: 0;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    h1, h2, h3 {
+      color: var(--primary-color);
+      margin-top: 0;
+    }
+    
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--primary-color);
+    }
+    
+    h2 {
+      font-size: 1.5rem;
+      margin-top: 2em;
+      margin-bottom: 1em;
+      padding-bottom: 0.3em;
+      border-bottom: 1px solid var(--medium-gray);
+    }
+    
+    h3 {
+      font-size: 1.2rem;
+    }
+    
+    table, th, td {
+      border: 1px solid var(--medium-gray);
+      border-collapse: collapse;
+    }
+    
+    th, td {
+      padding: 10px;
+      text-align: left;
+    }
+    
+    th {
+      background: var(--primary-color);
+      color: white;
+      font-weight: 500;
+    }
+    
+    tr:nth-child(even) {
+      background-color: var(--primary-light);
+    }
+    
+    input[type="text"],
+    input[type="number"],
+    input[type="date"],
+    select,
+    textarea {
+      padding: 8px 12px;
+      border: 1px solid var(--medium-gray);
+      border-radius: var(--border-radius);
+      font-size: 1rem;
+      transition: border 0.2s;
+    }
+    
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="date"]:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 2px rgba(44, 125, 77, 0.2);
+    }
+    
+    input[type="number"] {
+      width: 70px;
+    }
+    
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    
+    .unit-group {
+      margin-bottom: 1.5em;
+      padding: 1.5em;
+      background: var(--white);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+    }
+    
+    .group-label {
+      font-weight: 600;
+      font-size: 1.1em;
+      margin-bottom: 1em;
+      display: block;
+      color: var(--secondary-color);
+    }
+    
+    .unit-item {
+      margin-bottom: 0.8em;
+      padding: 0.5em;
+      border-left: 3px solid transparent;
+      transition: all 0.2s;
+    }
+    
+    .unit-item:hover {
+      background: var(--primary-light);
+      border-left-color: var(--primary-color);
+    }
+    
+    #validationIndicator {
+      margin-top: 1.5em;
+      font-weight: 600;
+      padding: 1em;
+      border-radius: var(--border-radius);
+      display: inline-block;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    #validationIndicator.valid {
+      color: var(--success-color);
+      background-color: rgba(56, 142, 60, 0.1);
+      border: 1px solid rgba(56, 142, 60, 0.3);
+    }
+    
+    #validationIndicator.invalid {
+      color: var(--error-color);
+      background-color: rgba(211, 47, 47, 0.1);
+      border: 1px solid rgba(211, 47, 47, 0.3);
+    }
+    
+    #validationIndicator.override {
+      color: var(--warning-color);
+      background-color: rgba(255, 160, 0, 0.1);
+      border: 1px solid rgba(255, 160, 0, 0.3);
+    }
+    
+    .export-buttons {
+      margin-top: 1.5em;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    button {
+      padding: 10px 16px;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    button:hover {
+      background-color: #236641;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button.secondary {
+      background-color: var(--secondary-color);
+    }
+    
+    button.secondary:hover {
+      background-color: #0d47a1;
+    }
+    
+    button.tertiary {
+      background-color: var(--accent-color);
+    }
+    
+    button.tertiary:hover {
+      background-color: #e68900;
+    }
+    
+    .other-unit-container {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px dashed var(--medium-gray);
+    }
+    
+    .other-unit {
+      margin-bottom: 12px;
+      padding: 12px;
+      background: var(--light-gray);
+      border-radius: var(--border-radius);
+      position: relative;
+    }
+    
+    .other-unit input[type="text"] {
+      width: 100%;
+      max-width: 400px;
+      margin-left: 5px;
+    }
+    
+    .remove-other-unit {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      background: var(--error-color);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      padding: 0;
+    }
+    
+    .remove-other-unit:hover {
+      background: #b71c1c;
+    }
+    
+    .add-other-unit {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      margin-top: 5px;
+      margin-right: 8px;
+      font-size: 0.9rem;
+    }
+    
+    .add-other-unit:hover {
+      background: #236641;
+    }
+    
+    .notes-section {
+      margin-top: 20px;
+    }
+    
+    .notes-section textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 12px;
+      box-sizing: border-box;
+      border: 1px solid var(--medium-gray);
+      border-radius: var(--border-radius);
+      font-family: inherit;
+    }
+    
+    .info-box {
+      background: var(--white);
+      padding: 20px; 
+      margin-bottom: 30px; 
+      border-radius: var(--border-radius); 
+      box-shadow: var(--shadow);
+      border-left: 4px solid var(--primary-color);
+    }
+    
+    .info-box h3 {
+      margin-top: 0;
+      color: var(--primary-color);
+    }
+    
+    .info-box ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    
+    .info-box li {
+      margin-bottom: 8px;
+    }
+    
+    .warning-box {
+      background: #fff8e1;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: var(--border-radius);
+      border-left: 4px solid var(--warning-color);
+    }
+    
+    .warning-box p {
+      font-size: 0.9em; 
+      margin: 8px 0 0;
+      color: #5d4037;
+    }
+    
+    .quarter-selector {
+      margin-left: 15px;
+      display: none;
+    }
+    
+    .quarter-selector select {
+      margin-left: 5px;
+      padding: 5px;
+    }
+    
+    .schedule-mode-selector {
+      margin: 20px 0;
+      padding: 15px;
+      background: var(--white);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    
+    .schedule-mode-selector label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+    
+    .schedule-mode-selector input[type="radio"] {
+      margin-right: 8px;
+    }
+    
+    .quarter-section {
+      background-color: var(--white);
+      border-left: 4px solid var(--secondary-color);
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+    }
+    
+    .quarter-header {
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--secondary-color);
+    }
+    
+    .duration-input {
+      display: inline;
+      margin-left: 10px;
+    }
+    
+    .quarter-total {
+      font-weight: 600;
+      margin-top: 10px;
+      color: var(--secondary-color);
+    }
+    
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    
+    /* Save/Load Section */
+    .save-load-section {
+      background: var(--white);
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      border-left: 4px solid var(--accent-color);
+    }
+    
+    .save-load-buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+    
+    .saved-students-list {
+      margin-top: 15px;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--medium-gray);
+      border-radius: var(--border-radius);
+    }
+    
+    .saved-student-item {
+      padding: 10px 15px;
+      border-bottom: 1px solid var(--medium-gray);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .saved-student-item:last-child {
+      border-bottom: none;
+    }
+    
+    .saved-student-item:hover {
+      background-color: var(--light-gray);
+    }
+    
+    .saved-student-info {
+      flex-grow: 1;
+    }
+    
+    .saved-student-name {
+      font-weight: 600;
+    }
+    
+    .saved-student-id {
+      font-size: 0.9em;
+      color: var(--dark-gray);
+    }
+    
+    .saved-student-actions {
+      display: flex;
+      gap: 5px;
+    }
+    
+    .saved-student-actions button {
+      padding: 5px 10px;
+      font-size: 0.8rem;
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        padding: 15px;
+      }
+      
+      .unit-group {
+        padding: 15px;
+      }
+      
+      .schedule-mode-selector {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .save-load-buttons {
+        flex-direction: column;
+      }
+      
+      .saved-student-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .saved-student-actions {
+        margin-top: 10px;
+        width: 100%;
+        justify-content: flex-end;
+      }
+    }
+    
+    /* Custom checkbox styling */
+    input[type="checkbox"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background-color: var(--white);
+      margin: 0;
+      font: inherit;
+      color: currentColor;
+      width: 1.15em;
+      height: 1.15em;
+      border: 0.15em solid var(--medium-gray);
+      border-radius: 0.15em;
+      transform: translateY(-0.075em);
+      display: inline-grid;
+      place-content: center;
+    }
+    
+    input[type="checkbox"]::before {
+      content: "";
+      width: 0.65em;
+      height: 0.65em;
+      transform: scale(0);
+      transition: 120ms transform ease-in-out;
+      box-shadow: inset 1em 1em var(--primary-color);
+      transform-origin: bottom left;
+      clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    }
+    
+    input[type="checkbox"]:checked::before {
+      transform: scale(1);
+    }
+    
+    input[type="checkbox"]:disabled {
+      border-color: var(--dark-gray);
+      background-color: var(--medium-gray);
+    }
+    
+    input[type="checkbox"]:disabled::before {
+      box-shadow: inset 1em 1em var(--dark-gray);
+    }
+    
+    /* Custom radio button styling */
+    input[type="radio"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background-color: var(--white);
+      margin: 0;
+      font: inherit;
+      color: currentColor;
+      width: 1.15em;
+      height: 1.15em;
+      border: 0.15em solid var(--medium-gray);
+      border-radius: 50%;
+      transform: translateY(-0.075em);
+      display: inline-grid;
+      place-content: center;
+    }
+    
+    input[type="radio"]::before {
+      content: "";
+      width: 0.65em;
+      height: 0.65em;
+      border-radius: 50%;
+      transform: scale(0);
+      transition: 120ms transform ease-in-out;
+      background-color: var(--primary-color);
+    }
+    
+    input[type="radio"]:checked::before {
+      transform: scale(1);
+    }
+    
+    /* Results styling */
+    .results-container {
+      margin-top: 30px;
+      background: var(--white);
+      padding: 20px;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+    }
+    
+    .schedule-summary {
+      background: var(--light-gray);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin-bottom: 20px;
+    }
+    
+    .notes-output {
+      background: var(--light-gray);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+    }
+    
+    .notes-output p {
+      margin: 8px 0 0;
+    }
+    
+    /* Tooltip for unit codes */
+    [data-tooltip] {
+      position: relative;
+    }
+    
+    [data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text-color);
+      color: white;
+      padding: 5px 10px;
+      border-radius: var(--border-radius);
+      font-size: 0.8rem;
+      white-space: nowrap;
+      z-index: 10;
+    }
+    
+    /* Badge for unit groups */
+    .unit-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      background: var(--medium-gray);
+      border-radius: 10px;
+      font-size: 0.8rem;
+      margin-left: 5px;
+      color: var(--text-color);
+    }
+    
+    /* Status indicators */
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 500;
+    }
+    
+    .status-indicator::before {
+      content: "";
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    
+    .status-valid::before {
+      background: var(--success-color);
+    }
+    
+    .status-invalid::before {
+      background: var(--error-color);
+    }
+    
+    .status-warning::before {
+      background: var(--warning-color);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>CIII Conservation & Ecosystem Management – Unit Planner</h1>
 
-1. Update the saveStudentData() function
+    <div class="info-box">
+      <h3>Packaging Rules Summary</h3>
+      <ul>
+        <li><strong>Total Units:</strong> 16 units must be selected</li>
+        <li><strong>Core Units:</strong> All 2 core units are required</li>
+        <li><strong>Groups A-H:</strong> At least 6 units must be from Groups A-H</li>
+        <li><strong>Group I:</strong> Maximum 6 electives from Group I</li>
+        <li><strong>Imported Units:</strong> Maximum 4 imported electives</li>
+      </ul>
+    </div>
 
-Replace your current saveStudentData() function with this updated version:
+    <div class="warning-box">
+      <label>
+        <input type="checkbox" id="overrideRules"> 
+        <span class="status-indicator status-warning">Override packaging rules (for special cases only)</span>
+      </label>
+      <p>
+        Warning: Only use this if student has previously completed units elsewhere.
+        Qualification may not meet standards if rules aren't followed.
+      </p>
+    </div>
 
-```javascript
-function saveStudentData() {
+    <form id="unitForm">
+      <h2>1. Select Units</h2>
+      
+      <div class="schedule-mode-selector">
+        <label>
+          <input type="radio" name="scheduleMode" value="weekly" checked> 
+          <span>Weekly Schedule (units run sequentially)</span>
+        </label>
+        <label>
+          <input type="radio" name="scheduleMode" value="quarterly"> 
+          <span>Quarterly Schedule (units grouped by quarter)</span>
+        </label>
+      </div>
+      
+      <div class="unit-group" id="core-units">
+        <span class="group-label">Core Units (Select all 2)</span>
+      </div>
+      <div class="unit-group" id="groupB">
+        <span class="group-label">Group B – Ecological Restoration</span>
+      </div>
+      <div class="unit-group" id="groupC">
+        <span class="group-label">Group C – Land, Parks & Wildlife</span>
+      </div>
+      <div class="unit-group" id="groupD">
+        <span class="group-label">Group D – Conservation Earthworks</span>
+      </div>
+      <div class="unit-group" id="groupG">
+        <span class="group-label">Group G – Fire</span>
+      </div>
+      <div class="unit-group" id="groupI">
+        <span class="group-label">Group I – General Electives</span>
+      </div>
+      <div class="unit-group" id="imported">
+        <span class="group-label">Imported Units</span>
+      </div>
+
+      <div id="validationIndicator" class="invalid">Please select units according to packaging rules.</div>
+
+      <h2>2. Student Details</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="studentName">Student Name</label>
+          <input type="text" id="studentName" required />
+        </div>
+        <div class="form-group">
+          <label for="studentId">Student ID</label>
+          <input type="text" id="studentId" />
+        </div>
+        <div class="form-group">
+          <label for="startDate">Course Start Date</label>
+          <input type="date" id="startDate" required />
+        </div>
+      </div>
+      
+      <div class="notes-section">
+        <label for="notes">Notes/Manual Entries</label>
+        <textarea id="notes" placeholder="Add any additional notes or manual entries here..."></textarea>
+      </div>
+
+      <button type="submit">Generate Schedule</button>
+    </form>
+
+    <div class="save-load-section">
+      <h2>3. Save & Load Student Data</h2>
+      <div class="save-load-buttons">
+        <button onclick="saveStudentData()" class="tertiary">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          Save Current Student
+        </button>
+        <button onclick="loadStudentData()" class="tertiary">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Load Student Data
+        </button>
+        <button onclick="clearAllData()" class="secondary">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          Clear All Data
+        </button>
+      </div>
+      
+      <div id="savedStudentsList" class="saved-students-list">
+        <!-- Saved students will appear here -->
+      </div>
+    </div>
+
+    <div class="export-buttons">
+      <button onclick="exportToCSV()" class="secondary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Export to CSV
+      </button>
+      <button onclick="exportToPDF()" class="secondary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Export to PDF
+      </button>
+    </div>
+
+    <div id="results" class="results-container"></div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
+  <script>
+    window.jsPDF = window.jspdf.jsPDF;
+
+    // Storage key for saved students
+    const STORAGE_KEY = 'CIII_CEM_SAVED_STUDENTS';
+
+    function formatDate(date) {
+      if (!(date instanceof Date)) {
+        // If it's already a formatted string, return it
+        if (typeof date === 'string' && date.includes('/')) return date;
+        // Otherwise try to parse it
+        date = new Date(date);
+        if (isNaN(date.getTime())) return 'Invalid Date';
+      }
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+
+    function exportToCSV() {
+      const tables = document.querySelectorAll("#results table");
+      const studentName = document.getElementById("studentName").value || "Unknown Student";
+      const notes = document.getElementById("notes").value;
+      if (!tables.length) return alert("No schedule to export");
+      
+      let csv = `Student Name,${studentName}\n`;
+      csv += `Student ID,${document.getElementById("studentId").value || ''}\n`;
+      csv += `Generated,${new Date().toLocaleDateString()}\n`;
+      csv += `Notes,"${notes.replace(/"/g, '""')}"\n\n`;
+      
+      // Handle both weekly (single table) and quarterly (multiple tables) modes
+      tables.forEach(table => {
+        table.querySelectorAll("tr").forEach(row => {
+          const cells = Array.from(row.querySelectorAll("th,td")).map(cell => '"' + cell.textContent.trim().replace(/"/g, '""') + '"');
+          csv += cells.join(",") + "\n";
+        });
+        // Add a separator between quarterly tables
+        if (tables.length > 1) csv += "\n";
+      });
+
+      const filename = prompt("Enter a name for your CSV file:", `schedule_${studentName.replace(/[^a-z0-9]/gi, '_')}`) || "schedule";
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${filename}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function exportToPDF() {  
+      const tables = document.querySelectorAll("#results table");  
+      const studentName = document.getElementById("studentName").value || "Unknown Student";  
+      const studentId = document.getElementById("studentId").value || "";  
+      const notes = document.getElementById("notes").value;  
+      if (!tables.length) return alert("No schedule to export");  
+      
+      const filename = prompt("Enter a name for your PDF file:", `schedule_${studentName.replace(/[^a-z0-9]/gi, '_')}`) || "schedule";  
+      const doc = new jsPDF();  
+        
+      // Set document properties  
+      doc.setProperties({  
+        title: `CIII CEM Schedule - ${studentName}`,  
+        subject: 'Training Schedule',  
+        author: 'CIII CEM Unit Planner',  
+        creator: 'CIII CEM Unit Planner'  
+      });  
+      
+      // Add logo or header
+      doc.setFontSize(16);  
+      doc.setTextColor(44, 125, 77); // Primary color
+      doc.text(`CIII CEM Schedule - ${studentName}`, 14, 16);  
+      doc.setFontSize(10);  
+      doc.setTextColor(0, 0, 0); // Black
+      doc.text(`Student ID: ${studentId}`, 14, 24);  
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 32);  
+      
+      let startY = 40;  
+        
+      // Add notes if they exist  
+      if (notes) {  
+        doc.text("Notes:", 14, 40);  
+        const splitNotes = doc.splitTextToSize(notes, 180);  
+        doc.text(splitNotes, 14, 48);  
+        startY = 48 + (splitNotes.length * 6);  
+      }  
+      
+      // Process all tables  
+      let currentY = startY;  
+      let isFirstTable = true;  
+        
+      tables.forEach((table, index) => {  
+        const rows = [];  
+        table.querySelectorAll("tr").forEach(row => {  
+          const rowData = Array.from(row.querySelectorAll("th,td")).map(cell => cell.textContent.trim());  
+          rows.push(rowData);  
+        });  
+      
+        // Check if we need a new page before adding this table  
+        const tableHeight = (rows.length + 1) * 10; // Approximate height calculation  
+        if (currentY + tableHeight > doc.internal.pageSize.height - 20 && !isFirstTable) {  
+          doc.addPage();  
+          currentY = 20;  
+        }  
+      
+        doc.autoTable({   
+          head: [rows[0]],   
+          body: rows.slice(1),   
+          startY: currentY,  
+          headStyles: {  
+            fillColor: [44, 125, 77], // Primary color
+            textColor: 255,
+            fontStyle: 'bold'
+          },  
+          margin: { top: currentY },  
+          styles: {  
+            fontSize: 8, // Smaller font to fit more content  
+            cellPadding: 3, // Less padding to save space  
+            overflow: 'linebreak' // Ensure text wraps  
+          },  
+          columnStyles: {  
+            1: { cellWidth: 'auto' } // Let the name column auto-size  
+          }  
+        });  
+          
+        currentY = doc.lastAutoTable.finalY + 10;  
+        isFirstTable = false;  
+      });  
+        
+      doc.save(`${filename}.pdf`);  
+    }
+
+    const coreUnits = [
+      { code: "AHCECR309", name: "Conduct an ecological and cultural site inspection prior to works", duration: 6 },
+      { code: "AHCWHS302", name: "Contribute to workplace health and safety processes", duration: 6 },
+    ];
+
+    const electiveUnits = [
+      { code: "AHCECR301", name: "Maintain native ecosystem areas", duration: 6, groups: ["groupB"] },
+      { code: "AHCECR305", name: "Collect native seed", duration: 6, groups: ["groupB"] },
+      { code: "AHCECR307", name: "Read and interpret maps", duration: 6, groups: ["groupB"] },
+      { code: "AHCPCM303", name: "Identify plant specimens", duration: 6, groups: ["groupB"] },
+      { code: "AHCPMG301", name: "Control weeds", duration: 6, groups: ["groupB"] },
+      { code: "AHCPMG302", name: "Control plant pests, diseases and disorders", duration: 6, groups: ["groupB"] },
+      { code: "AHCFAU302", name: "Identify fauna in the field", duration: 6, groups: ["groupC"] },
+      { code: "AHCLPW310", name: "Supervise park visitor activities", duration: 6, groups: ["groupC"] },
+      { code: "AHCWRK320", name: "Apply environmentally sustainable work practices", duration: 6, groups: ["groupC"] },
+      { code: "AHCBIO303", name: "Apply biosecurity measures", duration: 6, groups: ["groupD", "groupI"] },
+      { code: "AHCMOM302", name: "Perform machinery maintenance", duration: 6, groups: ["groupD"] },
+      { code: "AHCMOM304", name: "Operate machinery and equipment", duration: 6, groups: ["groupD"] },
+      { code: "AHCPCM204", name: "Recognise plants", duration: 6, groups: ["groupD"] },
+      { code: "FWPCOT3325", name: "Operate four wheel drive vehicle on unsealed roads", duration: 6, groups: ["groupG", "groupI"] },
+      { code: "AHCCHM304", name: "Transport and store chemicals", duration: 6, groups: ["groupI"] },
+      { code: "AHCCHM307", name: "Prepare and apply chemicals", duration: 6, groups: ["groupI"] },
+      { code: "AHCLPW313", name: "Undertake water sampling", duration: 6, groups: ["groupI"] },
+      { code: "AHCMOM213", name: "Operate and maintain chainsaws", duration: 6, groups: ["groupI"] },
+      { code: "CPPSSI3011", name: "Produce basic maps", duration: 6, groups: ["groupI"] },
+      { code: "FWPCOT3326", name: "Recover 4WD vehicle", duration: 6, groups: ["groupI"] },
+      { code: "HLTAID011", name: "Provide First Aid", duration: 6, groups: ["groupI"] },
+      { code: "AHCMOM202", name: "Operate tractors", duration: 6, groups: ["imported"] },
+      { code: "AHCMOM207", name: "Conduct front-end loader ops", duration: 6, groups: ["imported"] },
+      { code: "AHCMOM216", name: "Operate side by side utility vehicles", duration: 6, groups: ["imported"] },
+      { code: "AHCMOM217", name: "Operate quad bikes", duration: 6, groups: ["imported"] },
+      { code: "AHCNSY207", name: "Undertake propagation", duration: 6, groups: ["imported"] },
+      { code: "FWPCOT2266", name: "Operate brush cutter", duration: 6, groups: ["imported"] }
+    ];
+
+    function buildUnitCheckboxes() {
+      coreUnits.forEach(unit => {
+        const div = document.createElement("div");
+        div.className = "unit-item";
+        div.innerHTML = `
+          <label>
+            <input type="checkbox" value="${unit.code}" data-code="${unit.code}" data-name="${unit.name}" data-groups="core" checked disabled>
+            <strong>${unit.code}</strong> – ${unit.name}
+            <span class="duration-input">
+              &nbsp; Duration (weeks): <input type="number" min="1" value="${unit.duration}" class="duration" data-unit="${unit.code}">
+            </span>
+            <span class="quarter-selector">
+              Quarter: <select class="quarter-select" data-unit="${unit.code}">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+              </select>
+            </span>
+          </label>`;
+        document.getElementById("core-units").appendChild(div);
+      });
+
+      electiveUnits.forEach(unit => {
+        unit.groups.forEach(group => {
+          const div = document.createElement("div");
+          div.className = "unit-item";
+          
+          // Create badge for units in multiple groups
+          const badge = unit.groups.length > 1 
+            ? `<span class="unit-badge">Groups: ${unit.groups.map(g => g.replace("group", "").toUpperCase()).join(", ")}</span>`
+            : "";
+            
+          div.innerHTML = `
+            <label>
+              <input type="checkbox" data-code="${unit.code}" data-name="${unit.name}" data-groups="${unit.groups.join(',')}" value="${unit.code}">
+              <strong>${unit.code}</strong> – ${unit.name} ${badge}
+              <span class="duration-input">
+                &nbsp; Duration (weeks): <input type="number" min="1" value="${unit.duration}" class="duration" data-unit="${unit.code}">
+              </span>
+              <span class="quarter-selector">
+                Quarter: <select class="quarter-select" data-unit="${unit.code}">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                  <option value="8">8</option>
+                </select>
+              </span>
+            </label>`;
+          document.getElementById(group).appendChild(div);
+        });
+      });
+
+      const importedDiv = document.getElementById("imported");
+      const otherContainer = document.createElement("div");
+      otherContainer.className = "other-unit-container";
+      otherContainer.innerHTML = `
+        <button class="add-other-unit" onclick="addOtherUnit('AtoH')">+ Add Other Unit (Groups A-H)</button>
+        <button class="add-other-unit" onclick="addOtherUnit('groupI')">+ Add Other Unit (Group I)</button>
+        <button class="add-other-unit" onclick="addOtherUnit('imported')">+ Add Other Imported Unit</button>
+        <div id="otherUnitsList"></div>
+      `;
+      importedDiv.appendChild(otherContainer);
+      
+      updateQuarterSelectorsVisibility();
+    }
+
+
+  const otherUnitsList = document.getElementById("otherUnitsList");
+  const newId = 'custom_' + Date.now(); // Use a more unique ID
+  
+  const groupLabel = {
+    'AtoH': 'Groups A-H',
+    'groupI': 'Group I',
+    'imported': 'Imported'
+  }[groupType] || 'Custom';
+  
+  const otherUnitDiv = document.createElement("div");
+  otherUnitDiv.className = "other-unit";
+  otherUnitDiv.innerHTML = `
+    <label>
+      <input type="checkbox" id="otherUnitCheckbox-${newId}" checked>
+      ${groupLabel} Unit:
+      <input type="text" id="otherUnitDetails-${newId}" placeholder="Unit code and name" required>
+      <span class="duration-input">
+        &nbsp; Duration (weeks): <input type="number" min="1" value="6" class="duration" id="otherUnitDuration-${newId}">
+      </span>
+      <span class="quarter-selector">
+        Quarter: <select class="quarter-select" id="otherUnitQuarter-${newId}">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+        </select>
+      </span>
+    </label>
+    <input type="hidden" id="otherUnitGroup-${newId}" value="${groupType}">
+    <button class="remove-other-unit" onclick="removeOtherUnit('${newId}')">×</button>
+  `;
+  otherUnitsList.appendChild(otherUnitDiv);
+  
+  updateValidationIndicator();
+  updateQuarterSelectorsVisibility();
+  
+  return newId; // Return the ID for potential use
+}
+
+function removeOtherUnit(id) {
+  const unitToRemove = document.querySelector(`#otherUnitCheckbox-${id}`).closest('.other-unit');
+  if (unitToRemove) {
+    unitToRemove.remove();
+    updateValidationIndicator();
+  }
+}
+
+    function getSelectedUnits() {
+      const selected = [];
+      const scheduleMode = document.querySelector('input[name="scheduleMode"]:checked').value;
+
+      document.querySelectorAll("input[type=checkbox]:not([id^='otherUnitCheckbox-'])").forEach(cb => {
+        if (cb.checked) {
+          const code = cb.dataset.code;
+          const name = cb.dataset.name;
+          const allGroups = cb.dataset.groups ? cb.dataset.groups.split(",") : ["core"];
+          const selectedGroup = cb.closest('.unit-group').id;
+          
+          let duration = scheduleMode === 'quarterly' ? 12 : 6;
+          if (scheduleMode === 'weekly') {
+            const durationInput = document.querySelector(`input.duration[data-unit="${code}"]`);
+            duration = parseInt(durationInput?.value || 6);
+          }
+          
+          let quarter = null;
+          if (scheduleMode === 'quarterly') {
+            const quarterSelect = cb.parentElement.querySelector('select.quarter-select');
+            quarter = quarterSelect ? parseInt(quarterSelect.value) : 1;
+          }
+          
+          // Check if this unit is already in the selected array (from another group)
+          const existingIndex = selected.findIndex(u => u.code === code);
+          if (existingIndex >= 0) {
+            // Update the existing entry with the new group info
+            selected[existingIndex].allGroups = [...new Set([...selected[existingIndex].allGroups, ...allGroups])];
+            selected[existingIndex].selectedGroup = selectedGroup;
+          } else {
+            selected.push({ code, name, allGroups, selectedGroup, duration, quarter });
+          }
+        }
+      });
+
+      document.querySelectorAll("[id^='otherUnitCheckbox-']").forEach(cb => {
+        if (cb.checked) {
+          const id = cb.id.split("-")[1];
+          const details = document.getElementById(`otherUnitDetails-${id}`).value.trim();
+          if (details) {
+            let duration = 6;
+            const scheduleMode = document.querySelector('input[name="scheduleMode"]:checked').value;
+            if (scheduleMode === 'quarterly') {
+              duration = 12;
+            } else {
+              duration = parseInt(document.getElementById(`otherUnitDuration-${id}`).value || 6);
+            }
+            
+            const groupType = document.getElementById(`otherUnitGroup-${id}`).value;
+            
+            let quarter = null;
+            if (scheduleMode === 'quarterly') {
+              quarter = parseInt(document.getElementById(`otherUnitQuarter-${id}`).value);
+            }
+            
+            let selectedGroup = "imported";
+            if (groupType === "AtoH") selectedGroup = "groupB";
+            else if (groupType === "groupI") selectedGroup = "groupI";
+            
+            selected.push({
+              code: details.split(" ")[0] || "OTHER",
+              name: details,
+              allGroups: [groupType],
+              selectedGroup,
+              duration,
+              quarter,
+              isCustom: true
+            });
+          }
+        }
+      });
+
+      return selected;
+    }
+
+    function generateSchedule(units, startDate) {
+      const scheduleMode = document.querySelector('input[name="scheduleMode"]:checked').value;
+      
+      if (scheduleMode === 'weekly') {
+        return generateWeeklySchedule(units, startDate);
+      } else {
+        return generateQuarterlySchedule(units, startDate);
+      }
+    }
+
+    function generateWeeklySchedule(units, startDate) {
+      const schedule = [];
+      let currentDate = new Date(startDate);
+      
+      for (const unit of units) {
+        const start = new Date(currentDate);
+        const end = new Date(start);
+        end.setDate(end.getDate() + (unit.duration * 7) - 1);
+        
+        schedule.push({
+          ...unit,
+          startDate: formatDate(start),
+          endDate: formatDate(end)
+        });
+        
+        currentDate = new Date(end);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      return schedule;
+    }
+
+    function generateQuarterlySchedule(units, startDate) {
+      const schedule = [];
+      const start = new Date(startDate);
+      
+      // Group units by quarter
+      const quarters = {};
+      for (let q = 1; q <= 8; q++) quarters[q] = [];
+      
+      units.forEach(unit => {
+        const quarter = unit.quarter || 1;
+        quarters[quarter].push({
+          ...unit,
+          duration: 12
+        });
+      });
+      
+      // Calculate quarter dates
+      const quarterDates = {};
+      let currentQuarterStart = new Date(start);
+      
+      for (let q = 1; q <= 8; q++) {
+        const quarterEnd = new Date(currentQuarterStart);
+        quarterEnd.setDate(quarterEnd.getDate() + (12 * 7) - 1);
+        
+        quarterDates[q] = {
+          start: new Date(currentQuarterStart),
+          end: new Date(quarterEnd)
+        };
+        
+        // Set next quarter start date
+        currentQuarterStart = new Date(quarterEnd);
+        currentQuarterStart.setDate(currentQuarterStart.getDate() + 1);
+      }
+      
+      // Assign units to quarters
+      for (const [quarter, quarterUnits] of Object.entries(quarters)) {
+        const qNum = parseInt(quarter);
+        const quarterRange = quarterDates[qNum];
+        
+        quarterUnits.forEach(unit => {
+          schedule.push({
+            ...unit,
+            quarter: qNum,
+            startDate: formatDate(quarterRange.start),
+            endDate: formatDate(quarterRange.end)
+          });
+        });
+      }
+      
+      return schedule;
+    }
+
+    function validate(selected) {
+      const override = document.getElementById("overrideRules").checked;
+      const groupCounts = { core: 0, groupI: 0, imported: 0, AtoH: 0 };
+      
+      selected.forEach(u => {
+        if (u.selectedGroup === "core-units") groupCounts.core++;
+        if (u.selectedGroup === "groupI") groupCounts.groupI++;
+        if (u.selectedGroup === "imported") groupCounts.imported++;
+        if (["groupB", "groupC", "groupD", "groupG"].includes(u.selectedGroup)) groupCounts.AtoH++;
+      });
+
+      const errors = [];
+      
+      if (selected.length !== 16) {
+        errors.push("Exactly 16 units must be selected.");
+      }
+      
+      if (!override) {
+        if (groupCounts.core !== 2) errors.push("You must include exactly 2 core units.");
+        if (groupCounts.AtoH < 6) errors.push("At least 6 units must be from Groups A-H.");
+        if (groupCounts.groupI > 6) errors.push("Max 6 electives from Group I.");
+        if (groupCounts.imported > 4) errors.push("Max 4 imported electives.");
+      }
+
+      return errors;
+    }
+
+    function renderSchedule(schedule, startDate) {
+      if (!schedule.length) {
+        document.getElementById("results").innerHTML = "<p>No schedule available.</p>";
+        return;
+      }
+
+      const studentName = document.getElementById("studentName").value || "Student";
+      const studentId = document.getElementById("studentId").value || "";
+      const notes = document.getElementById("notes").value;
+      const override = document.getElementById("overrideRules").checked;
+      const scheduleMode = document.querySelector('input[name="scheduleMode"]:checked').value;
+      const [year, month, day] = startDate.split("-");
+      const start = new Date(year, month - 1, day);
+      const endParts = schedule[schedule.length - 1].endDate.split("/");
+      const end = new Date(endParts[2], endParts[1] - 1, endParts[0]);
+      const weeks = Math.round((end - start) / (1000 * 60 * 60 * 24 * 7));
+
+      let out = `
+        <div class="schedule-summary">
+          <h2>📅 Schedule for ${studentName}</h2>
+          ${studentId ? `<p><strong>Student ID:</strong> ${studentId}</p>` : ''}
+          ${override ? '<div class="warning-box"><p>⚠ PACKAGING RULES OVERRIDE ACTIVE</p></div>' : ''}
+          <p><strong>Schedule Mode:</strong> ${scheduleMode === 'quarterly' ? 'Quarterly' : 'Weekly'}</p>
+          <p><strong>Actual Duration:</strong> ${weeks} weeks (${formatDate(start)} to ${formatDate(end)})</p>
+          ${weeks > 96 ? '<p class="status-indicator status-warning">⚠ Course exceeds the 96-week (2 year) limit.</p>' : ''}
+        </div>
+      `;
+      
+      if (notes) {
+        out += `<div class="notes-output"><strong>Notes:</strong><p>${notes.replace(/\n/g, '<br>')}</p></div>`;
+      }
+
+      if (scheduleMode === 'quarterly') {
+        const quarters = {};
+        schedule.forEach(u => {
+          const quarter = u.quarter || 1;
+          if (!quarters[quarter]) quarters[quarter] = [];
+          quarters[quarter].push(u);
+        });
+        
+        for (let q = 1; q <= 8; q++) {
+          const quarterUnits = quarters[q] || [];
+          const quarterStart = quarterUnits[0]?.startDate || "N/A";
+          const quarterEnd = quarterUnits[quarterUnits.length - 1]?.endDate || "N/A";
+          const totalWeeks = quarterUnits.reduce((sum, u) => sum + u.duration, 0);
+          
+          out += `
+            <div class="quarter-section">
+              <div class="quarter-header">Quarter ${q} (${quarterStart} to ${quarterEnd})</div>
+              <div class="quarter-total">Total weeks: ${totalWeeks}</div>
+              <table>
+                <tr><th>Code</th><th>Name</th><th>Group</th><th>Start</th><th>End</th><th>Weeks</th></tr>
+          `;
+          
+          if (quarterUnits.length === 0) {
+            out += `<tr><td colspan="6">No units scheduled this quarter</td></tr>`;
+          } else {
+            quarterUnits.forEach(u => {
+              let group = '';
+              if (u.selectedGroup === "core-units") group = "Core";
+              else if (u.selectedGroup === "groupI") group = "I";
+              else if (["groupB", "groupC", "groupD", "groupG"].includes(u.selectedGroup)) {
+                group = u.selectedGroup.replace("group", "").toUpperCase();
+              } else if (u.selectedGroup === "imported") group = "Imported";
+              
+              if (u.isCustom) group += " (Custom)";
+              
+              out += `<tr>
+                <td>${u.code}</td>
+                <td>${u.name}</td>
+                <td>${group}</td>
+                <td>${u.startDate}</td>
+                <td>${u.endDate}</td>
+                <td>${u.duration}</td>
+              </tr>`;
+            });
+          }
+          
+          out += `</table></div>`;
+        }
+      } else {
+        out += `<table><tr><th>Code</th><th>Name</th><th>Group</th><th>Start</th><th>End</th><th>Weeks</th></tr>`;
+        schedule.forEach(u => {
+          let group = '';
+          if (u.selectedGroup === "core-units") group = "Core";
+          else if (u.selectedGroup === "groupI") group = "I";
+          else if (["groupB", "groupC", "groupD", "groupG"].includes(u.selectedGroup)) {
+            group = u.selectedGroup.replace("group", "").toUpperCase();
+          } else if (u.selectedGroup === "imported") group = "Imported";
+          
+          if (u.isCustom) group += " (Custom)";
+          
+          out += `<tr>
+            <td>${u.code}</td>
+            <td>${u.name}</td>
+            <td>${group}</td>
+            <td>${u.startDate}</td>
+            <td>${u.endDate}</td>
+            <td>${u.duration}</td>
+          </tr>`;
+        });
+        out += `</table>`;
+      }
+
+      document.getElementById("results").innerHTML = out;
+    }
+
+    function updateValidationIndicator() {
+      const selected = getSelectedUnits();
+      const errors = validate(selected);
+      const override = document.getElementById("overrideRules").checked;
+      const indicator = document.getElementById("validationIndicator");
+      
+      if (errors.length === 0) {
+        if (override) {
+          indicator.textContent = "⚠ Override active - packaging rules not enforced";
+          indicator.className = "override";
+        } else {
+          indicator.textContent = "✅ Selection meets qualification packaging rules.";
+          indicator.className = "valid";
+        }
+      } else {
+        indicator.textContent = "❌ " + errors.join(" ");
+        indicator.className = "invalid";
+      }
+    }
+
+    function updateQuarterSelectorsVisibility() {
+      const scheduleMode = document.querySelector('input[name="scheduleMode"]:checked').value;
+      const quarterSelectors = document.querySelectorAll('.quarter-selector');
+      const durationInputs = document.querySelectorAll('.duration-input');
+      
+      if (scheduleMode === 'quarterly') {
+        quarterSelectors.forEach(el => el.style.display = 'inline');
+        durationInputs.forEach(el => el.style.display = 'none');
+      } else {
+        quarterSelectors.forEach(el => el.style.display = 'none');
+        durationInputs.forEach(el => el.style.display = 'inline');
+      }
+    }
+
+    // Save/Load functionality
+    function saveStudentData() {
   const studentName = document.getElementById("studentName").value.trim();
   if (!studentName) {
     alert("Please enter a student name before saving.");
@@ -56,13 +1481,7 @@ function saveStudentData() {
   
   alert(`Student data for "${studentData.name}" has been saved.`);
 }
-```
 
-2. Update the getCustomUnitsData() function
-
-Make sure your getCustomUnitsData() function properly captures all custom units:
-
-```javascript
 function getCustomUnitsData() {
   const customUnits = [];
   document.querySelectorAll("[id^='otherUnitCheckbox-']").forEach(cb => {
@@ -78,13 +1497,124 @@ function getCustomUnitsData() {
   });
   return customUnits;
 }
-```
 
-3. Update the selectStudentToLoad() function
+    function getUnitDurations() {
+      const durations = {};
+      document.querySelectorAll("input.duration").forEach(input => {
+        durations[input.dataset.unit] = input.value;
+      });
+      return durations;
+    }
 
-Replace the custom units restoration section in selectStudentToLoad() with this improved version:
+    function getUnitQuarters() {
+      const quarters = {};
+      document.querySelectorAll("select.quarter-select").forEach(select => {
+        quarters[select.dataset.unit] = select.value;
+      });
+      return quarters;
+    }
 
-```javascript
+    function loadStudentData() {
+      const savedStudents = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      
+      if (savedStudents.length === 0) {
+        alert("No saved student data found.");
+        return;
+      }
+      
+      // Create a selection dialog
+      let selectionHtml = '<h3>Select a student to load:</h3><ul style="list-style: none; padding: 0;">';
+      savedStudents.forEach((student, index) => {
+        const date = new Date(student.timestamp).toLocaleDateString();
+        selectionHtml += `
+          <li style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer;" 
+              onclick="selectStudentToLoad(${index})">
+            <strong>${student.name}</strong> ${student.id ? `(ID: ${student.id})` : ''}
+            <br><small>Saved: ${date}</small>
+          </li>
+        `;
+      });
+      selectionHtml += '</ul>';
+      
+      // Show selection dialog
+      const dialog = document.createElement('div');
+      dialog.style.position = 'fixed';
+      dialog.style.top = '50%';
+      dialog.style.left = '50%';
+      dialog.style.transform = 'translate(-50%, -50%)';
+      dialog.style.background = 'white';
+      dialog.style.padding = '20px';
+      dialog.style.borderRadius = '8px';
+      dialog.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)';
+      dialog.style.zIndex = '1000';
+      dialog.style.maxWidth = '500px';
+      dialog.style.maxHeight = '80vh';
+      dialog.style.overflow = 'auto';
+      dialog.innerHTML = selectionHtml;
+      
+      // Add close button
+      const closeButton = document.createElement('button');
+      closeButton.textContent = 'Cancel';
+      closeButton.style.marginTop = '15px';
+      closeButton.onclick = () => document.body.removeChild(dialog);
+      dialog.appendChild(closeButton);
+      
+      document.body.appendChild(dialog);
+    }
+
+    function selectStudentToLoad(index) {
+      const savedStudents = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const student = savedStudents[index];
+      
+      if (!student) {
+        alert("Error loading student data.");
+        return;
+      }
+      
+      // Clear current form
+      clearForm();
+      
+      // Populate form with saved data
+      document.getElementById("studentName").value = student.name || "";
+      document.getElementById("studentId").value = student.id || "";
+      document.getElementById("startDate").value = student.startDate || "";
+      document.getElementById("notes").value = student.notes || "";
+      document.getElementById("overrideRules").checked = student.overrideRules || false;
+      
+      // Set schedule mode
+      document.querySelector(`input[name="scheduleMode"][value="${student.scheduleMode || 'weekly'}"]`).checked = true;
+      updateQuarterSelectorsVisibility();
+      
+      // Select units
+      if (student.selectedUnits) {
+        student.selectedUnits.forEach(unit => {
+          const checkbox = document.querySelector(`input[data-code="${unit.code}"]`);
+          if (checkbox) {
+            checkbox.checked = true;
+          }
+        });
+      }
+      
+      // Restore unit durations
+      if (student.unitDurations) {
+        Object.keys(student.unitDurations).forEach(unitCode => {
+          const durationInput = document.querySelector(`input.duration[data-unit="${unitCode}"]`);
+          if (durationInput) {
+            durationInput.value = student.unitDurations[unitCode];
+          }
+        });
+      }
+      
+      // Restore unit quarters
+      if (student.unitQuarters) {
+        Object.keys(student.unitQuarters).forEach(unitCode => {
+          const quarterSelect = document.querySelector(`select.quarter-select[data-unit="${unitCode}"]`);
+          if (quarterSelect) {
+            quarterSelect.value = student.unitQuarters[unitCode];
+          }
+        });
+      }
+      
 // Restore custom units
 if (student.customUnits) {
   // Clear any existing custom units first
@@ -113,75 +1643,156 @@ if (student.customUnits) {
     }
   });
 }
-```
+      
+      // Close the selection dialog
+      const dialog = document.querySelector('div[style*="position: fixed"]');
+      if (dialog) document.body.removeChild(dialog);
+      
+      // Update validation
+      updateValidationIndicator();
+      
+      alert(`Student data for "${student.name}" has been loaded.`);
+    }
 
-4. Update the addOtherUnit() function
+    function clearForm() {
+      // Clear student details
+      document.getElementById("studentName").value = "";
+      document.getElementById("studentId").value = "";
+      document.getElementById("startDate").value = "";
+      document.getElementById("notes").value = "";
+      document.getElementById("overrideRules").checked = false;
+      
+      // Clear unit selections (except core units)
+      document.querySelectorAll("input[type=checkbox]:not([disabled])").forEach(cb => {
+        cb.checked = false;
+      });
+      
+      // Reset unit durations to defaults
+      document.querySelectorAll("input.duration").forEach(input => {
+        const unitCode = input.dataset.unit;
+        const defaultDuration = coreUnits.find(u => u.code === unitCode)?.duration || 
+                               electiveUnits.find(u => u.code === unitCode)?.duration || 6;
+        input.value = defaultDuration;
+      });
+      
+      // Reset quarter selects
+      document.querySelectorAll("select.quarter-select").forEach(select => {
+        select.value = 1;
+      });
+      
+      // Clear custom units
+      document.getElementById("otherUnitsList").innerHTML = "";
+      
+      // Clear results
+      document.getElementById("results").innerHTML = "";
+      
+      // Update validation
+      updateValidationIndicator();
+    }
 
-Modify the addOtherUnit() function to ensure proper ID handling:
+    function clearAllData() {
+      if (confirm("Are you sure you want to clear ALL saved student data? This action cannot be undone.")) {
+        localStorage.removeItem(STORAGE_KEY);
+        updateSavedStudentsList();
+        alert("All saved student data has been cleared.");
+      }
+    }
 
-```javascript
-function addOtherUnit(groupType) {
-  const otherUnitsList = document.getElementById("otherUnitsList");
-  const newId = 'custom_' + Date.now(); // Use a more unique ID
-  
-  const groupLabel = {
-    'AtoH': 'Groups A-H',
-    'groupI': 'Group I',
-    'imported': 'Imported'
-  }[groupType] || 'Custom';
-  
-  const otherUnitDiv = document.createElement("div");
-  otherUnitDiv.className = "other-unit";
-  otherUnitDiv.innerHTML = `
-    <label>
-      <input type="checkbox" id="otherUnitCheckbox-${newId}" checked>
-      ${groupLabel} Unit:
-      <input type="text" id="otherUnitDetails-${newId}" placeholder="Unit code and name" required>
-      <span class="duration-input">
-        &nbsp; Duration (weeks): <input type="number" min="1" value="6" class="duration" id="otherUnitDuration-${newId}">
-      </span>
-      <span class="quarter-selector">
-        Quarter: <select class="quarter-select" id="otherUnitQuarter-${newId}">
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-          <option value="6">6</option>
-          <option value="7">7</option>
-          <option value="8">8</option>
-        </select>
-      </span>
-    </label>
-    <input type="hidden" id="otherUnitGroup-${newId}" value="${groupType}">
-    <button class="remove-other-unit" onclick="removeOtherUnit('${newId}')">×</button>
-  `;
-  otherUnitsList.appendChild(otherUnitDiv);
-  
-  updateValidationIndicator();
-  updateQuarterSelectorsVisibility();
-  
-  return newId; // Return the ID for potential use
-}
-```
+    function updateSavedStudentsList() {
+      const savedStudents = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const listContainer = document.getElementById("savedStudentsList");
+      
+      if (savedStudents.length === 0) {
+        listContainer.innerHTML = '<div style="padding: 15px; text-align: center; color: #666;">No saved students</div>';
+        return;
+      }
+      
+      let listHtml = '';
+      savedStudents.forEach((student, index) => {
+        const date = new Date(student.timestamp).toLocaleDateString();
+        listHtml += `
+          <div class="saved-student-item">
+            <div class="saved-student-info">
+              <div class="saved-student-name">${student.name}</div>
+              <div class="saved-student-id">${student.id ? `ID: ${student.id}` : ''} • Saved: ${date}</div>
+            </div>
+            <div class="saved-student-actions">
+              <button onclick="selectStudentToLoad(${index})" style="font-size: 0.8rem;">Load</button>
+              <button onclick="deleteStudent(${index})" style="font-size: 0.8rem; background: var(--error-color);">Delete</button>
+            </div>
+          </div>
+        `;
+      });
+      
+      listContainer.innerHTML = listHtml;
+    }
 
-5. Update the removeOtherUnit() function
+    function deleteStudent(index) {
+      const savedStudents = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const student = savedStudents[index];
+      
+      if (student && confirm(`Are you sure you want to delete "${student.name}"?`)) {
+        savedStudents.splice(index, 1);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(savedStudents));
+        updateSavedStudentsList();
+      }
+    }
 
-```javascript
-function removeOtherUnit(id) {
-  const unitToRemove = document.querySelector(`#otherUnitCheckbox-${id}`).closest('.other-unit');
-  if (unitToRemove) {
-    unitToRemove.remove();
+    // Initialize the application
+    document.getElementById("unitForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const studentName = document.getElementById("studentName").value;
+      if (!studentName) return alert("Please enter a student name");
+      
+      const startDate = document.getElementById("startDate").value;
+      if (!startDate) return alert("Please select a start date");
+      
+      let otherUnitsValid = true;
+      document.querySelectorAll("[id^='otherUnitCheckbox-']").forEach(cb => {
+        if (cb.checked) {
+          const id = cb.id.split("-")[1];
+          if (!document.getElementById(`otherUnitDetails-${id}`).value.trim()) {
+            otherUnitsValid = false;
+          }
+        }
+      });
+      
+      if (!otherUnitsValid) return alert("Please provide details for all 'Other' units");
+      
+      const selected = getSelectedUnits();
+      const errors = validate(selected);
+      if (errors.length) return alert(errors.join("\n"));
+      
+      // Parse the start date properly
+      const [year, month, day] = startDate.split('-');
+      const parsedStartDate = new Date(year, month - 1, day);
+      
+      // Generate and render schedule
+      const schedule = generateSchedule(selected, parsedStartDate);
+      renderSchedule(schedule, startDate);
+    });
+
+    document.body.addEventListener("change", e => {
+      if (
+        e.target.matches("input[type=checkbox]") ||
+        e.target.matches("input.duration") ||
+        e.target.matches("[id^='otherUnitDetails-']") ||
+        e.target.matches("#overrideRules") ||
+        e.target.matches("input[name=scheduleMode]") ||
+        e.target.matches("select.quarter-select")
+      ) {
+        updateValidationIndicator();
+        
+        if (e.target.matches("input[name=scheduleMode]")) {
+          updateQuarterSelectorsVisibility();
+        }
+      }
+    });
+
+    // Initialize the application
+    buildUnitCheckboxes();
     updateValidationIndicator();
-  }
-}
-```
-
-Key Changes Made:
-
-1. Better ID handling: Using 'custom_' + Date.now() for more unique IDs
-2. Proper data capture: Ensuring all custom unit data is saved including checked state
-3. Correct restoration: Properly recreating custom units with all their properties when loading
-4. Consistent data structure: Making sure the saved data structure matches what's needed for loading
-
-These changes will ensure that when you save a student's data, all manually entered units (from the "Other Units" section) are properly saved along with the standard units, and they'll be correctly restored when you load the student data later.
+    updateSavedStudentsList();
+  </script>
+</body>
+</html>
