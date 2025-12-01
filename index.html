@@ -1,234 +1,187 @@
-Looking at your code, I can see the main issue! The problem is in your loadWeatherData() function - it's missing the function declaration and the async keyword. Here's what's broken:
+Looking at your code, the issue is that manually entered units (from the "Other Units" section) aren't being properly saved and loaded with the rest of the student data. Here are the key changes needed:
 
-The Issue
+1. Update the saveStudentData() function
 
-You have this code:
-
-```javascript
-// Enhanced loadWeatherData function for WeatherAPI.com
-
-// Try to get location from projects first
-const projects = db.getProjects();
-let lat, lon;
-// ... rest of the function body
-```
-
-But it should be:
+Replace your current saveStudentData() function with this updated version:
 
 ```javascript
-// Enhanced loadWeatherData function for WeatherAPI.com
-async function loadWeatherData() {
-    // Try to get location from projects first
-    const projects = db.getProjects();
-    let lat, lon;
-    // ... rest of the function body
-}
-```
+function saveStudentData() {
+  const studentName = document.getElementById("studentName").value.trim();
+  if (!studentName) {
+    alert("Please enter a student name before saving.");
+    return;
+  }
 
-Here's the Fix
+  // Get current form data
+  const studentData = {
+    id: document.getElementById("studentId").value,
+    name: studentName,
+    startDate: document.getElementById("startDate").value,
+    notes: document.getElementById("notes").value,
+    overrideRules: document.getElementById("overrideRules").checked,
+    scheduleMode: document.querySelector('input[name="scheduleMode"]:checked').value,
+    selectedUnits: getSelectedUnits(), // This now includes custom units
+    customUnits: getCustomUnitsData(),
+    unitDurations: getUnitDurations(),
+    unitQuarters: getUnitQuarters(),
+    timestamp: new Date().toISOString()
+  };
 
-Replace this broken section (around line 1050 in your code):
-
-```javascript
-        // Enhanced loadWeatherData function for WeatherAPI.com
-        
-    // Try to get location from projects first
-    const projects = db.getProjects();
-    let lat, lon;
-    
-    // Find first project with coordinates
-    const projectWithCoords = projects.find(p => p.latitude && p.longitude);
-    
-    if (projectWithCoords) {
-        lat = projectWithCoords.latitude;
-        lon = projectWithCoords.longitude;
+  // Get existing saved students
+  const savedStudents = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  
+  // Check if student already exists
+  const existingIndex = savedStudents.findIndex(s => 
+    s.name === studentData.name && 
+    (s.id === studentData.id || (!s.id && !studentData.id))
+  );
+  
+  if (existingIndex >= 0) {
+    // Update existing student
+    if (confirm(`A student named "${studentData.name}" already exists. Do you want to overwrite it?`)) {
+      savedStudents[existingIndex] = studentData;
     } else {
-        // Default to Burnie, Tasmania if no project coordinates
-        lat = -41.0521;
-        lon = 145.9061;
+      return; // User canceled
     }
-
-    // Show loading state
-    document.getElementById('weather-description').textContent = 'Loading weather data...';
-    document.getElementById('lastUpdate').textContent = 'Updating...';
-
-    try {
-        // Get current weather and forecast in parallel
-        const [currentWeather, forecast] = await Promise.all([
-            getWeatherByCoords(lat, lon),
-            getWeatherForecast(lat, lon)
-        ]);
-        
-        updateWeatherDisplay(currentWeather);
-        updateForecastChart(forecast);
-        updateForecastDisplay(forecast); // ADD THIS LINE
-        updateEnvironmentalAlerts(currentWeather);
-        
-        // Store weather data for later use
-        const updateTime = new Date().toLocaleTimeString();
-        localStorage.setItem('lastWeatherUpdate', new Date().toISOString());
-        localStorage.setItem('weatherData', JSON.stringify(currentWeather));
-        localStorage.setItem('forecastData', JSON.stringify(forecast)); // Store forecast too
-        document.getElementById('lastUpdate').textContent = `Last updated: ${updateTime}`;
-        
-    } catch (error) {
-        console.error('Failed to load weather data:', error);
-        document.getElementById('weather-description').textContent = 'Failed to load weather data';
-        document.getElementById('lastUpdate').textContent = 'Update failed';
-        
-        // Try to use cached data
-        const cachedData = localStorage.getItem('weatherData');
-        const cachedForecast = localStorage.getItem('forecastData');
-        if (cachedData) {
-            const weatherData = JSON.parse(cachedData);
-            updateWeatherDisplay(weatherData);
-            updateEnvironmentalAlerts(weatherData);
-            
-            if (cachedForecast) {
-                const forecastData = JSON.parse(cachedForecast);
-                updateForecastChart(forecastData);
-                updateForecastDisplay(forecastData);
-            }
-            
-            document.getElementById('lastUpdate').textContent = 'Using cached data';
-        } else {
-            // Fallback to mock data
-            loadMockWeatherData();
-        }
-    }
+  } else {
+    // Add new student
+    savedStudents.push(studentData);
+  }
+  
+  // Save to localStorage
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(savedStudents));
+  
+  // Update the saved students list
+  updateSavedStudentsList();
+  
+  alert(`Student data for "${studentData.name}" has been saved.`);
 }
 ```
 
-With this corrected version:
+2. Update the getCustomUnitsData() function
+
+Make sure your getCustomUnitsData() function properly captures all custom units:
 
 ```javascript
-        // Enhanced loadWeatherData function for WeatherAPI.com
-        async function loadWeatherData() {
-            // Try to get location from projects first
-            const projects = db.getProjects();
-            let lat, lon;
-            
-            // Find first project with coordinates
-            const projectWithCoords = projects.find(p => p.latitude && p.longitude);
-            
-            if (projectWithCoords) {
-                lat = projectWithCoords.latitude;
-                lon = projectWithCoords.longitude;
-            } else {
-                // Default to Burnie, Tasmania if no project coordinates
-                lat = -41.0521;
-                lon = 145.9061;
-            }
-
-            // Show loading state
-            document.getElementById('weather-description').textContent = 'Loading weather data...';
-            document.getElementById('lastUpdate').textContent = 'Updating...';
-
-            try {
-                // Get current weather and forecast in parallel
-                const [currentWeather, forecast] = await Promise.all([
-                    getWeatherByCoords(lat, lon),
-                    getWeatherForecast(lat, lon)
-                ]);
-                
-                updateWeatherDisplay(currentWeather);
-                updateForecastChart(forecast);
-                updateForecastDisplay(forecast);
-                updateEnvironmentalAlerts(currentWeather);
-                
-                // Store weather data for later use
-                const updateTime = new Date().toLocaleTimeString();
-                localStorage.setItem('lastWeatherUpdate', new Date().toISOString());
-                localStorage.setItem('weatherData', JSON.stringify(currentWeather));
-                localStorage.setItem('forecastData', JSON.stringify(forecast));
-                document.getElementById('lastUpdate').textContent = `Last updated: ${updateTime}`;
-                
-            } catch (error) {
-                console.error('Failed to load weather data:', error);
-                document.getElementById('weather-description').textContent = 'Failed to load weather data';
-                document.getElementById('lastUpdate').textContent = 'Update failed';
-                
-                // Try to use cached data
-                const cachedData = localStorage.getItem('weatherData');
-                const cachedForecast = localStorage.getItem('forecastData');
-                if (cachedData) {
-                    const weatherData = JSON.parse(cachedData);
-                    updateWeatherDisplay(weatherData);
-                    updateEnvironmentalAlerts(weatherData);
-                    
-                    if (cachedForecast) {
-                        const forecastData = JSON.parse(cachedForecast);
-                        updateForecastChart(forecastData);
-                        updateForecastDisplay(forecastData);
-                    }
-                    
-                    document.getElementById('lastUpdate').textContent = 'Using cached data';
-                } else {
-                    // Fallback to mock data
-                    loadMockWeatherData();
-                }
-            }
-        }
-```
-
-Additional Issues to Check
-
-1. Make sure you have a valid WeatherAPI.com key in the weatherConfig object.
-2. Fix the HTML structure - your forecast display div is misplaced. It should be outside the current weather row. Move this section:
-
-```html
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">3-Day Forecast</h5>
-            </div>
-            <div class="card-body">
-                <div id="forecast-display" class="row">
-                    <!-- Forecast will be loaded here -->
-                    <div class="col-12 text-center text-muted">
-                        <i class="bi bi-cloud-download"></i>
-                        <p class="mt-2">Loading forecast data...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-```
-
-Place it after the closing </div> of the current weather row but before the environmental alerts column.
-
-1. Update the updateForecastDisplay function to target the correct container:
-
-```javascript
-function updateForecastDisplay(forecastData) {
-    if (!forecastData || !forecastData.forecast) return;
-    
-    const forecastContainer = document.getElementById('forecast-display');
-    forecastContainer.innerHTML = '';
-    
-    forecastData.forecast.forecastday.forEach(day => {
-        const date = new Date(day.date);
-        const forecastElement = document.createElement('div');
-        forecastElement.className = 'col-md-4';
-        forecastElement.innerHTML = `
-            <div class="card text-center">
-                <div class="card-body">
-                    <h6>${date.toLocaleDateString('en-AU', { weekday: 'short', month: 'short', day: 'numeric' })}</h6>
-                    <i class="bi ${getWeatherIcon(day.day.condition.code)} fs-4"></i>
-                    <p class="mb-1">${Math.round(day.day.maxtemp_c)}° / ${Math.round(day.day.mintemp_c)}°</p>
-                    <small class="text-muted">${day.day.condition.text}</small>
-                    <div class="mt-2">
-                        <small>Rain: ${day.day.daily_chance_of_rain}%</small><br>
-                        <small>Humidity: ${day.day.avghumidity}%</small>
-                    </div>
-                </div>
-            </div>
-        `;
-        forecastContainer.appendChild(forecastElement);
+function getCustomUnitsData() {
+  const customUnits = [];
+  document.querySelectorAll("[id^='otherUnitCheckbox-']").forEach(cb => {
+    const id = cb.id.split("-")[1];
+    customUnits.push({
+      id: id,
+      details: document.getElementById(`otherUnitDetails-${id}`).value,
+      groupType: document.getElementById(`otherUnitGroup-${id}`).value,
+      duration: document.getElementById(`otherUnitDuration-${id}`).value,
+      quarter: document.getElementById(`otherUnitQuarter-${id}`).value,
+      checked: cb.checked
     });
+  });
+  return customUnits;
 }
 ```
 
-The main issue was the missing async function loadWeatherData() { declaration. Once you fix that, your weather section should start working properly!
+3. Update the selectStudentToLoad() function
+
+Replace the custom units restoration section in selectStudentToLoad() with this improved version:
+
+```javascript
+// Restore custom units
+if (student.customUnits) {
+  // Clear any existing custom units first
+  document.getElementById("otherUnitsList").innerHTML = "";
+  
+  // Add each custom unit back
+  student.customUnits.forEach(customUnit => {
+    addOtherUnit(customUnit.groupType);
+    
+    // Get the most recently added custom unit (last one)
+    const customUnits = document.querySelectorAll('.other-unit');
+    const lastCustomUnit = customUnits[customUnits.length - 1];
+    
+    if (lastCustomUnit) {
+      // Extract the ID from the newly created unit
+      const newCheckbox = lastCustomUnit.querySelector('[id^="otherUnitCheckbox-"]');
+      if (newCheckbox) {
+        const newId = newCheckbox.id.split("-")[1];
+        
+        // Set all the values
+        document.getElementById(`otherUnitDetails-${newId}`).value = customUnit.details || "";
+        document.getElementById(`otherUnitDuration-${newId}`).value = customUnit.duration || 6;
+        document.getElementById(`otherUnitQuarter-${newId}`).value = customUnit.quarter || 1;
+        document.getElementById(`otherUnitCheckbox-${newId}`).checked = customUnit.checked !== false;
+      }
+    }
+  });
+}
+```
+
+4. Update the addOtherUnit() function
+
+Modify the addOtherUnit() function to ensure proper ID handling:
+
+```javascript
+function addOtherUnit(groupType) {
+  const otherUnitsList = document.getElementById("otherUnitsList");
+  const newId = 'custom_' + Date.now(); // Use a more unique ID
+  
+  const groupLabel = {
+    'AtoH': 'Groups A-H',
+    'groupI': 'Group I',
+    'imported': 'Imported'
+  }[groupType] || 'Custom';
+  
+  const otherUnitDiv = document.createElement("div");
+  otherUnitDiv.className = "other-unit";
+  otherUnitDiv.innerHTML = `
+    <label>
+      <input type="checkbox" id="otherUnitCheckbox-${newId}" checked>
+      ${groupLabel} Unit:
+      <input type="text" id="otherUnitDetails-${newId}" placeholder="Unit code and name" required>
+      <span class="duration-input">
+        &nbsp; Duration (weeks): <input type="number" min="1" value="6" class="duration" id="otherUnitDuration-${newId}">
+      </span>
+      <span class="quarter-selector">
+        Quarter: <select class="quarter-select" id="otherUnitQuarter-${newId}">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+        </select>
+      </span>
+    </label>
+    <input type="hidden" id="otherUnitGroup-${newId}" value="${groupType}">
+    <button class="remove-other-unit" onclick="removeOtherUnit('${newId}')">×</button>
+  `;
+  otherUnitsList.appendChild(otherUnitDiv);
+  
+  updateValidationIndicator();
+  updateQuarterSelectorsVisibility();
+  
+  return newId; // Return the ID for potential use
+}
+```
+
+5. Update the removeOtherUnit() function
+
+```javascript
+function removeOtherUnit(id) {
+  const unitToRemove = document.querySelector(`#otherUnitCheckbox-${id}`).closest('.other-unit');
+  if (unitToRemove) {
+    unitToRemove.remove();
+    updateValidationIndicator();
+  }
+}
+```
+
+Key Changes Made:
+
+1. Better ID handling: Using 'custom_' + Date.now() for more unique IDs
+2. Proper data capture: Ensuring all custom unit data is saved including checked state
+3. Correct restoration: Properly recreating custom units with all their properties when loading
+4. Consistent data structure: Making sure the saved data structure matches what's needed for loading
+
+These changes will ensure that when you save a student's data, all manually entered units (from the "Other Units" section) are properly saved along with the standard units, and they'll be correctly restored when you load the student data later.
