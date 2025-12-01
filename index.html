@@ -1,726 +1,223 @@
-Creating a User Guide and Adding a Working Button
+Looking at your weather section code, I can identify several issues that are preventing the forecast and historical data from displaying properly:
 
-I'll create a comprehensive User Guide for your EcoManager Pro web application and explain how to add a working button to open it in a new tab with a close option.
+Main Issues:
 
-User Guide HTML
+1. Missing API Key
 
-Here's the complete UserGuide.html file:
+```javascript
+const weatherConfig = {
+    apiKey: 'INSERT VALID API KEY HERE', // This needs to be a real API key
+    baseUrl: 'https://api.weatherapi.com/v1/'
+};
+```
+
+2. Incomplete Weather Data Functions
+
+Your code has the getWeatherForecast() function but it's not being properly integrated with the display functions.
+
+3. Missing Forecast Display Logic
+
+You have updateForecastChart() but no functions to display the actual forecast data (daily forecasts).
+
+4. Historical Data Not Implemented
+
+The historical weather chart is initialized with mock data but there's no actual historical data fetching.
+
+Here are the fixes needed:
+
+1. Add Forecast Display Function
+
+Add this function to display the 3-day forecast:
+
+```javascript
+function updateForecastDisplay(forecastData) {
+    if (!forecastData || !forecastData.forecast) return;
+    
+    const forecastContainer = document.createElement('div');
+    forecastContainer.className = 'row mt-3';
+    
+    forecastData.forecast.forecastday.forEach(day => {
+        const date = new Date(day.date);
+        const forecastElement = document.createElement('div');
+        forecastElement.className = 'col-md-4';
+        forecastElement.innerHTML = `
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6>${date.toLocaleDateString('en-AU', { weekday: 'short', month: 'short', day: 'numeric' })}</h6>
+                    <i class="bi ${getWeatherIcon(day.day.condition.code)} fs-4"></i>
+                    <p class="mb-1">${Math.round(day.day.maxtemp_c)}° / ${Math.round(day.day.mintemp_c)}°</p>
+                    <small class="text-muted">${day.day.condition.text}</small>
+                    <div class="mt-2">
+                        <small>Rain: ${day.day.daily_chance_of_rain}%</small><br>
+                        <small>Humidity: ${day.day.avghumidity}%</small>
+                    </div>
+                </div>
+            </div>
+        `;
+        forecastContainer.appendChild(forecastElement);
+    });
+    
+    // Add forecast to current weather card
+    const currentWeatherCard = document.querySelector('#weather .card .card-body .row');
+    if (currentWeatherCard && !currentWeatherCard.querySelector('.forecast-container')) {
+        const forecastWrapper = document.createElement('div');
+        forecastWrapper.className = 'col-12 forecast-container mt-3';
+        forecastWrapper.appendChild(forecastContainer);
+        currentWeatherCard.appendChild(forecastWrapper);
+    }
+}
+```
+
+2. Update loadWeatherData Function
+
+Modify your loadWeatherData() function to handle forecast data:
+
+```javascript
+async function loadWeatherData() {
+    // Try to get location from projects first
+    const projects = db.getProjects();
+    let lat, lon;
+    
+    // Find first project with coordinates
+    const projectWithCoords = projects.find(p => p.latitude && p.longitude);
+    
+    if (projectWithCoords) {
+        lat = projectWithCoords.latitude;
+        lon = projectWithCoords.longitude;
+    } else {
+        // Default to Burnie, Tasmania if no project coordinates
+        lat = -41.0521;
+        lon = 145.9061;
+    }
+
+    // Show loading state
+    document.getElementById('weather-description').textContent = 'Loading weather data...';
+    document.getElementById('lastUpdate').textContent = 'Updating...';
+
+    try {
+        // Get current weather and forecast in parallel
+        const [currentWeather, forecast] = await Promise.all([
+            getWeatherByCoords(lat, lon),
+            getWeatherForecast(lat, lon)
+        ]);
+        
+        updateWeatherDisplay(currentWeather);
+        updateForecastChart(forecast);
+        updateForecastDisplay(forecast); // ADD THIS LINE
+        updateEnvironmentalAlerts(currentWeather);
+        
+        // Store weather data for later use
+        const updateTime = new Date().toLocaleTimeString();
+        localStorage.setItem('lastWeatherUpdate', new Date().toISOString());
+        localStorage.setItem('weatherData', JSON.stringify(currentWeather));
+        localStorage.setItem('forecastData', JSON.stringify(forecast)); // Store forecast too
+        document.getElementById('lastUpdate').textContent = `Last updated: ${updateTime}`;
+        
+    } catch (error) {
+        console.error('Failed to load weather data:', error);
+        document.getElementById('weather-description').textContent = 'Failed to load weather data';
+        document.getElementById('lastUpdate').textContent = 'Update failed';
+        
+        // Try to use cached data
+        const cachedData = localStorage.getItem('weatherData');
+        const cachedForecast = localStorage.getItem('forecastData');
+        if (cachedData) {
+            const weatherData = JSON.parse(cachedData);
+            updateWeatherDisplay(weatherData);
+            updateEnvironmentalAlerts(weatherData);
+            
+            if (cachedForecast) {
+                const forecastData = JSON.parse(cachedForecast);
+                updateForecastChart(forecastData);
+                updateForecastDisplay(forecastData);
+            }
+            
+            document.getElementById('lastUpdate').textContent = 'Using cached data';
+        } else {
+            // Fallback to mock data
+            loadMockWeatherData();
+        }
+    }
+}
+```
+
+3. Add Historical Data Function
+
+Since WeatherAPI.com requires a paid plan for historical data, you'll need to implement a fallback or use a different approach:
+
+```javascript
+async function loadHistoricalWeatherData(lat, lon) {
+    // Note: Historical data requires WeatherAPI.com premium plan
+    // This is a placeholder for when you have the appropriate API access
+    try {
+        // This would be the actual API call for historical data
+        // const response = await fetch(
+        //     `${weatherConfig.baseUrl}history.json?key=${weatherConfig.apiKey}&q=${lat},${lon}&dt=2024-01-01`
+        // );
+        
+        // For now, we'll use mock data or show a message
+        showHistoricalDataUnavailable();
+    } catch (error) {
+        console.error('Historical data not available:', error);
+        showHistoricalDataUnavailable();
+    }
+}
+
+function showHistoricalDataUnavailable() {
+    const historicalChartContainer = document.getElementById('historicalWeatherChart');
+    historicalChartContainer.innerHTML = `
+        <div class="text-center p-4">
+            <i class="bi bi-graph-up text-muted fs-1"></i>
+            <p class="text-muted mt-2">Historical weather data requires premium API access</p>
+            <small>Upgrade your WeatherAPI.com plan to access historical data</small>
+        </div>
+    `;
+}
+```
+
+4. Update Your Weather Section HTML
+
+Add a proper forecast section to your weather HTML:
 
 ```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EcoManager Pro - User Guide</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <style>
-        :root {
-            --primary: #2c5530;
-            --secondary: #4a7c59;
-            --accent: #3a8a5f;
-            --accent-light: #4da675;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #2c3e50;
-        }
-        
-        .guide-header {
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            color: white;
-            padding: 2rem 0;
-            margin-bottom: 2rem;
-        }
-        
-        .guide-section {
-            margin-bottom: 3rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .guide-section h2 {
-            color: var(--primary);
-            margin-bottom: 1.5rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--accent-light);
-        }
-        
-        .feature-card {
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            transition: all 0.3s ease;
-        }
-        
-        .feature-card:hover {
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            transform: translateY(-3px);
-        }
-        
-        .feature-icon {
-            font-size: 2rem;
-            color: var(--accent);
-            margin-bottom: 1rem;
-        }
-        
-        .step-by-step {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-        
-        .step-number {
-            display: inline-block;
-            width: 30px;
-            height: 30px;
-            background-color: var(--accent);
-            color: white;
-            border-radius: 50%;
-            text-align: center;
-            line-height: 30px;
-            margin-right: 10px;
-        }
-        
-        .tip-box {
-            background-color: #e7f3ff;
-            border-left: 4px solid #3a8a5f;
-            padding: 1rem;
-            margin: 1.5rem 0;
-            border-radius: 0 4px 4px 0;
-        }
-        
-        .screenshot {
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 0.5rem;
-            background-color: white;
-            margin: 1rem 0;
-            max-width: 100%;
-        }
-        
-        .back-to-top {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background-color: var(--accent);
-            color: white;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
-            z-index: 1000;
-        }
-        
-        .back-to-top:hover {
-            background-color: var(--accent-light);
-            color: white;
-        }
-        
-        .nav-pills .nav-link.active {
-            background-color: var(--accent);
-        }
-        
-        .nav-pills .nav-link {
-            color: var(--primary);
-        }
-    </style>
-</head>
-<body>
-    <!-- Header -->
-    <header class="guide-header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h1 class="display-4">EcoManager Pro User Guide</h1>
-                    <p class="lead">Comprehensive guide to managing your ecosystem restoration projects</p>
-                </div>
-                <div class="col-md-4 text-end">
-                    <button class="btn btn-light" onclick="window.print()">
-                        <i class="bi bi-printer"></i> Print Guide
-                    </button>
-                    <button class="btn btn-outline-light ms-2" onclick="window.close()">
-                        <i class="bi bi-x-lg"></i> Close Guide
-                    </button>
-                </div>
+<!-- Add this after the current weather row -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">3-Day Forecast</h5>
             </div>
-        </div>
-    </header>
-
-    <div class="container">
-        <div class="row">
-            <!-- Sidebar Navigation -->
-            <div class="col-md-3">
-                <div class="sticky-top" style="top: 20px;">
-                    <nav id="guide-nav" class="nav flex-column nav-pills">
-                        <a class="nav-link" href="#introduction">Introduction</a>
-                        <a class="nav-link" href="#getting-started">Getting Started</a>
-                        <a class="nav-link" href="#dashboard">Dashboard</a>
-                        <a class="nav-link" href="#projects">Projects</a>
-                        <a class="nav-link" href="#assessments">Assessments</a>
-                        <a class="nav-link" href="#species">Species</a>
-                        <a class="nav-link" href="#maintenance">Maintenance</a>
-                        <a class="nav-link" href="#analytics">Analytics</a>
-                        <a class="nav-link" href="#data-management">Data Management</a>
-                        <a class="nav-link" href="#weather">Weather</a>
-                        <a class="nav-link" href="#tips">Tips & Best Practices</a>
-                    </nav>
+            <div class="card-body">
+                <div id="forecast-display" class="row">
+                    <!-- Forecast will be loaded here -->
+                    <div class="col-12 text-center text-muted">
+                        <i class="bi bi-cloud-download"></i>
+                        <p class="mt-2">Loading forecast data...</p>
+                    </div>
                 </div>
-            </div>
-
-            <!-- Main Content -->
-            <div class="col-md-9">
-                <!-- Introduction Section -->
-                <section id="introduction" class="guide-section">
-                    <h2>Introduction to EcoManager Pro</h2>
-                    <p>EcoManager Pro is a comprehensive web application designed to help environmental professionals, conservationists, and land managers track, monitor, and analyze ecosystem restoration projects.</p>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="feature-card">
-                                <div class="feature-icon">
-                                    <i class="bi bi-speedometer2"></i>
-                                </div>
-                                <h4>Dashboard Overview</h4>
-                                <p>Get a quick snapshot of all your projects, assessments, and maintenance activities with interactive charts and statistics.</p>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="feature-card">
-                                <div class="feature-icon">
-                                    <i class="bi bi-map"></i>
-                                </div>
-                                <h4>Project Mapping</h4>
-                                <p>Visualize project locations with integrated maps and track geographical data for all your restoration sites.</p>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="feature-card">
-                                <div class="feature-icon">
-                                    <i class="bi bi-clipboard-data"></i>
-                                </div>
-                                <h4>Data Analytics</h4>
-                                <p>Analyze ecosystem health trends, species distribution, and maintenance activities with comprehensive charts.</p>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="feature-card">
-                                <div class="feature-icon">
-                                    <i class="bi bi-cloud-sun"></i>
-                                </div>
-                                <h4>Weather Integration</h4>
-                                <p>Monitor weather conditions and environmental factors that may impact your ecosystem management activities.</p>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Getting Started Section -->
-                <section id="getting-started" class="guide-section">
-                    <h2>Getting Started</h2>
-                    <p>Follow these steps to begin using EcoManager Pro effectively:</p>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">1</span> Create Your First Project</h5>
-                        <p>Navigate to the Projects section and click "Add New Project". Fill in the project details including name, description, and location.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">2</span> Set Project Location</h5>
-                        <p>Use the interactive map to set your project location. You can use your current location, enter coordinates manually, or click on the map.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">3</span> Conduct Initial Assessment</h5>
-                        <p>Go to the Assessments section and create your first ecosystem health assessment. This establishes a baseline for tracking progress.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">4</span> Add Species Information</h5>
-                        <p>Document the species present in your ecosystem. Classify them as native, introduced, weeds, or pests for better management.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">5</span> Schedule Maintenance</h5>
-                        <p>Plan and schedule maintenance activities like weed control, revegetation, or monitoring with priority levels and due dates.</p>
-                    </div>
-                    
-                    <div class="tip-box">
-                        <strong>Pro Tip:</strong> Start with one pilot project to familiarize yourself with all features before scaling up to multiple projects.
-                    </div>
-                </section>
-
-                <!-- Dashboard Section -->
-                <section id="dashboard" class="guide-section">
-                    <h2>Dashboard</h2>
-                    <p>The Dashboard provides an overview of all your ecosystem management activities at a glance.</p>
-                    
-                    <h4>Key Components</h4>
-                    <ul>
-                        <li><strong>Quick Actions:</strong> Quickly create new projects, assessments, species entries, or maintenance tasks</li>
-                        <li><strong>Statistics Cards:</strong> View counts of projects, assessments, species, and maintenance activities</li>
-                        <li><strong>Ecosystem Health Overview:</strong> Track health trends over time with interactive charts</li>
-                        <li><strong>Project Status:</strong> Visual breakdown of projects by status (planning, active, on-hold, completed)</li>
-                        <li><strong>Recent Activities:</strong> Latest assessments and updates across all projects</li>
-                        <li><strong>Upcoming Maintenance:</strong> Scheduled tasks that need attention</li>
-                    </ul>
-                    
-                    <div class="tip-box">
-                        <strong>Pro Tip:</strong> Use the date range filter on the Ecosystem Health chart to analyze trends over different time periods.
-                    </div>
-                </section>
-
-                <!-- Projects Section -->
-                <section id="projects" class="guide-section">
-                    <h2>Projects</h2>
-                    <p>Manage all your ecosystem restoration projects in one place with detailed tracking and mapping capabilities.</p>
-                    
-                    <h4>Creating a New Project</h4>
-                    <div class="step-by-step">
-                        <h5><span class="step-number">1</span> Basic Information</h5>
-                        <p>Enter the project name, code (optional), start date, status, and description.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">2</span> Set Progress</h5>
-                        <p>Use the progress slider to indicate how complete the project is. Update this regularly as work progresses.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">3</span> Location Mapping</h5>
-                        <p>Set the project location using one of these methods:
-                            <ul>
-                                <li>Click "Use Current Location" to automatically detect your position</li>
-                                <li>Enter latitude and longitude coordinates manually</li>
-                                <li>Click directly on the map to place a marker</li>
-                                <li>Use drawing tools to define project boundaries</li>
-                            </ul>
-                        </p>
-                    </div>
-                    
-                    <h4>Project List Features</h4>
-                    <ul>
-                        <li><strong>Search:</strong> Quickly find projects by name or code</li>
-                        <li><strong>Status Tracking:</strong> Visual indicators show project status at a glance</li>
-                        <li><strong>Progress Bars:</strong> See completion percentage for each project</li>
-                        <li><strong>Location Preview:</strong> Small map previews with option to view full map</li>
-                        <li><strong>Related Items Count:</strong> See how many assessments, maintenance tasks, and species are linked to each project</li>
-                    </ul>
-                    
-                    <div class="tip-box">
-                        <strong>Pro Tip:</strong> Use project codes for easy reference in field notes and reports. A consistent naming convention will help with organization as your project portfolio grows.
-                    </div>
-                </section>
-
-                <!-- Assessments Section -->
-                <section id="assessments" class="guide-section">
-                    <h2>Assessments</h2>
-                    <p>Conduct and review ecosystem health assessments to monitor the progress and condition of your restoration projects.</p>
-                    
-                    <h4>Creating an Assessment</h4>
-                    <div class="step-by-step">
-                        <h5><span class="step-number">1</span> Basic Details</h5>
-                        <p>Enter the assessment date, assessor name, and select the project being assessed.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">2</span> Ecosystem Health Evaluation</h5>
-                        <p>Fill in the quantitative metrics:
-                            <ul>
-                                <li><strong>Vegetation Cover:</strong> Percentage of ground covered by vegetation</li>
-                                <li><strong>Native Species:</strong> Percentage of species that are native</li>
-                                <li><strong>Weed Cover:</strong> Percentage of ground covered by weeds</li>
-                                <li><strong>Soil Stability:</strong> Rate soil condition on a 1-5 scale</li>
-                                <li><strong>Species Richness:</strong> Count of different species present</li>
-                            </ul>
-                        </p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">3</span> Health Score Calculation</h5>
-                        <p>The system automatically calculates a health score based on your inputs. Watch the preview update in real-time as you enter data.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">4</span> Final Details</h5>
-                        <p>Add a descriptive summary of the assessment findings and observations.</p>
-                    </div>
-                    
-                    <h4>Assessment History</h4>
-                    <p>View all past assessments filtered by project. Each assessment shows the date, assessor, health status, and associated project.</p>
-                    
-                    <div class="tip-box">
-                        <strong>Pro Tip:</strong> Conduct assessments at regular intervals (e.g., quarterly) to track changes over time. Consistent assessment methodology will yield more reliable trend data.
-                    </div>
-                </section>
-
-                <!-- Species Section -->
-                <section id="species" class="guide-section">
-                    <h2>Species Management</h2>
-                    <p>Track and manage all plant and animal species in your ecosystem projects.</p>
-                    
-                    <h4>Adding Species</h4>
-                    <div class="step-by-step">
-                        <h5><span class="step-number">1</span> Basic Information</h5>
-                        <p>Enter the common name and scientific name (if known) of the species.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">2</span> Classification</h5>
-                        <p>Select the species type (plant, animal, bird, reptile, or insect) and status (native, introduced, weed, or pest).</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">3</span> Project Association</h5>
-                        <p>Assign the species to a specific project where it was observed or is being managed.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">4</span> Description</h5>
-                        <p>Add notes about the species, such as its role in the ecosystem, management requirements, or special observations.</p>
-                    </div>
-                    
-                    <h4>Species Database Features</h4>
-                    <ul>
-                        <li><strong>Filter by Project:</strong> View species associated with specific projects</li>
-                        <li><strong>Type Classification:</strong> Organize species by biological classification</li>
-                        <li><strong>Status Indicators:</strong> Color-coded badges show native vs. introduced species</li>
-                        <li><strong>Project Association:</strong> Track which species are present in each project area</li>
-                    </ul>
-                    
-                    <div class="tip-box">
-                        <strong>Pro Tip:</strong> Use the species status field to quickly identify management priorities. Weed and pest species can be filtered for targeted control programs.
-                    </div>
-                </section>
-
-                <!-- Maintenance Section -->
-                <section id="maintenance" class="guide-section">
-                    <h2>Maintenance Scheduling</h2>
-                    <p>Plan, schedule, and track all ecosystem maintenance activities.</p>
-                    
-                    <h4>Viewing Options</h4>
-                    <p>Maintenance activities can be viewed in two formats:</p>
-                    <ul>
-                        <li><strong>List View:</strong> Tabular format with filtering and sorting options</li>
-                        <li><strong>Calendar View:</strong> Visual calendar display showing scheduled activities</li>
-                    </ul>
-                    
-                    <h4>Scheduling New Activities</h4>
-                    <div class="step-by-step">
-                        <h5><span class="step-number">1</span> Activity Details</h5>
-                        <p>Enter the activity name and select the type from the dropdown (weed control, revegetation, monitoring, etc.).</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">2</span> Scheduling</h5>
-                        <p>Set the scheduled date and priority level (low, medium, high).</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">3</span> Project Assignment</h5>
-                        <p>Assign the activity to a specific project.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">4</span> Description</h5>
-                        <p>Provide detailed instructions or notes about the activity.</p>
-                    </div>
-                    
-                    <h4>Managing Activities</h4>
-                    <ul>
-                        <li><strong>Status Tracking:</strong> Activities can be scheduled, completed, or marked overdue</li>
-                        <li><strong>Priority Indicators:</strong> Color-coded badges show priority levels</li>
-                        <li><strong>Calendar Integration:</strong> View activities in a monthly calendar format</li>
-                        <li><strong>Completion Tracking:</strong> Mark activities as completed when finished</li>
-                    </ul>
-                    
-                    <div class="tip-box">
-                        <strong>Pro Tip:</strong> Use the calendar view to identify potential scheduling conflicts and ensure adequate time is allocated for each maintenance activity.
-                    </div>
-                </section>
-
-                <!-- Analytics Section -->
-                <section id="analytics" class="guide-section">
-                    <h2>Analytics & Reporting</h2>
-                    <p>Visualize and analyze your ecosystem data with comprehensive charts and reports.</p>
-                    
-                    <h4>Available Charts</h4>
-                    <ul>
-                        <li><strong>Ecosystem Health Trends:</strong> Track health scores over time across all projects</li>
-                        <li><strong>Species Distribution:</strong> Pie chart showing breakdown of species by type</li>
-                        <li><strong>Maintenance Activity Types:</strong> Bar chart showing frequency of different maintenance activities</li>
-                        <li><strong>Monthly Activity Overview:</strong> Combined view of assessments and maintenance by month</li>
-                    </ul>
-                    
-                    <h4>Interpreting Analytics</h4>
-                    <p>The analytics section helps you:</p>
-                    <ul>
-                        <li>Identify trends in ecosystem health improvement or decline</li>
-                        <li>Understand species composition across your projects</li>
-                        <li>Track resource allocation across different maintenance activities</li>
-                        <li>Monitor seasonal patterns in assessment and maintenance activities</li>
-                    </ul>
-                    
-                    <div class="tip-box">
-                        <strong>Pro Tip:</strong> Use the analytics section before planning meetings or preparing reports. The visualizations can help communicate project status and needs to stakeholders.
-                    </div>
-                </section>
-
-                <!-- Data Management Section -->
-                <section id="data-management" class="guide-section">
-                    <h2>Data Management</h2>
-                    <p>Export, import, and backup your ecosystem management data.</p>
-                    
-                    <h4>Exporting Data</h4>
-                    <p>You can export your data in three formats:</p>
-                    <ul>
-                        <li><strong>JSON:</strong> For backup purposes or transferring data between systems</li>
-                        <li><strong>PDF Report:</strong> Professional formatted report suitable for sharing with stakeholders</li>
-                        <li><strong>Excel Spreadsheet:</strong> For further analysis in spreadsheet software</li>
-                    </ul>
-                    
-                    <h4>Importing Data</h4>
-                    <p>Restore previously exported data or import data from other systems:</p>
-                    <div class="step-by-step">
-                        <h5><span class="step-number">1</span> Select File</h5>
-                        <p>Choose a previously exported JSON file from your computer.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">2</span> Import Options</h5>
-                        <p>Choose whether to overwrite existing data or merge with current data.</p>
-                    </div>
-                    
-                    <div class="step-by-step">
-                        <h5><span class="step-number">3</span> Import</h5>
-                        <p>Click the import button to load the data into the application.</p>
-                    </div>
-                    
-                    <h4>Data Summary</h4>
-                    <p>View counts of all data types (projects, assessments, species, maintenance tasks) at a glance.</p>
-                    
-                    <div class="tip-box">
-                        <strong>Pro Tip:</strong> Regularly export your data as a backup. Before major updates or changes, create a backup to ensure you don't lose important historical data.
-                    </div>
-                </section>
-
-                <!-- Weather Section -->
-                <section id="weather" class="guide-section">
-                    <h2>Weather & Environmental Data</h2>
-                    <p>Monitor weather conditions and environmental factors that may impact your ecosystem management activities.</p>
-                    
-                    <h4>Weather Location</h4>
-                    <p>Set the location for weather data using one of these methods:</p>
-                    <ul>
-                        <li><strong>Project Location:</strong> Automatically use coordinates from your projects</li>
-                        <li><strong>Manual Coordinates:</strong> Enter specific latitude and longitude coordinates</li>
-                    </ul>
-                    
-                    <h4>Weather Information</h4>
-                    <p>The weather section provides:</p>
-                    <ul>
-                        <li><strong>Current Conditions:</strong> Temperature, weather description, humidity, wind speed, and pressure</li>
-                        <li><strong>Temperature Forecast:</strong> Chart showing expected temperature changes over the next 12 hours</li>
-                        <li><strong>Environmental Alerts:</strong> Notifications about conditions that may affect fieldwork</li>
-                        <li><strong>Historical Data:</strong> Charts showing rainfall and temperature trends over time</li>
-                    </ul>
-                    
-                    <h4>Using Weather Data</h4>
-                    <p>Weather information can help you:</p>
-                    <ul>
-                        <li>Plan fieldwork around favorable conditions</li>
-                        <li>Understand how weather patterns might be affecting ecosystem health</li>
-                        <li>Schedule maintenance activities appropriately</li>
-                        <li>Monitor for extreme conditions that might require intervention</li>
-                    </ul>
-                    
-                    <div class="tip-box">
-                        <strong>Pro Tip:</strong> Check the weather section before scheduling field activities. The environmental alerts can help you avoid potentially dangerous conditions or times when your work might be less effective.
-                    </div>
-                </section>
-
-                <!-- Tips Section -->
-                <section id="tips" class="guide-section">
-                    <h2>Tips & Best Practices</h2>
-                    
-                    <h4>General Usage Tips</h4>
-                    <ul>
-                        <li><strong>Consistent Data Entry:</strong> Establish naming conventions and data entry standards for your team to maintain data quality</li>
-                        <li><strong>Regular Updates:</strong> Update project progress and complete maintenance tasks regularly to keep information current</li>
-                        <li><strong>Use Descriptions:</strong> Provide detailed descriptions in all forms - they become valuable context for future reference</li>
-                        <li><strong>Leverage Filters:</strong> Use the filter options to focus on specific projects or time periods when reviewing data</li>
-                    </ul>
-                    
-                    <h4>Project Management Tips</h4>
-                    <ul>
-                        <li><strong>Start Small:</strong> Begin with a pilot project to familiarize yourself with the system before scaling up</li>
-                        <li><strong>Set Realistic Milestones:</strong> Break large projects into phases with clear objectives and timelines</li>
-                        <li><strong>Document Challenges:</strong> Use assessment descriptions to note obstacles and how they were overcome</li>
-                        <li><strong>Celebrate Successes:</strong> Track and highlight positive changes in ecosystem health over time</li>
-                    </ul>
-                    
-                    <h4>Data Quality Tips</h4>
-                    <ul>
-                        <li><strong>Standardize Methods:</strong> Use consistent assessment methodologies across all projects for comparable data</li>
-                        <li><strong>Train Team Members:</strong> Ensure all users understand how to properly use the application and enter data</li>
-                        <li><strong>Regular Reviews:</strong> Periodically review data for completeness and accuracy</li>
-                        <li><strong>Backup Regularly:</strong> Export and save your data periodically to prevent loss</li>
-                    </ul>
-                    
-                    <div class="tip-box">
-                        <strong>Final Tip:</strong> The most successful ecosystem management programs combine good data with consistent follow-through. Use EcoManager Pro to track both your plans and your progress toward restoration goals.
-                    </div>
-                </section>
             </div>
         </div>
     </div>
-
-    <!-- Back to Top Button -->
-    <a href="#" class="back-to-top">
-        <i class="bi bi-arrow-up"></i>
-    </a>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Smooth scrolling for navigation links
-        document.querySelectorAll('#guide-nav a').forEach(anchor => {
-            anchor.addEventListener('click', function(e) {
-                e.preventDefault();
-                const targetId = this.getAttribute('href');
-                const targetElement = document.querySelector(targetId);
-                window.scrollTo({
-                    top: targetElement.offsetTop - 20,
-                    behavior: 'smooth'
-                });
-            });
-        });
-        
-        // Back to top button
-        document.querySelector('.back-to-top').addEventListener('click', function(e) {
-            e.preventDefault();
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-        });
-        
-        // Update active nav link on scroll
-        window.addEventListener('scroll', function() {
-            const sections = document.querySelectorAll('.guide-section');
-            const navLinks = document.querySelectorAll('#guide-nav a');
-            
-            let currentSection = '';
-            
-            sections.forEach(section => {
-                const sectionTop = section.offsetTop;
-                if (pageYOffset >= sectionTop - 100) {
-                    currentSection = section.getAttribute('id');
-                }
-            });
-            
-            navLinks.forEach(link => {
-                link.classList.remove('active');
-                if (link.getAttribute('href') === '#' + currentSection) {
-                    link.classList.add('active');
-                }
-            });
-        });
-    </script>
-</body>
-</html>
-```
-
-How to Add a Working Button to Your App
-
-To add a button that opens the User Guide in a new tab with a close option, follow these simple steps:
-
-Step 1: Add the Button to Your HTML
-
-Add this button code to your main application HTML, preferably in the sidebar or header:
-
-```html
-<!-- Add this to your sidebar, after the existing menu items -->
-<li class="nav-item">
-    <a class="nav-link" href="#" id="userGuideBtn" aria-label="User Guide">
-        <i class="bi bi-question-circle"></i> <span>User Guide</span>
-    </a>
-</li>
-```
-
-Step 2: Add JavaScript to Handle the Button Click
-
-Add this JavaScript code to your existing script section:
-
-```javascript
-// Add this to your existing JavaScript code
-
-// User Guide button functionality
-document.getElementById('userGuideBtn').addEventListener('click', function(e) {
-    e.preventDefault();
-    
-    // Open the User Guide in a new tab
-    const guideWindow = window.open('UserGuide.html', 'EcoManagerProGuide', 
-        'width=1200,height=800,scrollbars=yes,resizable=yes');
-    
-    // Focus on the new window
-    if (guideWindow) {
-        guideWindow.focus();
-    } else {
-        // If popup was blocked, open in a regular tab
-        window.open('UserGuide.html', '_blank');
-    }
-});
-```
-
-Step 3: Save the User Guide File
-
-Save the User Guide HTML code above as UserGuide.html in the same directory as your main application file.
-
-Alternative: Add a Help Button to the Header
-
-If you prefer a more prominent help button, you can add it to the header area:
-
-```html
-<!-- Add this to your header or navigation area -->
-<div class="help-button" style="position: fixed; bottom: 20px; left: 20px; z-index: 1000;">
-    <button class="btn btn-primary btn-lg rounded-circle shadow" 
-            id="floatingHelpBtn"
-            title="Open User Guide">
-        <i class="bi bi-question-lg"></i>
-    </button>
 </div>
 ```
 
-Then add the JavaScript for this button:
+5. Update Your loadWeatherData Call
+
+Make sure you're calling the updated function in your weather section navigation:
 
 ```javascript
-// Floating help button
-document.getElementById('floatingHelpBtn').addEventListener('click', function() {
-    const guideWindow = window.open('UserGuide.html', 'EcoManagerProGuide', 
-        'width=1200,height=800,scrollbars=yes,resizable=yes');
-    
-    if (guideWindow) {
-        guideWindow.focus();
-    } else {
-        window.open('UserGuide.html', '_blank');
-    }
-});
+if (target === 'weather') {
+    loadWeatherData();
+    setupWeatherLocationSelector();
+}
 ```
 
-How It Works
+Summary of Changes Needed:
 
-1. Button Placement: The button can be placed in the sidebar navigation or as a floating button
-2. New Tab Opening: When clicked, it opens the User Guide in a new browser tab/window
-3. Close Option: The User Guide includes a "Close Guide" button that users can click to close the window
-4. Responsive Design: The User Guide is mobile-friendly and works on all device sizes
+1. Add a real WeatherAPI.com key
+2. Implement the missing updateForecastDisplay() function
+3. Update loadWeatherData() to handle and display forecast data
+4. Add proper error handling for historical data
+5. Update the HTML structure to include forecast display areas
 
-The User Guide provides comprehensive documentation for all features of your EcoManager Pro application, with clear sections, step-by-step instructions, and helpful tips for users.
+The main issue is that you're fetching the forecast data but not displaying it anywhere in your UI. The code above should resolve these issues and show both current conditions and the 3-day forecast properly.
