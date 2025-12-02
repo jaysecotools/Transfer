@@ -3053,3 +3053,174 @@ function loadMockWeatherData() {
 
 
 Can you show me exactly the part I need to replace?
+
+
+
+
+
+
+
+
+Looking at your code, I can see that you already have a showProjectInModal function in your JavaScript (around line 162). The new function you want to add is a different implementation that expects a projectId parameter instead of a project object.
+
+Here's the part you need to replace - your existing showProjectInModal function (around line 162 in your code):
+
+```javascript
+function showProjectInModal(project) {
+    const modalTitle = document.getElementById('projectMapModalTitle');
+    const modalMapContainer = document.getElementById('modalProjectMap');
+    const modalCoordinates = document.getElementById('modalCoordinates');
+    
+    modalTitle.textContent = `${project.name} Location`;
+    
+    // Clear previous map
+    if (modalProjectMap) {
+        modalProjectMap.remove();
+        modalProjectMap = null;
+    }
+    
+    // Clear the map container
+    modalMapContainer.innerHTML = '';
+    
+    // Show modal first, then initialize map
+    const modal = new bootstrap.Modal(document.getElementById('projectMapModal'));
+    modal.show();
+    
+    // Initialize map after modal is fully shown
+    setTimeout(() => {
+        // Recreate the map container element
+        modalMapContainer.innerHTML = '<div id="modalMap" style="height: 100%; width: 100%;"></div>';
+        
+        // Initialize map
+        modalProjectMap = L.map('modalMap').setView([0, 0], 2);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(modalProjectMap);
+        
+        // Add marker if coordinates exist
+        if (project.latitude && project.longitude) {
+            const lat = parseFloat(project.latitude);
+            const lng = parseFloat(project.longitude);
+            
+            modalProjectMarker = L.marker([lat, lng]).addTo(modalProjectMap)
+                .bindPopup(project.name)
+                .openPopup();
+            
+            modalProjectMap.setView([lat, lng], 10);
+            modalCoordinates.textContent = `Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            
+            // Force resize and invalidate map size
+            setTimeout(() => {
+                modalProjectMap.invalidateSize();
+            }, 100);
+        } else {
+            modalCoordinates.textContent = 'Coordinates: Not specified';
+            // Force resize for default view too
+            setTimeout(() => {
+                modalProjectMap.invalidateSize();
+            }, 100);
+        }
+    }, 300); // Small delay to ensure modal is visible
+}
+```
+
+Replace this entire function with your new implementation:
+
+```javascript
+function showProjectInModal(projectId) {
+    console.log("Opening map for project ID:", projectId);
+    
+    // Find the project by ID
+    const projects = db.getProjects();
+    const project = projects.find(p => p.id === projectId);
+    
+    if (!project) {
+        console.error("Project not found with ID:", projectId);
+        showToast('Error', 'Project not found', 'error');
+        return;
+    }
+    
+    console.log("Found project:", project);
+    
+    // Update modal content
+    document.getElementById('projectMapModalTitle').textContent = `${project.name} Location`;
+    
+    const modalCoordinates = document.getElementById('modalCoordinates');
+    if (project.latitude && project.longitude) {
+        const lat = parseFloat(project.latitude);
+        const lng = parseFloat(project.longitude);
+        modalCoordinates.textContent = `Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    } else {
+        modalCoordinates.textContent = 'Coordinates: Not specified';
+    }
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('projectMapModal'));
+    modal.show();
+    
+    // Wait for modal to be visible, then create the map
+    setTimeout(() => {
+        const mapContainer = document.getElementById('modalProjectMap');
+        
+        // Clear any existing map
+        mapContainer.innerHTML = '<div id="freshMap" style="height: 100%; width: 100%;"></div>';
+        
+        // Set location (use project location or default)
+        let lat = -41.0521;
+        let lng = 145.9061;
+        let zoom = 11;
+        
+        if (project.latitude && project.longitude) {
+            lat = parseFloat(project.latitude);
+            lng = parseFloat(project.longitude);
+            zoom = 13;
+        }
+        
+        // Create the map
+        const map = L.map('freshMap').setView([lat, lng], zoom);
+        
+        // Add map tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Add marker if project has coordinates
+        if (project.latitude && project.longitude) {
+            L.marker([lat, lng])
+                .addTo(map)
+                .bindPopup(`<b>${project.name}</b>`)
+                .openPopup();
+        }
+        
+        // Fix map size
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+        
+    }, 300); // Small delay to ensure modal is visible
+}
+```
+
+Important note: After replacing the function, you'll also need to update the calls to this function in your HTML/JavaScript. Currently, in your loadProjects() function (around line 544), you're calling it like this:
+
+```javascript
+onclick="showProjectInModal(${JSON.stringify(project).replace(/"/g, '&quot;')})"
+```
+
+This will need to be changed to:
+
+```javascript
+onclick="showProjectInModal('${project.id}')"
+```
+
+Since the new function expects a project ID string instead of a project object.
+
+
+
+
+
+
+
+
+
