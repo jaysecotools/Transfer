@@ -1,106 +1,233 @@
-Looking at your code, the issue is likely in the showProjectInModal() function. The crash probably happens because the Leaflet map isn't being properly initialized or there's an issue with the modal. Here are several fixes:
+You're right, let me examine the code more carefully. Looking at your original showProjectInModal() function and the context, I can see the issue. The problem is in how the project data is being passed from the table to the function. Let me trace through the exact issue:
 
-Fix 1: Update the showProjectInModal() function
+The Problem
 
-Replace your current showProjectInModal() function with this improved version:
+In your loadProjects() function, you're creating the onclick handler like this:
+
+```javascript
+onclick="showProjectInModal(${JSON.stringify(project).replace(/"/g, '&quot;')})"
+```
+
+The issue is that when this HTML is inserted into the DOM, the quotes are being escaped, but the JavaScript function is receiving a string instead of a proper JavaScript object.
+
+Solution: Fix the Data Passing
+
+Change the loadProjects() function where it creates the location cell:
+
+Replace this section in loadProjects():
+
+```javascript
+locationCell = `
+    <div class="d-flex align-items-center">
+        <div class="map-preview me-2" 
+             style="width: 100px; background-color: #f8f9fa;"
+             onclick="showProjectInModal(${JSON.stringify(project).replace(/"/g, '&quot;')})">
+            <div class="w-100 h-100 d-flex align-items-center justify-content-center">
+                <i class="bi bi-geo-alt-fill text-primary"></i>
+            </div>
+        </div>
+        <button class="btn btn-sm btn-outline-primary" 
+                onclick="showProjectInModal(${JSON.stringify(project).replace(/"/g, '&quot;')})">
+            <i class="bi bi-eye"></i> View
+        </button>
+    </div>
+`;
+```
+
+With this:
+
+```javascript
+// Create a safe string representation of the project
+const projectJSON = JSON.stringify(project)
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, '\\n');
+
+locationCell = `
+    <div class="d-flex align-items-center">
+        <div class="map-preview me-2" 
+             style="width: 100px; background-color: #f8f9fa;"
+             onclick="showProjectInModal(JSON.parse('${projectJSON}'))">
+            <div class="w-100 h-100 d-flex align-items-center justify-content-center">
+                <i class="bi bi-geo-alt-fill text-primary"></i>
+            </div>
+        </div>
+        <button class="btn btn-sm btn-outline-primary" 
+                onclick="showProjectInModal(JSON.parse('${projectJSON}'))">
+            <i class="bi bi-eye"></i> View
+        </button>
+    </div>
+`;
+```
+
+Alternative Cleaner Solution
+
+An even better approach is to use data attributes instead of inline JavaScript:
+
+Update the loadProjects() function:
+
+```javascript
+locationCell = `
+    <div class="d-flex align-items-center">
+        <div class="map-preview me-2" 
+             style="width: 100px; background-color: #f8f9fa;"
+             data-project='${JSON.stringify(project).replace(/'/g, "\\'")}'
+             onclick="handleProjectMapClick(this)">
+            <div class="w-100 h-100 d-flex align-items-center justify-content-center">
+                <i class="bi bi-geo-alt-fill text-primary"></i>
+            </div>
+        </div>
+        <button class="btn btn-sm btn-outline-primary" 
+                data-project='${JSON.stringify(project).replace(/'/g, "\\'")}'
+                onclick="handleProjectMapClick(this)">
+            <i class="bi bi-eye"></i> View
+        </button>
+    </div>
+`;
+```
+
+Add this helper function near your other utility functions:
+
+```javascript
+function handleProjectMapClick(element) {
+    try {
+        const projectData = element.getAttribute('data-project');
+        if (projectData) {
+            const project = JSON.parse(projectData);
+            showProjectInModal(project);
+        }
+    } catch (error) {
+        console.error('Error parsing project data:', error);
+        showToast('Error', 'Could not load project location', 'error');
+    }
+}
+```
+
+Debugging the Current State
+
+To see what's actually happening, add this debug code to your showProjectInModal() function:
 
 ```javascript
 function showProjectInModal(project) {
+    console.log('Project parameter type:', typeof project);
+    console.log('Project parameter value:', project);
+    
+    // If project is a string, try to parse it
+    if (typeof project === 'string') {
+        console.log('Project is a string, attempting to parse...');
+        try {
+            project = JSON.parse(project);
+            console.log('Parsed successfully:', project);
+        } catch (e) {
+            console.error('Failed to parse project string:', e);
+            console.log('Raw string value:', project);
+            showToast('Error', 'Invalid project data format', 'error');
+            return;
+        }
+    }
+    
+    // Rest of your original function...
+}
+```
+
+Quick Test Fix
+
+As a quick test, modify the function to handle string inputs:
+
+```javascript
+function showProjectInModal(project) {
+    // Handle string input
+    if (typeof project === 'string') {
+        try {
+            // Clean up the string - remove any escaped quotes
+            let cleanStr = project.replace(/&quot;/g, '"');
+            project = JSON.parse(cleanStr);
+        } catch (e) {
+            console.error('Failed to parse project string:', e, 'Raw:', project);
+            showToast('Error', 'Could not load project data', 'error');
+            return;
+        }
+    }
+    
+    // Now continue with your original function code
+    const modalTitle = document.getElementById('projectMapModalTitle');
+    const modalMapContainer = document.getElementById('modalProjectMap');
+    const modalCoordinates = document.getElementById('modalCoordinates');
+    
+    // ... rest of your existing function
+}
+```
+
+The Core Issue
+
+The real problem is that when you do:
+
+```javascript
+onclick="showProjectInModal(${JSON.stringify(project).replace(/"/g, '&quot;')})"
+```
+
+It generates HTML like:
+
+```html
+onclick="showProjectInModal({&quot;id&quot;:&quot;1&quot;,&quot;name&quot;:&quot;Burnie Coastal Restoration&quot;,...})"
+```
+
+Which calls showProjectInModal() with a string starting with { instead of a JavaScript object.
+
+The simplest fix is to update just the showProjectInModal() function to handle both string and object inputs:
+
+```javascript
+function showProjectInModal(project) {
+    // DEBUG: Check what we're receiving
+    console.log('Received:', project, 'Type:', typeof project);
+    
+    // If it's a string that looks like JSON, parse it
+    if (typeof project === 'string' && (project.startsWith('{') || project.startsWith('['))) {
+        try {
+            // First, fix the escaped quotes
+            const fixedString = project.replace(/&quot;/g, '"').replace(/\\'/g, "'");
+            project = JSON.parse(fixedString);
+            console.log('Parsed to:', project);
+        } catch (e) {
+            console.error('Parse error:', e);
+            showToast('Error', 'Invalid project data', 'error');
+            return;
+        }
+    }
+    
+    // Now we should have an object
+    if (typeof project !== 'object' || project === null) {
+        console.error('Invalid project data after processing:', project);
+        showToast('Error', 'Could not load project', 'error');
+        return;
+    }
+    
+    // Continue with your original modal code...
     const modalTitle = document.getElementById('projectMapModalTitle');
     const modalMapContainer = document.getElementById('modalProjectMap');
     const modalCoordinates = document.getElementById('modalCoordinates');
     
     modalTitle.textContent = `${project.name} Location`;
     
-    // Clear the map container completely
-    modalMapContainer.innerHTML = '<div id="tempModalMap" style="height: 500px; width: 100%;"></div>';
+    // Clear previous map
+    if (modalProjectMap) {
+        modalProjectMap.remove();
+        modalProjectMap = null;
+    }
     
-    // Initialize coordinates
-    modalCoordinates.textContent = 'Coordinates: Not specified';
+    // Clear container
+    modalMapContainer.innerHTML = '';
     
     // Show modal first
-    const modalEl = document.getElementById('projectMapModal');
-    const modal = new bootstrap.Modal(modalEl);
-    modal.show();
-    
-    // Initialize map after modal is fully shown
-    modalEl.addEventListener('shown.bs.modal', function onModalShown() {
-        // Remove the event listener to prevent multiple initializations
-        modalEl.removeEventListener('shown.bs.modal', onModalShown);
-        
-        // Destroy existing map instance if it exists
-        if (window.modalMap) {
-            window.modalMap.remove();
-            window.modalMap = null;
-        }
-        
-        // Determine center coordinates
-        let lat = -41.0521; // Default to Burnie
-        let lng = 145.9061;
-        let zoom = 11;
-        
-        if (project.latitude && project.longitude) {
-            lat = parseFloat(project.latitude);
-            lng = parseFloat(project.longitude);
-            zoom = 10;
-            modalCoordinates.textContent = `Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-        }
-        
-        // Create new map
-        window.modalMap = L.map('tempModalMap').setView([lat, lng], zoom);
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(window.modalMap);
-        
-        // Add marker if coordinates exist
-        if (project.latitude && project.longitude) {
-            L.marker([lat, lng])
-                .addTo(window.modalMap)
-                .bindPopup(`<b>${project.name}</b><br>${modalCoordinates.textContent}`)
-                .openPopup();
-        }
-        
-        // Force resize
-        setTimeout(() => {
-            if (window.modalMap) {
-                window.modalMap.invalidateSize();
-            }
-        }, 10);
-    });
-}
-```
-
-Fix 2: Alternative simpler approach
-
-If the above doesn't work, try this simpler version:
-
-```javascript
-function showProjectInModal(project) {
     const modal = new bootstrap.Modal(document.getElementById('projectMapModal'));
-    const modalBody = document.getElementById('projectMapModal').querySelector('.modal-body');
-    
-    // Clear and create fresh map container
-    modalBody.innerHTML = `
-        <div class="map-container" id="dynamicModalMap" style="height: 500px;"></div>
-        <div class="location-coordinates mt-2" id="modalCoordinates">
-            ${project.latitude && project.longitude ? 
-                `Coordinates: ${parseFloat(project.latitude).toFixed(6)}, ${parseFloat(project.longitude).toFixed(6)}` : 
-                'Coordinates: Not specified'}
-        </div>
-    `;
-    
-    // Update modal title
-    document.getElementById('projectMapModalTitle').textContent = `${project.name} Location`;
-    
-    // Show modal first
     modal.show();
     
-    // Initialize map after modal is visible
+    // Initialize map after modal is shown
     setTimeout(() => {
-        const mapContainer = document.getElementById('dynamicModalMap');
+        // Create map container
+        modalMapContainer.innerHTML = '<div id="modalMap" style="height: 100%; width: 100%;"></div>';
         
-        // Set view based on project coordinates or default
+        // Initialize map
         let lat = -41.0521;
         let lng = 145.9061;
         let zoom = 11;
@@ -109,189 +236,30 @@ function showProjectInModal(project) {
             lat = parseFloat(project.latitude);
             lng = parseFloat(project.longitude);
             zoom = 13;
+            modalCoordinates.textContent = `Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        } else {
+            modalCoordinates.textContent = 'Coordinates: Not specified';
         }
         
-        const map = L.map(mapContainer).setView([lat, lng], zoom);
+        modalProjectMap = L.map('modalMap').setView([lat, lng], zoom);
         
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+        }).addTo(modalProjectMap);
         
         if (project.latitude && project.longitude) {
-            L.marker([lat, lng])
-                .addTo(map)
-                .bindPopup(`<b>${project.name}</b>`)
+            modalProjectMarker = L.marker([lat, lng])
+                .addTo(modalProjectMap)
+                .bindPopup(project.name)
                 .openPopup();
         }
         
         // Force resize
-        map.invalidateSize();
+        setTimeout(() => {
+            modalProjectMap.invalidateSize();
+        }, 100);
     }, 300);
 }
 ```
 
-Fix 3: Debug version with error handling
-
-Add this debug version to identify the exact problem:
-
-```javascript
-function showProjectInModal(project) {
-    console.log('Showing project:', project);
-    
-    try {
-        const modalTitle = document.getElementById('projectMapModalTitle');
-        if (!modalTitle) {
-            console.error('Modal title element not found!');
-            return;
-        }
-        
-        modalTitle.textContent = `${project.name} Location`;
-        
-        const modalMapContainer = document.getElementById('modalProjectMap');
-        if (!modalMapContainer) {
-            console.error('Modal map container not found!');
-            return;
-        }
-        
-        // Clear container
-        modalMapContainer.innerHTML = '';
-        
-        // Create fresh map div
-        const mapDiv = document.createElement('div');
-        mapDiv.id = 'freshModalMap';
-        mapDiv.style.height = '500px';
-        mapDiv.style.width = '100%';
-        modalMapContainer.appendChild(mapDiv);
-        
-        const modalCoordinates = document.getElementById('modalCoordinates');
-        if (modalCoordinates) {
-            if (project.latitude && project.longitude) {
-                modalCoordinates.textContent = 
-                    `Coordinates: ${parseFloat(project.latitude).toFixed(6)}, ${parseFloat(project.longitude).toFixed(6)}`;
-            } else {
-                modalCoordinates.textContent = 'Coordinates: Not specified';
-            }
-        }
-        
-        // Show modal
-        const modalEl = document.getElementById('projectMapModal');
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
-        
-        // Initialize map after delay
-        setTimeout(() => {
-            try {
-                console.log('Initializing map...');
-                
-                let lat = -41.0521;
-                let lng = 145.9061;
-                let zoom = 11;
-                
-                if (project.latitude && project.longitude) {
-                    lat = parseFloat(project.latitude);
-                    lng = parseFloat(project.longitude);
-                    zoom = 13;
-                }
-                
-                const map = L.map('freshModalMap').setView([lat, lng], zoom);
-                
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors'
-                }).addTo(map);
-                
-                if (project.latitude && project.longitude) {
-                    L.marker([lat, lng])
-                        .addTo(map)
-                        .bindPopup(`<b>${project.name}</b>`)
-                        .openPopup();
-                }
-                
-                // Fix map sizing
-                setTimeout(() => {
-                    map.invalidateSize();
-                }, 100);
-                
-                console.log('Map initialized successfully');
-                
-            } catch (mapError) {
-                console.error('Map initialization error:', mapError);
-                modalMapContainer.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        Failed to load map: ${mapError.message}
-                        <br><small>Check browser console for details</small>
-                    </div>
-                `;
-            }
-        }, 500); // Longer delay to ensure modal is visible
-        
-    } catch (error) {
-        console.error('Error in showProjectInModal:', error);
-        alert('Error showing project location. Check console for details.');
-    }
-}
-```
-
-Additional fixes to prevent issues:
-
-1. Add CSS for the modal map container:
-
-```css
-#projectMapModal .modal-body {
-    min-height: 550px;
-}
-
-#projectMapModal .map-container {
-    height: 500px;
-    width: 100%;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-/* Ensure modal backdrop doesn't interfere */
-.modal-backdrop {
-    z-index: 1040;
-}
-
-.modal {
-    z-index: 1050;
-}
-```
-
-1. Update the modal HTML structure slightly:
-   In your modal HTML,change the map container to be simpler:
-
-```html
-<div class="modal-body">
-    <div id="modalProjectMap" style="height: 500px;"></div>
-    <div class="location-coordinates mt-2" id="modalCoordinates">
-        Coordinates: Not specified
-    </div>
-</div>
-```
-
-1. Add error checking in your project table generation:
-   In theloadProjects() function, make sure the onclick handler properly escapes the project data:
-
-```javascript
-// In loadProjects() function, update the locationCell HTML
-locationCell = `
-    <div class="d-flex align-items-center">
-        <div class="map-preview me-2" 
-             style="width: 100px; background-color: #f8f9fa;"
-             onclick="showProjectInModal(${escape(JSON.stringify(project))})">
-            <div class="w-100 h-100 d-flex align-items-center justify-content-center">
-                <i class="bi bi-geo-alt-fill text-primary"></i>
-            </div>
-        </div>
-        <button class="btn btn-sm btn-outline-primary" 
-                onclick="showProjectInModal(${escape(JSON.stringify(project))})">
-            <i class="bi bi-eye"></i> View
-        </button>
-    </div>
-`;
-```
-
-Most likely, the issue is that the map is trying to initialize before the modal is fully visible. The fixes above ensure the map is created only after the modal is shown and properly sized.
-
-Try Fix 1 first, as it's the most robust solution. If that doesn't work, use the Debug version (Fix 3) to identify the exact error in your browser's console.
+Try this updated showProjectInModal() function first. It should handle the string input issue that's causing the crash.
