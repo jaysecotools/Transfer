@@ -1,305 +1,22 @@
-I understand your frustration! Let me rewrite the problematic section with a cleaner, working solution. Here's the complete fixed code for the project location modal functionality:
+You're right, that was too complex! Let me give you the simplest fix possible - just two small changes:
 
-Replace your entire showProjectInModal() function with this:
+Fix 1: Replace your showProjectInModal() function with this:
 
 ```javascript
-// ==================== PROJECT MAP MODAL FUNCTION ====================
-
-function showProjectInModal(project) {
-    console.log('Opening project modal for:', project);
+function showProjectInModal(projectId) {
+    console.log("Opening map for project ID:", projectId);
     
-    // Handle string input (in case it's coming from HTML onclick)
-    if (typeof project === 'string') {
-        try {
-            // Clean up the string
-            const cleanStr = project
-                .replace(/&quot;/g, '"')
-                .replace(/\\'/g, "'")
-                .replace(/&#x27;/g, "'");
-            project = JSON.parse(cleanStr);
-            console.log('Parsed project:', project);
-        } catch (e) {
-            console.error('Failed to parse project string:', e);
-            console.log('Raw string:', project.substring(0, 100) + '...');
-            showToast('Error', 'Could not load project data', 'error');
-            return;
-        }
-    }
-    
-    // Ensure we have a valid project object
-    if (!project || typeof project !== 'object') {
-        console.error('Invalid project data:', project);
-        showToast('Error', 'Invalid project data format', 'error');
-        return;
-    }
-    
-    // Update modal title
-    const modalTitle = document.getElementById('projectMapModalTitle');
-    if (modalTitle) {
-        modalTitle.textContent = `${project.name || 'Project'} Location`;
-    }
-    
-    // Update coordinates display
-    const modalCoordinates = document.getElementById('modalCoordinates');
-    if (modalCoordinates) {
-        if (project.latitude && project.longitude) {
-            const lat = parseFloat(project.latitude);
-            const lng = parseFloat(project.longitude);
-            modalCoordinates.textContent = `Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-        } else {
-            modalCoordinates.textContent = 'Coordinates: Not specified';
-        }
-    }
-    
-    // Show the modal
-    const modalElement = document.getElementById('projectMapModal');
-    const modal = new bootstrap.Modal(modalElement);
-    modal.show();
-    
-    // Clear any existing map
-    if (window.modalMapInstance) {
-        window.modalMapInstance.remove();
-        window.modalMapInstance = null;
-    }
-    
-    // Initialize map after modal is shown
-    modalElement.addEventListener('shown.bs.modal', function onModalShown() {
-        // Remove the listener to prevent multiple initializations
-        modalElement.removeEventListener('shown.bs.modal', onModalShown);
-        
-        // Get or create map container
-        const mapContainer = document.getElementById('modalProjectMap');
-        if (!mapContainer) {
-            console.error('Map container not found');
-            return;
-        }
-        
-        // Clear container and create fresh map div
-        mapContainer.innerHTML = '<div id="projectModalMap" style="height: 100%; width: 100%;"></div>';
-        
-        // Determine center coordinates
-        let lat = -41.0521; // Default to Burnie, Tasmania
-        let lng = 145.9061;
-        let zoom = 11;
-        
-        if (project.latitude && project.longitude) {
-            lat = parseFloat(project.latitude);
-            lng = parseFloat(project.longitude);
-            zoom = 13; // Zoom in closer for specific locations
-        }
-        
-        // Create the map
-        try {
-            window.modalMapInstance = L.map('projectModalMap').setView([lat, lng], zoom);
-            
-            // Add tile layer
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors',
-                maxZoom: 19
-            }).addTo(window.modalMapInstance);
-            
-            // Add marker if coordinates exist
-            if (project.latitude && project.longitude) {
-                L.marker([lat, lng])
-                    .addTo(window.modalMapInstance)
-                    .bindPopup(`
-                        <div style="text-align: center;">
-                            <strong>${project.name || 'Project'}</strong><br>
-                            ${project.code ? `Code: ${project.code}<br>` : ''}
-                            ${project.description ? `${project.description.substring(0, 100)}...` : ''}
-                        </div>
-                    `)
-                    .openPopup();
-            } else {
-                // Add a popup for default location
-                L.popup()
-                    .setLatLng([lat, lng])
-                    .setContent('<div style="text-align: center;"><strong>Default Location</strong><br>Burnie, Tasmania</div>')
-                    .openOn(window.modalMapInstance);
-            }
-            
-            // Force map resize
-            setTimeout(() => {
-                if (window.modalMapInstance) {
-                    window.modalMapInstance.invalidateSize();
-                }
-            }, 100);
-            
-        } catch (mapError) {
-            console.error('Map initialization error:', mapError);
-            mapContainer.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle me-2"></i>
-                    Failed to load map: ${mapError.message}
-                </div>
-            `;
-        }
-    });
-}
-
-// ==================== UPDATED LOADPROJECTS FUNCTION ====================
-
-// Replace your existing loadProjects() function with this version:
-function loadProjects() {
-    const projects = db.getProjects();
-    const projectsTable = document.getElementById('projects-table');
-    projectsTable.innerHTML = '';
-    
-    if (projects.length === 0) {
-        projectsTable.innerHTML = '<tr><td colspan="10" class="text-center">No projects created yet</td></tr>';
-    } else {
-        projects.forEach(project => {
-            // Count related items
-            const assessments = db.getAssessments().filter(a => a.projectId === project.id).length;
-            const maintenance = db.getMaintenance().filter(m => m.projectId === project.id).length;
-            const species = db.getSpecies().filter(s => s.projectId === project.id).length;
-            
-            // Create a safe string for the onclick handler
-            const projectJson = JSON.stringify(project)
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, "&#39;")
-                .replace(/\\/g, "\\\\");
-            
-            // Create location preview
-            let locationCell = '<span class="text-muted">Not set</span>';
-            if (project.latitude && project.longitude) {
-                locationCell = `
-                    <div class="d-flex align-items-center">
-                        <div class="map-preview me-2" 
-                             style="width: 100px; height: 60px; background-color: #e9ecef; border-radius: 4px; cursor: pointer;"
-                             onclick="handleMapPreviewClick('${projectJson}')">
-                            <div class="w-100 h-100 d-flex flex-column align-items-center justify-content-center">
-                                <i class="bi bi-geo-alt-fill text-primary mb-1"></i>
-                                <small class="text-muted">View Map</small>
-                            </div>
-                        </div>
-                        <button class="btn btn-sm btn-outline-primary" 
-                                onclick="handleMapPreviewClick('${projectJson}')">
-                            <i class="bi bi-eye"></i> View
-                        </button>
-                    </div>
-                `;
-            }
-            
-            const row = projectsTable.insertRow();
-            row.innerHTML = `
-                <td>${project.name}</td>
-                <td>${project.code || '-'}</td>
-                <td><span class="badge ${getProjectStatusBadgeClass(project.status)}">${project.status.charAt(0).toUpperCase() + project.status.slice(1)}</span></td>
-                <td>
-                    <div class="progress" style="height: 10px;">
-                        <div class="progress-bar" role="progressbar" style="width: ${project.progress || 0}%;" 
-                             aria-valuenow="${project.progress || 0}" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                    <small>${project.progress || 0}%</small>
-                </td>
-                <td>${formatDate(project.startDate)}</td>
-                <td>${locationCell}</td>
-                <td>${assessments}</td>
-                <td>${maintenance}</td>
-                <td>${species}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editProject('${project.id}')">Edit</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteProject('${project.id}')">Delete</button>
-                </td>
-            `;
-        });
-    }
-    
-    // Update project selects in other forms
-    loadProjectSelects();
-}
-
-// ==================== HELPER FUNCTION ====================
-
-// Add this helper function near your other utility functions:
-function handleMapPreviewClick(projectJson) {
-    try {
-        console.log('Clicked project JSON:', projectJson);
-        
-        // Parse the JSON string
-        const project = JSON.parse(projectJson
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'")
-            .replace(/\\\\/g, "\\"));
-        
-        console.log('Parsed project:', project);
-        
-        // Call the modal function
-        showProjectInModal(project);
-    } catch (error) {
-        console.error('Error handling map preview click:', error);
-        showToast('Error', 'Could not load project location', 'error');
-    }
-}
-
-// ==================== ALTERNATIVE SIMPLER VERSION ====================
-
-// If the above still doesn't work, try this simpler alternative for loadProjects():
-function loadProjectsSimple() {
-    const projects = db.getProjects();
-    const projectsTable = document.getElementById('projects-table');
-    projectsTable.innerHTML = '';
-    
-    if (projects.length === 0) {
-        projectsTable.innerHTML = '<tr><td colspan="10" class="text-center">No projects created yet</td></tr>';
-    } else {
-        projects.forEach(project => {
-            // Count related items
-            const assessments = db.getAssessments().filter(a => a.projectId === project.id).length;
-            const maintenance = db.getMaintenance().filter(m => m.projectId === project.id).length;
-            const species = db.getSpecies().filter(s => s.projectId === project.id).length;
-            
-            // Create location preview with simpler onclick
-            let locationCell = '<span class="text-muted">Not set</span>';
-            if (project.latitude && project.longitude) {
-                locationCell = `
-                    <div class="d-flex align-items-center">
-                        <button class="btn btn-sm btn-outline-primary" 
-                                onclick="showSimpleProjectModal('${project.id}')">
-                            <i class="bi bi-eye"></i> View Location
-                        </button>
-                    </div>
-                `;
-            }
-            
-            const row = projectsTable.insertRow();
-            row.innerHTML = `
-                <td>${project.name}</td>
-                <td>${project.code || '-'}</td>
-                <td><span class="badge ${getProjectStatusBadgeClass(project.status)}">${project.status.charAt(0).toUpperCase() + project.status.slice(1)}</span></td>
-                <td>
-                    <div class="progress" style="height: 10px;">
-                        <div class="progress-bar" role="progressbar" style="width: ${project.progress || 0}%;" 
-                             aria-valuenow="${project.progress || 0}" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                    <small>${project.progress || 0}%</small>
-                </td>
-                <td>${formatDate(project.startDate)}</td>
-                <td>${locationCell}</td>
-                <td>${assessments}</td>
-                <td>${maintenance}</td>
-                <td>${species}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editProject('${project.id}')">Edit</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteProject('${project.id}')">Delete</button>
-                </td>
-            `;
-        });
-    }
-    
-    loadProjectSelects();
-}
-
-// Add this simple modal function:
-function showSimpleProjectModal(projectId) {
+    // Find the project by ID
     const projects = db.getProjects();
     const project = projects.find(p => p.id === projectId);
     
     if (!project) {
+        console.error("Project not found with ID:", projectId);
         showToast('Error', 'Project not found', 'error');
         return;
     }
+    
+    console.log("Found project:", project);
     
     // Update modal content
     document.getElementById('projectMapModalTitle').textContent = `${project.name} Location`;
@@ -313,16 +30,18 @@ function showSimpleProjectModal(projectId) {
         modalCoordinates.textContent = 'Coordinates: Not specified';
     }
     
-    // Show modal
+    // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('projectMapModal'));
     modal.show();
     
-    // Clear and initialize map
+    // Wait for modal to be visible, then create the map
     setTimeout(() => {
         const mapContainer = document.getElementById('modalProjectMap');
-        mapContainer.innerHTML = '<div id="simpleModalMap" style="height: 500px; width: 100%;"></div>';
         
-        // Set view
+        // Clear any existing map
+        mapContainer.innerHTML = '<div id="freshMap" style="height: 100%; width: 100%;"></div>';
+        
+        // Set location (use project location or default)
         let lat = -41.0521;
         let lng = 145.9061;
         let zoom = 11;
@@ -333,13 +52,15 @@ function showSimpleProjectModal(projectId) {
             zoom = 13;
         }
         
-        // Create map
-        const map = L.map('simpleModalMap').setView([lat, lng], zoom);
+        // Create the map
+        const map = L.map('freshMap').setView([lat, lng], zoom);
         
+        // Add map tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
         
+        // Add marker if project has coordinates
         if (project.latitude && project.longitude) {
             L.marker([lat, lng])
                 .addTo(map)
@@ -348,30 +69,47 @@ function showSimpleProjectModal(projectId) {
         }
         
         // Fix map size
-        setTimeout(() => map.invalidateSize(), 50);
-    }, 300);
-}
-
-// ==================== FINAL STEP ====================
-
-// In your initialization, use the simpler version:
-// Replace: loadProjects(); 
-// With: loadProjectsSimple();
-
-// And update the quick action button handler in initApp() to use the simple version too:
-if (target === 'projects') {
-    loadProjectsSimple();  // Use the simple version
-    setTimeout(() => {
-        initProjectMap();
-    }, 100);
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+        
+    }, 300); // Small delay to ensure modal is visible
 }
 ```
 
-TL;DR - Quickest Fix:
+Fix 2: Find this section in your loadProjects() function and change ONE LINE:
 
-1. Replace your entire showProjectInModal() function with the first version I provided
-2. Replace your loadProjects() function with the loadProjectsSimple() version
-3. Add the showSimpleProjectModal() function
-4. Update the navigation in your sidebar click handler to call loadProjectsSimple() instead of loadProjects()
+Look for this part in your code:
 
-The simplest solution is to pass just the project ID instead of the entire project object, which avoids all the JSON parsing issues. Use the loadProjectsSimple() and showSimpleProjectModal() functions for the most reliable results.
+```javascript
+<button class="btn btn-sm btn-outline-primary" 
+        onclick="showProjectInModal(${JSON.stringify(project).replace(/"/g, '&quot;')})">
+    <i class="bi bi-eye"></i> View
+</button>
+```
+
+Change it to this (just pass the ID instead of the whole object):
+
+```javascript
+<button class="btn btn-sm btn-outline-primary" 
+        onclick="showProjectInModal('${project.id}')">
+    <i class="bi bi-eye"></i> View
+</button>
+```
+
+Also find this similar line (the map-preview div) and change it too:
+
+```javascript
+<div class="map-preview me-2" 
+     style="width: 100px; background-color: #f8f9fa;"
+     onclick="showProjectInModal('${project.id}')">
+```
+
+That's it! Just those 2 changes:
+
+1. Replace the entire showProjectInModal() function
+2. Change the two onclick handlers to pass '${project.id}' instead of the complex JSON
+
+This works because we're only passing the simple project ID string, then looking up the project data inside the function. No JSON parsing issues!
+
+Try these minimal changes and it should work perfectly.
