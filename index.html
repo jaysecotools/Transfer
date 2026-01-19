@@ -17,7 +17,7 @@
     --color-foundational: #4ecdc4;
     --color-practical: #45b7d1;
     --color-machinery: #96ceb4;
-    --color-capstone: #ffeaa7;
+    --color-Apex: #ffeaa7;
     --color-project: #a29bfe;
     --color-specialist: #fd79a8;
     --color-seasonal: #55efc4;
@@ -144,7 +144,7 @@ button.primary:hover {
     padding: 20px;
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    max-height: 800px; /* Reduced height to match grid */
+    max-height: 900px; /* Reduced height to match grid */
     overflow-y: auto; /* Add vertical scrollbar */
 }
 
@@ -205,7 +205,7 @@ button.primary:hover {
     overflow: auto; /* Changed to auto for both horizontal and vertical scrolling */
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     position: relative;
-    max-height: 800px; /* Match the palette height */
+    max-height: 900px; /* Match the palette height */
 }
 
 /* New: Main timeline container that holds everything */
@@ -919,7 +919,7 @@ opacity: 0.8;
     
     <div class="header">
         <h1 id="courseTitle">Certificate III in Conservation & Ecosystem Management</h1>
-        <div class="subtitle" id="courseSubtitle">37-Week Course Sequencing Tool | <span id="viewModeIndicator">Interactive Planner</span></div>
+        <div class="subtitle" id="courseSubtitle">Course Sequencing Tool | <span id="viewModeIndicator">Interactive Planner</span></div>
         <div style="font-size: 14px; opacity: 0.8;" id="courseDescription">
             Drag units to adjust sequence | Click units to edit details | Save/load your custom plans
         </div>
@@ -973,12 +973,12 @@ opacity: 0.8;
             <span>Machinery Units</span>
         </div>
         <div class="legend-item">
-            <div class="legend-color" style="background: var(--color-capstone);"></div>
-            <span>Capstone Units</span>
+            <div class="legend-color" style="background: var(--color-Apex);"></div>
+            <span>Apex Units</span>
         </div>
         <div class="legend-item">
             <div class="legend-color" style="background: var(--color-specialist);"></div>
-            <span>Specialist Teacher</span>
+            <span>Other Teacher</span>
         </div>
         <div class="legend-item">
             <div class="legend-color" style="background: var(--color-seasonal);"></div>
@@ -1088,7 +1088,7 @@ opacity: 0.8;
                 { number: 1, weeks: 10, startWeek: 1, name: "Safety, Foundations & Summer Harvest" },
                 { number: 2, weeks: 10, startWeek: 11, name: "Practical Skills & Application" },
                 { number: 3, weeks: 10, startWeek: 21, name: "Machinery & Advanced Integration" },
-                { number: 4, weeks: 7, startWeek: 31, name: "Capstone & Finalisation" }
+                { number: 4, weeks: 7, startWeek: 31, name: "Apex & Finalisation" }
             ],
             // REMOVED holidays array
             projectMilestones: [
@@ -1125,7 +1125,7 @@ opacity: 0.8;
             { id: 17, code: "INTEGRATION", name: "Skill Integration & Project Work", weeks: [28, 29, 30], color: "project", tags: ["FLEXIBLE"], teacher: "main", notes: "Buffer for weather/adaptation" },
             
             // Term 4
-            { id: 18, code: "AHCECR309", name: "Conduct ecological site inspection", weeks: [31, 32, 33], color: "capstone", tags: ["CAPSTONE"], teacher: "main", notes: "Synthesis of all skills" },
+            { id: 18, code: "AHCECR309", name: "Conduct ecological site inspection", weeks: [31, 32, 33], color: "Apex", tags: ["Apex"], teacher: "main", notes: "Synthesis of all skills" },
             { id: 19, code: "PROJECT", name: "Final Project Phase", weeks: [34, 35, 36], color: "project", tags: [], teacher: "main", notes: "Complete integrated project" },
             { id: 20, code: "ADMIN", name: "Portfolio Finalisation", weeks: [37], color: "safety", tags: [], teacher: "main", notes: "Verification and closure" }
         ];
@@ -1147,7 +1147,7 @@ opacity: 0.8;
             { code: "AHCLPW313", name: "Water sampling & testing", color: "practical", tags: ["SEASONAL"], defaultWeeks: 3 },
             { code: "AHCMOM213", name: "Operate chainsaw", color: "machinery", tags: ["SPECIALIST"], defaultWeeks: 3 },
             { code: "AHCMOM216", name: "Operate SSUV", color: "machinery", tags: ["SPECIALIST"], defaultWeeks: 3 },
-            { code: "AHCECR309", name: "Conduct ecological site inspection", color: "capstone", tags: ["CAPSTONE"], defaultWeeks: 3 },
+            { code: "AHCECR309", name: "Conduct ecological site inspection", color: "Apex", tags: ["Apex"], defaultWeeks: 3 },
             { code: "CUSTOM", name: "Custom Unit/Block", color: "foundational", tags: ["CUSTOM"], defaultWeeks: 1 }
         ];
 
@@ -1157,7 +1157,7 @@ opacity: 0.8;
             foundational: "var(--color-foundational)",
             practical: "var(--color-practical)",
             machinery: "var(--color-machinery)",
-            capstone: "var(--color-capstone)",
+            Apex: "var(--color-Apex)",
             project: "var(--color-project)",
             specialist: "var(--color-specialist)",
             seasonal: "var(--color-seasonal)"
@@ -1541,7 +1541,7 @@ opacity: 0.8;
                 ${weeks.length > 1 && isFirstWeek ? 
                     `<div class="week-summary">Continues for ${weeks.length} weeks</div>` : ''}
                 ${unit.teacher === 'other' ? 
-                    `<div class="week-summary" style="color: #fd79a8;">Specialist Teacher</div>` : ''}
+                    `<div class="week-summary" style="color: #fd79a8;">Other Teacher</div>` : ''}
             `;
             
             // Add click event to show unit details (read-only for students)
@@ -1607,7 +1607,7 @@ opacity: 0.8;
                                 <div style="font-weight: 600; color: #0984e3;">${unit.code}</div>
                                 <div style="font-size: 13px; margin-top: 5px;">${unit.name}</div>
                                 ${unit.teacher === 'other' ? 
-                                    `<div style="font-size: 11px; color: #fd79a8; margin-top: 3px;">Specialist Teacher</div>` : ''}
+                                    `<div style="font-size: 11px; color: #fd79a8; margin-top: 3px;">Other Teacher</div>` : ''}
                                 ${unit.tags && unit.tags.includes('SEASONAL') ? 
                                     `<div style="font-size: 11px; color: #55efc4; margin-top: 3px;">Seasonal Timing</div>` : ''}
                             </div>
@@ -1647,7 +1647,7 @@ opacity: 0.8;
                         </div>
                         <div style="flex: 1; background: #f8f9fa; padding: 10px; border-radius: 6px;">
                             <div style="font-size: 12px; color: #636e72;">Taught by</div>
-                            <div style="font-weight: 600;">${unit.teacher === 'other' ? 'Specialist Teacher' : 'Main Teacher'}</div>
+                            <div style="font-weight: 600;">${unit.teacher === 'other' ? 'Other Teacher' : 'Main Teacher'}</div>
                         </div>
                     </div>
                     
@@ -1878,10 +1878,10 @@ opacity: 0.8;
             
             // Create swimlanes
             const swimlanes = [
-                { id: 'core', label: 'Core Units (Main Teacher)' },
+                { id: 'core', label: 'Main Units (Main Teacher)' },
                 { id: 'specialist', label: 'Specialist Units (Other Teacher)' },
                 { id: 'project', label: 'Integrated Project' },
-                { id: 'capstone', label: 'Capstone & Assessment' }
+                { id: 'Apex', label: 'Apex & Assessment' }
             ];
             
             swimlanes.forEach(swimlane => {
@@ -1969,7 +1969,7 @@ opacity: 0.8;
         }
         
         function getSwimlaneForUnit(unit) {
-            if (unit.tags && unit.tags.includes('CAPSTONE')) return 'capstone';
+            if (unit.tags && unit.tags.includes('Apex')) return 'Apex';
             if (unit.teacher === 'other') return 'specialist';
             if (unit.code === 'INTEGRATION' || unit.code === 'PROJECT') return 'project';
             return 'core';
@@ -2214,7 +2214,7 @@ opacity: 0.8;
                         <option value="foundational" ${unit.color === 'foundational' ? 'selected' : ''}>Foundational</option>
                         <option value="practical" ${unit.color === 'practical' ? 'selected' : ''}>Practical</option>
                         <option value="machinery" ${unit.color === 'machinery' ? 'selected' : ''}>Machinery</option>
-                        <option value="capstone" ${unit.color === 'capstone' ? 'selected' : ''}>Capstone</option>
+                        <option value="Apex" ${unit.color === 'Apex' ? 'selected' : ''}>Apex</option>
                         <option value="project" ${unit.color === 'project' ? 'selected' : ''}>Project</option>
                         <option value="seasonal" ${unit.color === 'seasonal' ? 'selected' : ''}>Seasonal</option>
                         <option value="specialist" ${unit.color === 'specialist' ? 'selected' : ''}>Specialist</option>
@@ -2225,7 +2225,7 @@ opacity: 0.8;
                     <label for="unitTeacher">Teacher</label>
                     <select id="unitTeacher">
                         <option value="main" ${unit.teacher === 'main' ? 'selected' : ''}>Main Teacher</option>
-                        <option value="other" ${unit.teacher === 'other' ? 'selected' : ''}>Specialist Teacher</option>
+                        <option value="other" ${unit.teacher === 'other' ? 'selected' : ''}>Other Teacher</option>
                     </select>
                 </div>
                 
