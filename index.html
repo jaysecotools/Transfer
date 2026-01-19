@@ -3,671 +3,2966 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>360° Image Marker Tool</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <title>Course Mapping Tool - Cert III Conservation & Ecosystem Management</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: Arial, sans-serif;
-        }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
 
-        body {
-            background: #f0f2f5;
-            padding: 20px;
-        }
+:root {
+    --color-safety: #ff6b6b;
+    --color-foundational: #4ecdc4;
+    --color-practical: #45b7d1;
+    --color-machinery: #96ceb4;
+    --color-capstone: #ffeaa7;
+    --color-project: #a29bfe;
+    --color-specialist: #fd79a8;
+    --color-seasonal: #55efc4;
+    --color-holiday: #dfe6e9;
+    --color-term-break: #b2bec3;
+    --color-grid: #636e72;
+    --week-width: 150px;
+    --student-week-width: 120px;
+}
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
+body {
+    background-color: #f5f5f5;
+    color: #333;
+    padding: 20px;
+    line-height: 1.6;
+}
 
-        header {
-            background: #4a6fa5;
-            color: white;
-            padding: 20px;
-            text-align: center;
-        }
+.header {
+    background: linear-gradient(135deg, #2d3436 0%, #0984e3 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
 
-        .app-container {
-            display: flex;
-            min-height: 600px;
-        }
+.header h1 {
+    font-size: 28px;
+    margin-bottom: 10px;
+}
 
-        .sidebar {
-            width: 300px;
-            background: #f8f9fa;
-            padding: 20px;
-            border-right: 1px solid #dee2e6;
-            overflow-y: auto;
-        }
+.header .subtitle {
+    font-size: 16px;
+    opacity: 0.9;
+    margin-bottom: 15px;
+}
 
-        .main-content {
-            flex: 1;
-            position: relative;
-        }
+.controls {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
 
-        .section {
-            margin-bottom: 25px;
-        }
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
 
-        .section h3 {
-            color: #4a6fa5;
-            margin-bottom: 15px;
-            padding-bottom: 5px;
-            border-bottom: 2px solid #e9ecef;
-        }
+.control-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2d3436;
+}
 
-        .btn {
-            padding: 10px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            margin: 5px;
-            transition: background-color 0.2s;
-        }
+select, button {
+    padding: 10px 15px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    background: white;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
 
-        .btn:hover {
-            opacity: 0.9;
-        }
+select:hover, button:hover {
+    border-color: #0984e3;
+}
 
-        .btn-primary {
-            background: #4a6fa5;
-            color: white;
-        }
+button.primary {
+    background: #0984e3;
+    color: white;
+    border: none;
+    font-weight: 600;
+}
 
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
+button.primary:hover {
+    background: #0770c4;
+}
 
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
+.legend {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
 
-        .btn-warning {
-            background: #ffc107;
-            color: #212529;
-        }
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
 
-        .file-input {
-            width: 100%;
-            padding: 15px;
-            border: 2px dashed #dee2e6;
-            border-radius: 5px;
-            text-align: center;
-            cursor: pointer;
-            margin-bottom: 15px;
-            transition: all 0.3s ease;
-        }
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.1);
+}
 
-        .file-input:hover {
-            background: #e9ecef;
-        }
+.container {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 25px;
+    min-height: 80vh;
+}
 
-        .file-input i {
-            font-size: 24px;
-            margin-bottom: 10px;
-            color: #4a6fa5;
-        }
+/* UPDATED: Reduced height of unit palette with scrollbar */
+.unit-palette {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    max-height: 800px; /* Reduced height to match grid */
+    overflow-y: auto; /* Add vertical scrollbar */
+}
 
-        .form-group {
-            margin-bottom: 15px;
-        }
+.unit-palette h3 {
+    margin-bottom: 15px;
+    color: #2d3436;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f1f2f6;
+}
 
-        .form-control {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            font-size: 14px;
-        }
+.palette-unit {
+    background: #f8f9fa;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    cursor: grab;
+    border: 1px solid #e9ecef;
+    transition: all 0.2s;
+    position: relative;
+}
 
-        .marker-types {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 15px;
-        }
+.palette-unit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
 
-        .marker-type {
-            padding: 10px;
-            border: 2px solid #dee2e6;
-            border-radius: 5px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
+.palette-unit .unit-code {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
 
-        .marker-type:hover {
-            border-color: #4a6fa5;
-        }
+.palette-unit .unit-name {
+    font-size: 12px;
+    color: #636e72;
+    margin-bottom: 6px;
+}
 
-        .marker-type.active {
-            border-color: #4a6fa5;
-            background: #4a6fa5;
-            color: white;
-        }
+.palette-unit .unit-tags {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
 
-        #threeContainer {
-            width: 100%;
-            height: 100%;
-            background: #f8f9fa;
-        }
+.unit-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: #e9ecef;
+    color: #495057;
+}
 
-        .empty-state {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: #6c757d;
-        }
+/* UPDATED: Added scrollbar for the course timeline */
+.course-timeline {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    overflow: auto; /* Changed to auto for both horizontal and vertical scrolling */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    position: relative;
+    max-height: 800px; /* Match the palette height */
+}
 
-        .viewer-controls {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            display: flex;
-            gap: 10px;
-            z-index: 100;
-        }
+/* New: Main timeline container that holds everything */
+.timeline-container {
+    min-width: calc(37 * var(--week-width));
+    position: relative;
+}
 
-        .viewer-controls .btn {
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid #dee2e6;
-        }
+.student-view .timeline-container {
+    min-width: calc(37 * var(--student-week-width));
+}
 
-        #markerList {
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 10px;
-            background: white;
-        }
+/* Updated: Headers container - now fixed horizontally too */
+.timeline-headers-container {
+    position: sticky;
+    left: 0;
+    top: 0;
+    background: white;
+    z-index: 20;
+    padding-bottom: 5px;
+    width: fit-content;
+    min-width: calc(37 * var(--week-width));
+}
 
-        .marker-item {
-            padding: 8px 10px;
-            border-bottom: 1px solid #dee2e6;
-            cursor: pointer;
-        }
+.student-view .timeline-headers-container {
+    min-width: calc(37 * var(--student-week-width));
+}
 
-        .marker-item:hover {
-            background: #e9ecef;
-        }
+.timeline-header {
+    display: flex;
+    margin-bottom: 5px;
+    position: relative;
+}
 
-        .export-btn {
-            background: #6f42c1;
-            color: white;
-            width: 100%;
-            margin-top: 10px;
-        }
+/* New: Spacer for term header to align with swimlane labels */
+.term-header-spacer {
+    flex-shrink: 0;
+    background: #f8f9fa;
+    border-right: 2px solid #ddd;
+    width: 120px;
+}
+
+.term-column {
+    flex-shrink: 0;
+    padding: 10px;
+    background: #2d3436;
+    color: white;
+    text-align: center;
+    font-weight: 600;
+    border-right: 2px solid white;
+    position: relative;
+}
+
+/* Updated: Term column widths to match week widths */
+.term-column:nth-child(1) { 
+    width: calc(10 * var(--week-width));
+}
+.term-column:nth-child(2) { 
+    width: calc(10 * var(--week-width));
+}
+.term-column:nth-child(3) { 
+    width: calc(10 * var(--week-width));
+}
+.term-column:nth-child(4) { 
+    width: calc(7 * var(--week-width));
+}
+
+.student-view .term-column:nth-child(1) { 
+    width: calc(10 * var(--student-week-width));
+}
+.student-view .term-column:nth-child(2) { 
+    width: calc(10 * var(--student-week-width));
+}
+.student-view .term-column:nth-child(3) { 
+    width: calc(10 * var(--student-week-width));
+}
+.student-view .term-column:nth-child(4) { 
+    width: calc(7 * var(--student-week-width));
+}
+
+.week-header {
+    display: flex;
+    position: relative;
+}
+
+/* Week cell width consistency */
+.week-cell {
+    flex-shrink: 0;
+    width: var(--week-width);
+    padding: 10px;
+    text-align: center;
+    background: #f8f9fa;
+    border-right: 1px solid #ddd;
+    border-bottom: 2px solid #636e72;
+    font-weight: 600;
+    position: relative;
+}
+
+.student-view .week-cell {
+    width: var(--student-week-width);
+}
+
+.week-number {
+    font-size: 16px;
+    margin-bottom: 5px;
+}
+
+/* UPDATED: Commented out week dates/months */
+.week-dates {
+    font-size: 12px;
+    color: #636e72;
+    display: none; /* Hide month indicators */
+}
+
+/* Updated: Timeline grid container */
+.timeline-grid-container {
+    position: relative;
+    width: fit-content;
+    min-width: calc(37 * var(--week-width));
+}
+
+.student-view .timeline-grid-container {
+    min-width: calc(37 * var(--student-week-width));
+}
+
+/* Updated: Timeline grid */
+.timeline-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: calc(37 * var(--week-width));
+}
+
+.student-view .timeline-grid {
+    width: calc(37 * var(--student-week-width));
+}
+
+/* FIXED: Swimlane layout with labels in separate column */
+.swimlane {
+    display: flex;
+    min-height: 100px;
+    position: relative;
+}
+
+.swimlane-label {
+    flex-shrink: 0;
+    width: 120px;
+    padding: 10px;
+    background: #f8f9fa;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-right: 2px solid #ddd;
+    border-bottom: 1px solid #e9ecef;
+    position: sticky;
+    left: 0;
+    z-index: 15;
+    background: #f8f9fa;
+opacity: 0.8;
+}
+
+/* Updated: Swimlane content width calculation */
+.swimlane-content {
+    display: flex;
+    flex: 1;
+    position: relative;
+    min-width: calc(37 * var(--week-width) - 120px);
+}
+
+.student-view .swimlane-content {
+    min-width: calc(37 * var(--student-week-width) - 120px);
+}
+
+/* Week slot width consistency */
+.week-slot {
+    flex-shrink: 0;
+    width: var(--week-width);
+    min-height: 100px;
+    border-right: 1px solid #e9ecef;
+    border-bottom: 1px solid #e9ecef;
+    padding: 5px;
+    position: relative;
+    transition: background 0.2s;
+}
+
+.student-view .week-slot {
+    width: var(--student-week-width);
+}
+
+.week-slot:hover {
+    background: #f8f9fa;
+}
+
+.droppable {
+    background: rgba(9, 132, 227, 0.05);
+}
+
+.unit-block {
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 5px;
+    cursor: move;
+    border: 2px solid transparent;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    min-height: 70px;
+}
+
+.unit-block:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.unit-block.dragging {
+    opacity: 0.8;
+    transform: rotate(3deg);
+}
+
+.unit-block .unit-code {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.unit-block .unit-name {
+    font-size: 11px;
+    margin-bottom: 6px;
+    line-height: 1.3;
+}
+
+.unit-block .unit-duration {
+    font-size: 10px;
+    color: rgba(0,0,0,0.6);
+    position: absolute;
+    bottom: 5px;
+    right: 8px;
+    background: rgba(255,255,255,0.8);
+    padding: 1px 5px;
+    border-radius: 3px;
+}
+
+.project-thread {
+    position: absolute;
+    height: 4px;
+    background: var(--color-project);
+    top: 50%;
+    left: 0;
+    right: 0;
+    transform: translateY(-50%);
+    z-index: 1;
+    border-radius: 2px;
+}
+
+.project-milestone {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: var(--color-project);
+    border-radius: 50%;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    border: 2px solid white;
+    box-shadow: 0 0 0 2px var(--color-project);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.modal-header h3 {
+    color: #2d3436;
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #636e72;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2d3436;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.notes-section {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 20px;
+}
+
+.notes-section h4 {
+    margin-bottom: 10px;
+    color: #2d3436;
+}
+
+.resource-item {
+    background: white;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    border-left: 4px solid #0984e3;
+}
+
+.footer {
+    margin-top: 30px;
+    text-align: center;
+    color: #636e72;
+    font-size: 14px;
+    padding: 20px;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Student View specific styles */
+.student-view .header {
+    background: linear-gradient(135deg, #0984e3 0%, #2d3436 100%);
+}
+
+.student-view .controls,
+.student-view .unit-palette,
+.student-view .legend {
+    display: none !important;
+}
+
+.student-view .container {
+    grid-template-columns: 1fr;
+}
+
+.student-view .footer {
+    font-size: 12px;
+    padding: 10px;
+}
+
+.week-summary {
+    font-size: 12px;
+    margin-top: 5px;
+    color: #636e72;
+}
+
+.unit-count {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(0,0,0,0.1);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.term-overview {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.term-overview h3 {
+    color: #2d3436;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f1f2f6;
+}
+
+.term-units {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.term-unit-card {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 6px;
+    border-left: 4px solid #0984e3;
+}
+
+.view-toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.view-toggle button {
+    background: white;
+    border: 2px solid #0984e3;
+    color: #0984e3;
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.share-link-container {
+    position: fixed;
+    top: 70px;
+    right: 20px;
+    z-index: 1000;
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    width: 300px;
+    display: none;
+}
+
+.share-link-container.show {
+    display: block;
+}
+
+.share-link-container h4 {
+    margin-bottom: 10px;
+    color: #2d3436;
+}
+
+.share-input {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.share-input input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.share-input button {
+    background: #0984e3;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.qr-code {
+    text-align: center;
+    margin-top: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.sync-status {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #00b894;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 20px;
+    font-size: 14px;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+.sync-status.show {
+    display: flex;
+}
+
+/* Progress tracking */
+.progress-indicator {
+    position: absolute;
+    bottom: 5px;
+    left: 5px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #ddd;
+    cursor: pointer;
+}
+
+.progress-indicator.completed {
+    background: #00b894;
+}
+
+/* Print styles */
+@media print {
+    .view-toggle,
+    .share-link-container,
+    .sync-status,
+    .controls,
+    .legend,
+    .unit-palette {
+        display: none !important;
+    }
+    
+    .container {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .unit-block {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    
+    .timeline-grid {
+        width: 100% !important;
+        overflow: visible !important;
+    }
+    
+    body {
+        padding: 10px !important;
+        font-size: 12px !important;
+    }
+    
+    .header {
+        background: #2d3436 !important;
+        -webkit-print-color-adjust: exact;
+    }
+}
+
+/* Updated: Responsive adjustments */
+@media (max-width: 1200px) {
+    .container {
+        grid-template-columns: 1fr;
+    }
+    
+    .timeline-container,
+    .timeline-headers-container,
+    .timeline-grid-container {
+        min-width: calc(37 * 120px);
+    }
+    
+    .timeline-grid {
+        width: calc(37 * 120px);
+    }
+    
+    .week-cell {
+        width: 120px !important;
+    }
+    
+    .week-slot {
+        width: 120px !important;
+    }
+    
+    .term-column:nth-child(1) { 
+        width: calc(10 * 120px) !important;
+    }
+    .term-column:nth-child(2) { 
+        width: calc(10 * 120px) !important;
+    }
+    .term-column:nth-child(3) { 
+        width: calc(10 * 120px) !important;
+    }
+    .term-column:nth-child(4) { 
+        width: calc(7 * 120px) !important;
+    }
+    
+    .swimlane-content {
+        min-width: calc(37 * 120px - 120px);
+    }
+}
+
+@media (max-width: 768px) {
+    .controls {
+        flex-direction: column;
+    }
+    
+    .timeline-container,
+    .timeline-headers-container,
+    .timeline-grid-container {
+        min-width: calc(37 * 100px);
+    }
+    
+    .timeline-grid {
+        width: calc(37 * 100px);
+    }
+    
+    .week-cell {
+        width: 100px !important;
+    }
+    
+    .week-slot {
+        width: 100px !important;
+    }
+    
+    .term-column:nth-child(1) { 
+        width: calc(10 * 100px) !important;
+    }
+    .term-column:nth-child(2) { 
+        width: calc(10 * 100px) !important;
+    }
+    .term-column:nth-child(3) { 
+        width: calc(10 * 100px) !important;
+    }
+    .term-column:nth-child(4) { 
+        width: calc(7 * 100px) !important;
+    }
+    
+    .swimlane-content {
+        min-width: calc(37 * 100px - 120px);
+    }
+    
+    .term-column {
+        font-size: 12px;
+        padding: 8px 5px;
+    }
+    
+    .share-link-container {
+        width: calc(100% - 40px);
+        left: 20px;
+        right: 20px;
+    }
+}
+
+/* Empty week slot indicator */
+.empty-slot {
+    font-size: 11px;
+    color: #b2bec3;
+    text-align: center;
+    padding-top: 35px;
+    font-style: italic;
+}
     </style>
 </head>
-<body>
+<body class="editor-view">
+    <div class="view-toggle">
+        <button id="toggleView">
+            <span id="viewIcon">👁️</span>
+            <span id="viewLabel">Student View</span>
+        </button>
+    </div>
+    
+    <div class="share-link-container" id="shareLinkContainer">
+        <h4>Share Student View</h4>
+        <div class="share-input">
+            <input type="text" id="shareLink" readonly>
+            <button id="copyShareLinkBtn">Copy</button>
+        </div>
+        <p style="font-size: 12px; color: #636e72; margin-bottom: 10px;">
+            Share this link with students for read-only access
+        </p>
+        <div class="qr-code" id="qrCode">
+            <!-- QR code will be generated here -->
+        </div>
+    </div>
+    
+    <div class="sync-status" id="syncStatus">
+        <span>✓</span>
+        <span id="syncMessage">Changes saved to student view</span>
+    </div>
+    
+    <div class="header">
+        <h1 id="courseTitle">Certificate III in Conservation & Ecosystem Management</h1>
+        <div class="subtitle" id="courseSubtitle">37-Week Course Sequencing Tool | <span id="viewModeIndicator">Interactive Planner</span></div>
+        <div style="font-size: 14px; opacity: 0.8;" id="courseDescription">
+            Drag units to adjust sequence | Click units to edit details | Save/load your custom plans
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="viewMode">View Mode</label>
+            <select id="viewMode">
+                <option value="week">Week View</option>
+                <option value="term">Term View</option>
+                <option value="teacher">Teacher View</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label for="highlightMode">Highlight</label>
+            <select id="highlightMode">
+                <option value="none">None</option>
+                <option value="specialist">Specialist Units</option>
+                <option value="safety">Safety Units</option>
+                <option value="seasonal">Seasonal Timing</option>
+                <option value="assessment">Assessment Points</option>
+            </select>
+        </div>
+        
+        <div style="flex: 1;"></div>
+        
+        <button class="primary" id="savePlan">Save Current Plan</button>
+        <button id="sharePlan">Share Student View</button>
+        <button id="resetPlan">Reset to Default</button>
+        <button id="printPlan">Print View</button>
+        <button id="exportPlan">Export Plan</button>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color" style="background: var(--color-safety);"></div>
+            <span>Safety Units</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: var(--color-foundational);"></div>
+            <span>Foundational Skills</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: var(--color-practical);"></div>
+            <span>Practical Application</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: var(--color-machinery);"></div>
+            <span>Machinery Units</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: var(--color-capstone);"></div>
+            <span>Capstone Units</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: var(--color-specialist);"></div>
+            <span>Specialist Teacher</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: var(--color-seasonal);"></div>
+            <span>Seasonal Timing</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: var(--color-project);"></div>
+            <span>Integrated Project</span>
+        </div>
+    </div>
+
     <div class="container">
-        <header>
-            <h1><i class="fas fa-globe-americas"></i> 360° Image Marker Tool</h1>
-            <p>Add interactive markers to your panoramic images</p>
-        </header>
-
-        <div class="app-container">
-            <div class="sidebar">
-                <!-- Upload Section -->
-                <div class="section">
-                    <h3><i class="fas fa-upload"></i> Upload Image</h3>
-                    <div class="file-input" id="fileInput">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        <div>Click to upload 360° image</div>
-                    </div>
-                    <input type="file" id="imageUpload" accept="image/*" style="display: none;">
-                </div>
-
-                <!-- Marker Settings -->
-                <div class="section">
-                    <h3><i class="fas fa-map-pin"></i> Marker Settings</h3>
-                    <div class="marker-types">
-                        <div class="marker-type active" data-type="info">
-                            <i class="fas fa-info-circle"></i>
-                            <div>Info</div>
-                        </div>
-                        <div class="marker-type" data-type="link">
-                            <i class="fas fa-link"></i>
-                            <div>Link</div>
-                        </div>
-                        <div class="marker-type" data-type="video">
-                            <i class="fas fa-video"></i>
-                            <div>Video</div>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <input type="text" id="markerTitle" class="form-control" placeholder="Marker Title">
-                    </div>
-
-                    <div class="form-group">
-                        <textarea id="markerDescription" class="form-control" placeholder="Marker Description" rows="3"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <input type="text" id="markerLink" class="form-control" placeholder="URL (for link markers)">
-                    </div>
-
-                    <button id="addMarkerBtn" class="btn btn-primary" style="width: 100%;">
-                        <i class="fas fa-plus"></i> Add Marker
-                    </button>
-                </div>
-
-                <!-- Markers List -->
-                <div class="section">
-                    <h3><i class="fas fa-list"></i> Markers</h3>
-                    <div id="markerList">
-                        <div class="empty-state">No markers added</div>
-                    </div>
-                    <button id="clearMarkers" class="btn btn-danger" style="width: 100%; margin-top: 10px;">
-                        <i class="fas fa-trash"></i> Clear All Markers
-                    </button>
-                    <button id="exportBtn" class="btn export-btn">
-                        <i class="fas fa-download"></i> Export Project
-                    </button>
+        <div class="unit-palette">
+            <h3>Unit Palette</h3>
+            <div id="paletteUnits">
+                <!-- Units will be added here by JavaScript -->
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <h3>Add Custom Unit</h3>
+                <button id="addCustomUnit" style="width: 100%; margin-top: 10px;">+ Add Custom Unit/Block</button>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <h3>Saved Plans</h3>
+                <div id="savedPlansList">
+                    <!-- Saved plans will appear here -->
                 </div>
             </div>
+            
+            <div style="margin-top: 30px;">
+                <h3>Import Plan</h3>
+                <input type="file" id="importPlanInput" accept=".json" style="width: 100%; margin-top: 10px;">
+                <button id="importPlanBtn" style="width: 100%; margin-top: 10px;">Import Plan File</button>
+            </div>
+        </div>
 
-            <div class="main-content">
-                <div id="threeContainer">
-                    <div class="empty-state">
-                        <i class="fas fa-globe-americas" style="font-size: 64px; margin-bottom: 20px; color: #dee2e6;"></i>
-                        <h3>Upload a 360° Image to Begin</h3>
-                        <p>Upload an equirectangular panorama image</p>
+        <div class="course-timeline">
+            <!-- Updated: Single container that moves everything together -->
+            <div class="timeline-container">
+                <!-- Fixed headers section -->
+                <div class="timeline-headers-container">
+                    <!-- Term headers -->
+                    <div class="timeline-header">
+                        <div class="term-header-spacer" style="width: 120px;">
+                            &nbsp; <!-- Empty space for swimlane labels -->
+                        </div>
+                        <div class="term-column">Term 1 (Weeks 1-10)</div>
+                        <div class="term-column">Term 2 (Weeks 11-20)</div>
+                        <div class="term-column">Term 3 (Weeks 21-30)</div>
+                        <div class="term-column">Term 4 (Weeks 31-37)</div>
+                    </div>
+                    
+                    <!-- Week headers -->
+                    <div class="week-header" id="weekHeaders">
+                        <!-- Week 0 column for swimlane alignment -->
+                        <div class="week-cell" style="width: 120px; background: #f8f9fa; border-right: 2px solid #ddd;">
+                            &nbsp;
+                        </div>
+                        <!-- Week headers will be added by JavaScript -->
                     </div>
                 </div>
-                <div class="viewer-controls">
-                    <button id="resetView" class="btn">
-                        <i class="fas fa-crosshairs"></i> Reset
-                    </button>
-                    <button id="autoRotateBtn" class="btn">
-                        <i class="fas fa-sync"></i> Auto Rotate
-                    </button>
+                
+                <!-- Updated: Timeline grid with swimlane labels -->
+                <div class="timeline-grid-container">
+                    <div class="timeline-grid" id="timelineGrid">
+                        <!-- Timeline grid will be populated by JavaScript -->
+                    </div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Student View Term Overviews (hidden in editor view) -->
+        <div id="studentTermOverviews" style="display: none;">
+            <!-- Will be populated for student view -->
+        </div>
+    </div>
+
+    <div class="modal" id="unitModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Edit Unit Details</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div id="modalBody">
+                <!-- Modal content will be populated by JavaScript -->
             </div>
         </div>
     </div>
 
+    <div class="footer">
+        <p>Course Mapping Tool v2.1 | Designed for Cert III Conservation & Ecosystem Management | 37 Teaching Weeks (10 + 10 + 10 + 7)</p>
+        <p style="font-size: 12px; margin-top: 10px;" id="footerText">
+            Drag units to adjust sequence. Seasonal units have constraints. Click units to add notes and resources.
+        </p>
+        <div style="margin-top: 10px; font-size: 11px; color: #999;">
+            <span id="undoRedoInfo">Press Ctrl+Z to undo, Ctrl+Y to redo</span>
+        </div>
+    </div>
+
     <script>
-        // Simple state management
-        let markers = [];
-        let currentMarkerType = 'info';
-        let scene, camera, renderer, controls, sphere;
-        let autoRotate = false;
+        // ========== GLOBAL VARIABLES AND CONSTANTS ==========
         
-        // Initialize when page loads
-        window.onload = function() {
-            console.log('Page loaded, setting up...');
-            setupEventListeners();
-            initThreeJS();
+        // Course data structure - REMOVED HOLIDAYS
+        const courseData = {
+            terms: [
+                { number: 1, weeks: 10, startWeek: 1, name: "Safety, Foundations & Summer Harvest" },
+                { number: 2, weeks: 10, startWeek: 11, name: "Practical Skills & Application" },
+                { number: 3, weeks: 10, startWeek: 21, name: "Machinery & Advanced Integration" },
+                { number: 4, weeks: 7, startWeek: 31, name: "Capstone & Finalisation" }
+            ],
+            // REMOVED holidays array
+            projectMilestones: [
+                { week: 18, label: "Project Start" },
+                { week: 25, label: "Phase 2" },
+                { week: 30, label: "Integration" },
+                { week: 34, label: "Final Phase" }
+            ]
         };
 
-        function setupEventListeners() {
-            console.log('Setting up event listeners...');
+        // Default unit placement based on your plan
+        const defaultUnits = [
+            // Term 1
+            { id: 1, code: "AHCWHS302", name: "Work Health & Safety", weeks: [1, 2], color: "safety", tags: ["SAFETY"], teacher: "main", notes: "Non-negotiable foundation" },
+            { id: 2, code: "HLTAID011", name: "First Aid", weeks: [1, 2], color: "safety", tags: ["SAFETY", "SPECIALIST"], teacher: "other", notes: "Clustered with WHS for efficiency" },
+            { id: 3, code: "AHCECR305", name: "Collect native seed", weeks: [3, 4], color: "seasonal", tags: ["SEASONAL"], teacher: "main", notes: "Must be early due to seed season" },
+            { id: 4, code: "AHCBIO303", name: "Biosecurity", weeks: [3, 4], color: "foundational", tags: [], teacher: "main", notes: "Essential for seed/plant handling" },
+            { id: 5, code: "AHCPCM303", name: "Identify plant specimens", weeks: [5, 6, 7], color: "foundational", tags: [], teacher: "main", notes: "Foundational skill - use seed collection trips" },
+            { id: 6, code: "AHCNSY207", name: "Undertake propagation activities", weeks: [8], color: "foundational", tags: [], teacher: "main", notes: "Follow-up to seed collection" },
+            { id: 7, code: "AHCFAU302", name: "Identify fauna in the field", weeks: [9, 10], color: "foundational", tags: ["SEASONAL"], teacher: "main", notes: "Late summer/early autumn activity" },
             
-            // File upload
-            document.getElementById('fileInput').onclick = function() {
-                document.getElementById('imageUpload').click();
+            // Term 2
+            { id: 8, code: "AHCPMG301", name: "Control weeds", weeks: [11, 12], color: "practical", tags: [], teacher: "main", notes: "Builds on plant ID" },
+            { id: 9, code: "AHCCHM304", name: "Transport/handle chemicals", weeks: [13], color: "practical", tags: ["SPECIALIST"], teacher: "other", notes: "Clustered with weed control" },
+            { id: 10, code: "AHCCHM307", name: "Apply chemicals", weeks: [13], color: "practical", tags: ["SPECIALIST"], teacher: "other", notes: "Clustered chemical application" },
+            { id: 11, code: "FWPCOT2266", name: "Operate brush cutter", weeks: [14, 15], color: "practical", tags: ["SPECIALIST"], teacher: "other", notes: "Practical vegetation management" },
+            { id: 12, code: "AHCECR301", name: "Maintain native ecosystem areas", weeks: [16, 17], color: "practical", tags: [], teacher: "main", notes: "Ecosystem-scale application" },
+            { id: 13, code: "AHCLPW313", name: "Water sampling & testing", weeks: [18, 19, 20], color: "practical", tags: ["SEASONAL"], teacher: "main", notes: "Wetter months activity" },
+            
+            // Term 3
+            { id: 14, code: "AHCMOM213", name: "Operate chainsaw", weeks: [21, 22, 23], color: "machinery", tags: ["SPECIALIST"], teacher: "other", notes: "Requires significant planning" },
+            { id: 15, code: "AHCMOM216", name: "Operate SSUV", weeks: [21, 22, 23], color: "machinery", tags: ["SPECIALIST"], teacher: "other", notes: "Clustered machinery units" },
+            { id: 16, code: "AHCECR301", name: "Ecosystem maintenance (cont.)", weeks: [24, 25, 26, 27], color: "practical", tags: [], teacher: "main", notes: "Enhanced capability application" },
+            { id: 17, code: "INTEGRATION", name: "Skill Integration & Project Work", weeks: [28, 29, 30], color: "project", tags: ["FLEXIBLE"], teacher: "main", notes: "Buffer for weather/adaptation" },
+            
+            // Term 4
+            { id: 18, code: "AHCECR309", name: "Conduct ecological site inspection", weeks: [31, 32, 33], color: "capstone", tags: ["CAPSTONE"], teacher: "main", notes: "Synthesis of all skills" },
+            { id: 19, code: "PROJECT", name: "Final Project Phase", weeks: [34, 35, 36], color: "project", tags: [], teacher: "main", notes: "Complete integrated project" },
+            { id: 20, code: "ADMIN", name: "Portfolio Finalisation", weeks: [37], color: "safety", tags: [], teacher: "main", notes: "Verification and closure" }
+        ];
+
+        // Unit templates for palette
+        const unitTemplates = [
+            { code: "AHCWHS302", name: "Work Health & Safety", color: "safety", tags: ["SAFETY"], defaultWeeks: 2 },
+            { code: "HLTAID011", name: "First Aid", color: "safety", tags: ["SAFETY", "SPECIALIST"], defaultWeeks: 2 },
+            { code: "AHCECR305", name: "Collect native seed", color: "seasonal", tags: ["SEASONAL"], defaultWeeks: 2 },
+            { code: "AHCBIO303", name: "Biosecurity", color: "foundational", tags: [], defaultWeeks: 2 },
+            { code: "AHCPCM303", name: "Identify plant specimens", color: "foundational", tags: [], defaultWeeks: 3 },
+            { code: "AHCNSY207", name: "Undertake propagation activities", color: "foundational", tags: [], defaultWeeks: 1 },
+            { code: "AHCFAU302", name: "Identify fauna in the field", color: "foundational", tags: ["SEASONAL"], defaultWeeks: 2 },
+            { code: "AHCPMG301", name: "Control weeds", color: "practical", tags: [], defaultWeeks: 2 },
+            { code: "AHCCHM304", name: "Transport/handle chemicals", color: "practical", tags: ["SPECIALIST"], defaultWeeks: 1 },
+            { code: "AHCCHM307", name: "Apply chemicals", color: "practical", tags: ["SPECIALIST"], defaultWeeks: 1 },
+            { code: "FWPCOT2266", name: "Operate brush cutter", color: "practical", tags: ["SPECIALIST"], defaultWeeks: 2 },
+            { code: "AHCECR301", name: "Maintain native ecosystem areas", color: "practical", tags: [], defaultWeeks: 2 },
+            { code: "AHCLPW313", name: "Water sampling & testing", color: "practical", tags: ["SEASONAL"], defaultWeeks: 3 },
+            { code: "AHCMOM213", name: "Operate chainsaw", color: "machinery", tags: ["SPECIALIST"], defaultWeeks: 3 },
+            { code: "AHCMOM216", name: "Operate SSUV", color: "machinery", tags: ["SPECIALIST"], defaultWeeks: 3 },
+            { code: "AHCECR309", name: "Conduct ecological site inspection", color: "capstone", tags: ["CAPSTONE"], defaultWeeks: 3 },
+            { code: "CUSTOM", name: "Custom Unit/Block", color: "foundational", tags: ["CUSTOM"], defaultWeeks: 1 }
+        ];
+
+        // Color mapping
+        const colorMap = {
+            safety: "var(--color-safety)",
+            foundational: "var(--color-foundational)",
+            practical: "var(--color-practical)",
+            machinery: "var(--color-machinery)",
+            capstone: "var(--color-capstone)",
+            project: "var(--color-project)",
+            specialist: "var(--color-specialist)",
+            seasonal: "var(--color-seasonal)"
+        };
+
+        // State management
+        let currentUnits = JSON.parse(JSON.stringify(defaultUnits));
+        let draggedUnit = null;
+        let draggedFromPalette = false;
+        let currentPlanId = 'default';
+        let history = [];
+        let historyIndex = -1;
+        
+        // Check URL parameters for view mode
+        const urlParams = new URLSearchParams(window.location.search);
+        const isStudentView = urlParams.has('student');
+        const sharedPlanId = urlParams.get('plan');
+        
+        // ========== UTILITY FUNCTIONS ==========
+        
+        function trackUsage(action, data = {}) {
+            // Log usage for improvement purposes
+            const usage = {
+                action,
+                timestamp: new Date().toISOString(),
+                viewMode: isStudentView ? 'student' : 'editor',
+                ...data
             };
             
-            document.getElementById('imageUpload').onchange = function(e) {
-                loadImage(e.target.files[0]);
-            };
+            // Store in localStorage (or send to server)
+            try {
+                let usageLog = JSON.parse(localStorage.getItem('usageLog') || '[]');
+                usageLog.push(usage);
+                if (usageLog.length > 1000) usageLog = usageLog.slice(-500);
+                localStorage.setItem('usageLog', JSON.stringify(usageLog));
+            } catch (e) {
+                console.error('Error tracking usage:', e);
+            }
+        }
+        
+        function getWeekDates(week) {
+            // Simplified date calculation starting from February
+            const startMonth = 1; // February (0-indexed)
+            const startDate = new Date(new Date().getFullYear(), startMonth, 1);
             
-            // Marker type selection
-            document.querySelectorAll('.marker-type').forEach(btn => {
-                btn.onclick = function() {
-                    document.querySelectorAll('.marker-type').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    currentMarkerType = this.dataset.type;
-                };
+            // Calculate date for the given week
+            const weekDate = new Date(startDate);
+            weekDate.setDate(startDate.getDate() + (week - 1) * 7);
+            
+            // Format as short month
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return monthNames[weekDate.getMonth()];
+        }
+        
+        function darkenColor(color, percent) {
+            // Convert CSS variable to RGB
+            let r, g, b;
+            
+            if (color.startsWith('var')) {
+                // Extract color from CSS variable
+                const varName = color.match(/var\(--([^)]+)\)/)[1];
+                const style = getComputedStyle(document.documentElement);
+                const hexColor = style.getPropertyValue(`--${varName}`).trim();
+                
+                if (hexColor.startsWith('#')) {
+                    r = parseInt(hexColor.slice(1, 3), 16);
+                    g = parseInt(hexColor.slice(3, 5), 16);
+                    b = parseInt(hexColor.slice(5, 7), 16);
+                } else {
+                    r = 78; g = 205; b = 196; // Default to foundational color
+                }
+            } else if (color.startsWith('#')) {
+                r = parseInt(color.slice(1, 3), 16);
+                g = parseInt(color.slice(3, 5), 16);
+                b = parseInt(color.slice(5, 7), 16);
+            } else {
+                // Handle rgb() or rgba()
+                const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+                if (match) {
+                    r = parseInt(match[1]);
+                    g = parseInt(match[2]);
+                    b = parseInt(match[3]);
+                } else {
+                    r = g = b = 0;
+                }
+            }
+            
+            // Darken
+            r = Math.floor(r * (100 - percent) / 100);
+            g = Math.floor(g * (100 - percent) / 100);
+            b = Math.floor(b * (100 - percent) / 100);
+            
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+        
+        function showSyncNotification(message) {
+            const statusDiv = document.getElementById('syncStatus');
+            const syncMessage = document.getElementById('syncMessage');
+            if (statusDiv && syncMessage) {
+                syncMessage.textContent = message;
+                statusDiv.classList.add('show');
+                
+                setTimeout(() => {
+                    statusDiv.classList.remove('show');
+                }, 3000);
+            }
+        }
+        
+        function validateUnit(unit) {
+            const errors = [];
+            
+            if (!unit.code || unit.code.trim() === '') {
+                errors.push('Unit code is required');
+            }
+            
+            if (!unit.name || unit.name.trim() === '') {
+                errors.push('Unit name is required');
+            }
+            
+            if (!Array.isArray(unit.weeks) || unit.weeks.length === 0) {
+                errors.push('At least one week must be specified');
+            }
+            
+            unit.weeks.forEach(week => {
+                if (week < 1 || week > 37) {
+                    errors.push(`Week ${week} is outside the valid range (1-37)`);
+                }
             });
             
-            // Add marker button
-            document.getElementById('addMarkerBtn').onclick = function() {
-                addMarker();
+            // Check for duplicate weeks
+            const uniqueWeeks = [...new Set(unit.weeks)];
+            if (uniqueWeeks.length !== unit.weeks.length) {
+                errors.push('Duplicate week numbers found');
+            }
+            
+            return errors;
+        }
+        
+        function saveToHistory(action) {
+            const state = {
+                action,
+                timestamp: new Date().toISOString(),
+                units: JSON.parse(JSON.stringify(currentUnits)),
+                planId: currentPlanId
             };
             
-            // Clear markers button
-            document.getElementById('clearMarkers').onclick = function() {
-                if (confirm('Clear all markers?')) {
-                    markers = [];
-                    updateMarkerList();
-                    // Clear 3D markers
-                    if (scene) {
-                        scene.children.forEach(child => {
-                            if (child.userData && child.userData.isMarker) {
-                                scene.remove(child);
-                            }
-                        });
+            // Remove any future states if we're not at the end
+            history = history.slice(0, historyIndex + 1);
+            history.push(state);
+            historyIndex++;
+            
+            // Keep history size manageable
+            if (history.length > 50) {
+                history.shift();
+                historyIndex--;
+            }
+        }
+        
+        // ========== STUDENT VIEW FUNCTIONS ==========
+        
+        function loadSharedPlan() {
+            if (!sharedPlanId) {
+                // Use default units if no shared plan
+                currentUnits = JSON.parse(JSON.stringify(defaultUnits));
+                return;
+            }
+            
+            try {
+                const sharedPlanData = localStorage.getItem('sharedPlan_' + sharedPlanId);
+                if (sharedPlanData) {
+                    const plan = JSON.parse(sharedPlanData);
+                    currentUnits = JSON.parse(JSON.stringify(plan.units));
+                    currentPlanId = plan.id;
+                    
+                    // Store the initial update timestamp
+                    localStorage.setItem('lastPlanUpdate_' + sharedPlanId, plan.lastUpdate || plan.date);
+                } else {
+                    // Fall back to default units
+                    currentUnits = JSON.parse(JSON.stringify(defaultUnits));
+                }
+            } catch (e) {
+                console.error('Error loading shared plan:', e);
+                // Fall back to default units
+                currentUnits = JSON.parse(JSON.stringify(defaultUnits));
+            }
+        }
+        
+        function setupStudentView() {
+            // Apply student view styles
+            document.body.classList.remove('editor-view');
+            document.body.classList.add('student-view');
+            
+            // Update titles - check if elements exist first
+            const courseTitle = document.getElementById('courseTitle');
+            const courseSubtitle = document.getElementById('courseSubtitle');
+            const courseDescription = document.getElementById('courseDescription');
+            const viewModeIndicator = document.getElementById('viewModeIndicator');
+            const footerText = document.getElementById('footerText');
+            
+            if (courseTitle) courseTitle.textContent = 'Course Schedule - Cert III Conservation & Ecosystem Management';
+            if (courseSubtitle) courseSubtitle.textContent = 'Student View - 37-Week Plan';
+            if (courseDescription) courseDescription.textContent = 'Interactive course timeline - Updated automatically';
+            if (viewModeIndicator) viewModeIndicator.textContent = 'Student View';
+            if (footerText) footerText.textContent = 'This view updates automatically as your teacher makes changes to the course schedule.';
+            
+            // Hide editor elements - check if they exist first
+            const controls = document.querySelector('.controls');
+            const unitPalette = document.querySelector('.unit-palette');
+            const legend = document.querySelector('.legend');
+            
+            if (controls) controls.style.display = 'none';
+            if (unitPalette) unitPalette.style.display = 'none';
+            if (legend) legend.style.display = 'none';
+            
+            // Initialize student view
+            initializeTimeline();
+            renderStudentTimeline();
+            createTermOverviews();
+            
+            // Setup auto-refresh for student view
+            setupStudentAutoRefresh();
+            
+            // Setup progress tracking for students
+            if (sharedPlanId) {
+                setupStudentProgress();
+            }
+        }
+        
+        function renderStudentTimeline() {
+            const grid = document.getElementById('timelineGrid');
+            if (!grid) return;
+            
+            grid.innerHTML = '';
+            
+            // Create ONE swimlane for student view (all units go here)
+            const swimlanes = [
+                { id: 'student-units', label: 'Weekly Units & Activities' }
+            ];
+            
+            swimlanes.forEach(swimlane => {
+                const swimlaneDiv = document.createElement('div');
+                swimlaneDiv.className = 'swimlane';
+                swimlaneDiv.dataset.swimlane = swimlane.id;
+                
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'swimlane-label';
+                labelDiv.textContent = swimlane.label;
+                swimlaneDiv.appendChild(labelDiv);
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'swimlane-content';
+                
+                // Create week slots
+                for (let week = 1; week <= 37; week++) {
+                    const slotDiv = document.createElement('div');
+                    slotDiv.className = 'week-slot';
+                    slotDiv.dataset.week = week;
+                    slotDiv.dataset.swimlane = swimlane.id;
+                    
+                    // No holiday checking - all weeks are regular teaching weeks
+                    // Add empty slot indicator
+                    const emptyIndicator = document.createElement('div');
+                    emptyIndicator.className = 'empty-slot';
+                    emptyIndicator.textContent = 'No units';
+                    slotDiv.appendChild(emptyIndicator);
+                    
+                    contentDiv.appendChild(slotDiv);
+                }
+                
+                swimlaneDiv.appendChild(contentDiv);
+                grid.appendChild(swimlaneDiv);
+            });
+            
+            // Place units in timeline (all units go in the 'student-units' swimlane)
+            currentUnits.forEach(unit => {
+                placeUnitInStudentTimeline(unit);
+            });
+            
+            // Create project swimlane with milestones
+            createProjectSwimlane();
+        }
+        
+        function createProjectSwimlane() {
+            const grid = document.getElementById('timelineGrid');
+            if (!grid) return;
+            
+            const projectSwimlaneDiv = document.createElement('div');
+            projectSwimlaneDiv.className = 'swimlane';
+            projectSwimlaneDiv.dataset.swimlane = 'student-project';
+            
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'swimlane-label';
+            labelDiv.textContent = 'Integrated Project Timeline';
+            projectSwimlaneDiv.appendChild(labelDiv);
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'swimlane-content';
+            
+            // Create week slots
+            for (let week = 1; week <= 37; week++) {
+                const slotDiv = document.createElement('div');
+                slotDiv.className = 'week-slot';
+                slotDiv.dataset.week = week;
+                slotDiv.dataset.swimlane = 'student-project';
+                
+                contentDiv.appendChild(slotDiv);
+            }
+            
+            // Add project thread
+            const threadDiv = document.createElement('div');
+            threadDiv.className = 'project-thread';
+            
+            // Add milestones
+            courseData.projectMilestones.forEach(milestone => {
+                const milestoneDiv = document.createElement('div');
+                milestoneDiv.className = 'project-milestone';
+                const weekWidth = 120; // Student view width
+                milestoneDiv.style.left = `calc(${(milestone.week - 1) * weekWidth}px + ${weekWidth/2}px)`;
+                milestoneDiv.title = milestone.label;
+                
+                // Add milestone label
+                const label = document.createElement('div');
+                label.textContent = milestone.label;
+                label.style.position = 'absolute';
+                label.style.top = '-20px';
+                label.style.left = '50%';
+                label.style.transform = 'translateX(-50%)';
+                label.style.fontSize = '10px';
+                label.style.whiteSpace = 'nowrap';
+                label.style.color = '#636e72';
+                milestoneDiv.appendChild(label);
+                
+                threadDiv.appendChild(milestoneDiv);
+            });
+            
+            contentDiv.appendChild(threadDiv);
+            projectSwimlaneDiv.appendChild(contentDiv);
+            grid.appendChild(projectSwimlaneDiv);
+        }
+        
+        function placeUnitInStudentTimeline(unit) {
+            const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+            const swimlane = 'student-units'; // All units go here in student view
+            
+            weeks.forEach(week => {
+                const slot = document.querySelector(`.week-slot[data-week="${week}"][data-swimlane="${swimlane}"]`);
+                if (slot) {
+                    // Remove empty indicator if present
+                    const emptyIndicator = slot.querySelector('.empty-slot');
+                    if (emptyIndicator) {
+                        emptyIndicator.remove();
                     }
-                }
-            };
-            
-            // Export button
-            document.getElementById('exportBtn').onclick = function() {
-                exportProject();
-            };
-            
-            // Viewer controls
-            document.getElementById('resetView').onclick = function() {
-                if (controls) controls.reset();
-            };
-            
-            document.getElementById('autoRotateBtn').onclick = function() {
-                autoRotate = !autoRotate;
-                this.innerHTML = autoRotate ? 
-                    '<i class="fas fa-pause"></i> Stop' : 
-                    '<i class="fas fa-sync"></i> Auto Rotate';
-            };
-            
-            console.log('Event listeners setup complete');
-        }
-
-        function initThreeJS() {
-            console.log('Initializing Three.js...');
-            
-            // Create scene
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xf0f2f5);
-            
-            // Create camera
-            const container = document.getElementById('threeContainer');
-            camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-            camera.position.set(0, 0, 0.1);
-            
-            // Create renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            container.appendChild(renderer.domElement);
-            
-            // Create controls
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            
-            // Add lights
-            const light = new THREE.AmbientLight(0xffffff, 0.8);
-            scene.add(light);
-            
-            // Start animation loop
-            animate();
-            
-            console.log('Three.js initialized');
-        }
-
-        function loadImage(file) {
-            if (!file) return;
-            
-            console.log('Loading image:', file.name);
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                // Remove existing sphere
-                if (sphere) {
-                    scene.remove(sphere);
-                }
-                
-                // Clear markers
-                markers = [];
-                updateMarkerList();
-                
-                // Create texture
-                const texture = new THREE.TextureLoader().load(e.target.result);
-                
-                // Create sphere
-                const geometry = new THREE.SphereGeometry(10, 64, 32);
-                geometry.scale(-1, 1, 1); // Invert to see from inside
-                
-                const material = new THREE.MeshBasicMaterial({ map: texture });
-                sphere = new THREE.Mesh(geometry, material);
-                scene.add(sphere);
-                
-                // Hide empty state
-                document.querySelector('#threeContainer .empty-state').style.display = 'none';
-                
-                console.log('Image loaded successfully');
-            };
-            
-            reader.readAsDataURL(file);
-        }
-
-        function addMarker() {
-            if (!sphere) {
-                alert('Please upload an image first');
-                return;
-            }
-            
-            const title = document.getElementById('markerTitle').value || 'New Marker';
-            const description = document.getElementById('markerDescription').value;
-            const link = document.getElementById('markerLink').value;
-            
-            // Get camera direction for marker position
-            const direction = new THREE.Vector3();
-            camera.getWorldDirection(direction);
-            const position = direction.multiplyScalar(10);
-            
-            // Create marker object
-            const marker = {
-                id: Date.now(),
-                type: currentMarkerType,
-                title: title,
-                description: description,
-                link: link,
-                position: { x: position.x, y: position.y, z: position.z }
-            };
-            
-            markers.push(marker);
-            
-            // Create 3D marker
-            create3DMarker(marker);
-            
-            // Update UI
-            updateMarkerList();
-            
-            // Clear form
-            document.getElementById('markerTitle').value = '';
-            document.getElementById('markerDescription').value = '';
-            document.getElementById('markerLink').value = '';
-            
-            console.log('Marker added:', marker);
-        }
-
-        function create3DMarker(marker) {
-            const colors = {
-                info: 0x17a2b8,
-                link: 0x28a745,
-                video: 0xdc3545
-            };
-            
-            // Create marker sphere
-            const geometry = new THREE.SphereGeometry(0.3, 16, 16);
-            const material = new THREE.MeshBasicMaterial({ 
-                color: colors[marker.type] || 0x17a2b8,
-                transparent: true,
-                opacity: 0.8
-            });
-            
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(marker.position.x, marker.position.y, marker.position.z);
-            mesh.userData = { 
-                isMarker: true,
-                markerId: marker.id,
-                markerData: marker
-            };
-            
-            scene.add(mesh);
-            
-            // Add click interaction
-            renderer.domElement.addEventListener('click', function onClick(event) {
-                const rect = renderer.domElement.getBoundingClientRect();
-                const mouse = new THREE.Vector2();
-                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-                
-                const raycaster = new THREE.Raycaster();
-                raycaster.setFromCamera(mouse, camera);
-                
-                const intersects = raycaster.intersectObject(mesh);
-                if (intersects.length > 0) {
-                    showMarkerInfo(marker);
+                    
+                    const unitDiv = createStudentUnitBlock(unit, week);
+                    slot.appendChild(unitDiv);
+                    
+                    // Add unit count indicator
+                    updateUnitCountIndicator(slot, week);
                 }
             });
-            
-            return mesh;
         }
-
-        function showMarkerInfo(marker) {
-            let info = `<strong>${marker.title}</strong>`;
-            if (marker.description) info += `<br>${marker.description}`;
-            if (marker.link) info += `<br><a href="${marker.link}" target="_blank">${marker.link}</a>`;
+        
+        function createStudentUnitBlock(unit, week) {
+            const unitDiv = document.createElement('div');
+            unitDiv.className = 'unit-block';
+            unitDiv.dataset.unitId = unit.id;
+            unitDiv.dataset.week = week;
             
-            alert(info);
+            // Set color based on unit type
+            const color = colorMap[unit.color] || colorMap.foundational;
+            unitDiv.style.background = color;
+            unitDiv.style.borderLeft = `4px solid ${darkenColor(color, 30)}`;
+            
+            // Simplified display for students
+            const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+            const isFirstWeek = week === Math.min(...weeks);
+            
+            unitDiv.innerHTML = `
+                <div class="unit-code">${unit.code}</div>
+                ${isFirstWeek ? `<div class="unit-name">${unit.name}</div>` : ''}
+                ${weeks.length > 1 && isFirstWeek ? 
+                    `<div class="week-summary">Continues for ${weeks.length} weeks</div>` : ''}
+                ${unit.teacher === 'other' ? 
+                    `<div class="week-summary" style="color: #fd79a8;">Specialist Teacher</div>` : ''}
+            `;
+            
+            // Add click event to show unit details (read-only for students)
+            unitDiv.addEventListener('click', () => showStudentUnitDetails(unit));
+            
+            return unitDiv;
         }
-
-        function updateMarkerList() {
-            const list = document.getElementById('markerList');
-            
-            if (markers.length === 0) {
-                list.innerHTML = '<div class="empty-state">No markers added</div>';
-                return;
+        
+        function updateUnitCountIndicator(slot, week) {
+            const unitsInSlot = slot.querySelectorAll('.unit-block');
+            if (unitsInSlot.length > 1) {
+                // Create or update count indicator
+                let countIndicator = slot.querySelector('.unit-count');
+                if (!countIndicator) {
+                    countIndicator = document.createElement('div');
+                    countIndicator.className = 'unit-count';
+                    slot.appendChild(countIndicator);
+                }
+                countIndicator.textContent = unitsInSlot.length;
+            } else {
+                // Remove count indicator if only one unit
+                const countIndicator = slot.querySelector('.unit-count');
+                if (countIndicator) {
+                    countIndicator.remove();
+                }
             }
+        }
+        
+        function createTermOverviews() {
+            const container = document.getElementById('studentTermOverviews');
+            if (!container) return;
             
-            let html = '';
-            markers.forEach(marker => {
-                const icons = {
-                    info: 'info-circle',
-                    link: 'link',
-                    video: 'video'
-                };
+            container.innerHTML = '';
+            
+            courseData.terms.forEach(term => {
+                const termDiv = document.createElement('div');
+                termDiv.className = 'term-overview';
                 
-                html += `
-                    <div class="marker-item" data-id="${marker.id}">
-                        <i class="fas fa-${icons[marker.type] || 'info-circle'}"></i>
-                        ${marker.title}
+                // Get units in this term
+                const termUnits = currentUnits.filter(unit => {
+                    const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+                    return weeks.some(week => 
+                        week >= term.startWeek && 
+                        week < term.startWeek + term.weeks
+                    );
+                });
+                
+                // Remove duplicates (units that span multiple weeks)
+                const uniqueUnits = [];
+                const seenCodes = new Set();
+                termUnits.forEach(unit => {
+                    if (!seenCodes.has(unit.code)) {
+                        seenCodes.add(unit.code);
+                        uniqueUnits.push(unit);
+                    }
+                });
+                
+                termDiv.innerHTML = `
+                    <h3>Term ${term.number}: ${term.name}</h3>
+                    <div class="term-units">
+                        ${uniqueUnits.map(unit => `
+                            <div class="term-unit-card">
+                                <div style="font-weight: 600; color: #0984e3;">${unit.code}</div>
+                                <div style="font-size: 13px; margin-top: 5px;">${unit.name}</div>
+                                ${unit.teacher === 'other' ? 
+                                    `<div style="font-size: 11px; color: #fd79a8; margin-top: 3px;">Specialist Teacher</div>` : ''}
+                                ${unit.tags && unit.tags.includes('SEASONAL') ? 
+                                    `<div style="font-size: 11px; color: #55efc4; margin-top: 3px;">Seasonal Timing</div>` : ''}
+                            </div>
+                        `).join('')}
                     </div>
                 `;
+                
+                container.appendChild(termDiv);
             });
             
-            list.innerHTML = html;
+            // Show term overviews in student view
+            if (isStudentView && container) {
+                container.style.display = 'block';
+            }
+        }
+        
+        function showStudentUnitDetails(unit) {
+            const modal = document.getElementById('unitModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
             
-            // Add click handlers to list items
-            list.querySelectorAll('.marker-item').forEach(item => {
-                item.onclick = function() {
-                    const markerId = parseInt(this.dataset.id);
-                    const marker = markers.find(m => m.id === markerId);
-                    if (marker) {
-                        showMarkerInfo(marker);
-                    }
-                };
+            if (!modal || !modalTitle || !modalBody) return;
+            
+            modalTitle.textContent = `${unit.code} - ${unit.name}`;
+            
+            const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+            const startWeek = Math.min(...weeks);
+            const endWeek = Math.max(...weeks);
+            const duration = weeks.length;
+            
+            modalBody.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                        <div style="flex: 1; background: #f8f9fa; padding: 10px; border-radius: 6px;">
+                            <div style="font-size: 12px; color: #636e72;">Timing</div>
+                            <div style="font-weight: 600;">Weeks ${startWeek}-${endWeek} (${duration} week${duration > 1 ? 's' : ''})</div>
+                        </div>
+                        <div style="flex: 1; background: #f8f9fa; padding: 10px; border-radius: 6px;">
+                            <div style="font-size: 12px; color: #636e72;">Taught by</div>
+                            <div style="font-weight: 600;">${unit.teacher === 'other' ? 'Specialist Teacher' : 'Main Teacher'}</div>
+                        </div>
+                    </div>
+                    
+                    ${unit.tags && unit.tags.length > 0 ? `
+                        <div style="margin-bottom: 15px;">
+                            <div style="font-size: 12px; color: #636e72; margin-bottom: 5px;">Tags</div>
+                                <div>
+                                ${unit.tags.map(tag => `
+                                    <span style="display: inline-block; background: #e9ecef; padding: 3px 8px; border-radius: 12px; font-size: 11px; margin-right: 5px; margin-bottom: 5px;">
+                                        ${tag}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${unit.notes ? `
+                        <div style="margin-bottom: 15px;">
+                            <div style="font-size: 12px; color: #636e72; margin-bottom: 5px;">Description</div>
+                            <div style="background: #f8f9fa; padding: 10px; border-radius: 6px;">${unit.notes}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${unit.resources && unit.resources.length > 0 ? `
+                        <div>
+                            <div style="font-size: 12px; color: #636e72; margin-bottom: 5px;">Resources</div>
+                            <div>
+                                ${unit.resources.map(res => `
+                                    <div style="background: white; padding: 10px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #0984e3;">
+                                        <div style="font-weight: 600; margin-bottom: 3px;">${res.title}</div>
+                                        <div style="font-size: 12px; color: #0984e3; margin-bottom: 3px;">
+                                            <a href="${res.url}" target="_blank" style="color: inherit;">${res.url}</a>
+                                        </div>
+                                        ${res.description ? `<div style="font-size: 12px; color: #636e72;">${res.description}</div>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : '<p style="color: #636e72; text-align: center; padding: 20px;">No additional resources for this unit.</p>'}
+                </div>
+                
+                <button onclick="document.getElementById('unitModal').style.display = 'none'" 
+                        style="width: 100%; padding: 10px; background: #0984e3; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    Close
+                </button>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+        
+        function setupStudentProgress() {
+            if (!sharedPlanId) return;
+            
+            const progressKey = 'studentProgress_' + sharedPlanId;
+            let progress = {
+                completedUnits: [],
+                completedWeeks: {}
+            };
+            
+            // Load saved progress
+            const savedProgress = localStorage.getItem(progressKey);
+            if (savedProgress) {
+                progress = JSON.parse(savedProgress);
+            }
+            
+            // Add progress indicators to units
+            document.querySelectorAll('.unit-block').forEach(block => {
+                const unitId = block.dataset.unitId;
+                const isCompleted = progress.completedUnits.includes(parseInt(unitId));
+                
+                if (isCompleted) {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'progress-indicator completed';
+                    indicator.title = 'Marked as complete';
+                    indicator.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        toggleUnitProgress(unitId, progress, progressKey);
+                    });
+                    block.appendChild(indicator);
+                } else {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'progress-indicator';
+                    indicator.title = 'Click to mark as complete';
+                    indicator.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        toggleUnitProgress(unitId, progress, progressKey);
+                    });
+                    block.appendChild(indicator);
+                }
             });
         }
-
-        function exportProject() {
-            if (markers.length === 0) {
-                alert('Please add some markers first');
+        
+        function toggleUnitProgress(unitId, progress, progressKey) {
+            unitId = parseInt(unitId);
+            const index = progress.completedUnits.indexOf(unitId);
+            
+            if (index === -1) {
+                progress.completedUnits.push(unitId);
+            } else {
+                progress.completedUnits.splice(index, 1);
+            }
+            
+            // Save progress
+            localStorage.setItem(progressKey, JSON.stringify(progress));
+            
+            // Refresh view
+            setupStudentProgress();
+        }
+        
+        function setupStudentAutoRefresh() {
+            // Check for updates every 10 seconds
+            setInterval(() => {
+                checkForPlanUpdates();
+            }, 10000);
+            
+            // Also check when page becomes visible again
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    checkForPlanUpdates();
+                }
+            });
+        }
+        
+        function checkForPlanUpdates() {
+            if (!sharedPlanId) return;
+            
+            try {
+                // Get the shared plan from localStorage
+                const sharedPlanData = localStorage.getItem('sharedPlan_' + sharedPlanId);
+                if (!sharedPlanData) return;
+                
+                const plan = JSON.parse(sharedPlanData);
+                
+                // Check if plan has been updated
+                const lastUpdate = localStorage.getItem('lastPlanUpdate_' + sharedPlanId);
+                const currentUpdate = plan.lastUpdate || plan.date;
+                
+                // Check if we need to update
+                if (!lastUpdate || lastUpdate !== currentUpdate) {
+                    // Update units
+                    currentUnits = JSON.parse(JSON.stringify(plan.units));
+                    
+                    // Re-render the student view
+                    renderStudentTimeline();
+                    createTermOverviews();
+                    setupStudentProgress();
+                    
+                    // Save the update timestamp
+                    localStorage.setItem('lastPlanUpdate_' + sharedPlanId, currentUpdate);
+                    
+                    // Show update notification
+                    showSyncNotification('Course schedule has been updated');
+                }
+            } catch (e) {
+                console.error('Error checking for updates:', e);
+            }
+        }
+        
+        // ========== EDITOR VIEW FUNCTIONS ==========
+        
+        function initializeTimeline() {
+            const weekHeaders = document.getElementById('weekHeaders');
+            if (!weekHeaders) return;
+            
+            weekHeaders.innerHTML = '';
+            
+            // Calculate week width based on view mode
+            const isStudent = document.body.classList.contains('student-view');
+            const weekWidth = isStudent ? 120 : 150;
+            
+            // Add empty column for swimlane alignment
+            const spacerDiv = document.createElement('div');
+            spacerDiv.className = 'week-cell';
+            spacerDiv.style.cssText = 'width: 120px; background: #f8f9fa; border-right: 2px solid #ddd;';
+            spacerDiv.innerHTML = '&nbsp;';
+            weekHeaders.appendChild(spacerDiv);
+            
+            // Create week headers
+            for (let week = 1; week <= 37; week++) {
+                const weekCell = document.createElement('div');
+                weekCell.className = 'week-cell';
+                weekCell.style.width = `${weekWidth}px`;
+                weekCell.innerHTML = `
+                    <div class="week-number">Week ${week}</div>
+                    <!-- UPDATED: Commented out month indicators -->
+                    <!-- <div class="week-dates">${getWeekDates(week)}</div> -->
+                `;
+                
+                // NO HOLIDAY CHECKING - all weeks are teaching weeks
+                
+                weekHeaders.appendChild(weekCell);
+            }
+        }
+        
+        function renderPalette() {
+            const palette = document.getElementById('paletteUnits');
+            if (!palette) return;
+            
+            palette.innerHTML = '';
+            
+            unitTemplates.forEach(template => {
+                const unitDiv = document.createElement('div');
+                unitDiv.className = 'palette-unit';
+                unitDiv.draggable = true;
+                unitDiv.dataset.template = template.code;
+                unitDiv.style.borderLeft = `4px solid ${colorMap[template.color]}`;
+                
+                unitDiv.innerHTML = `
+                    <div class="unit-code">${template.code}</div>
+                    <div class="unit-name">${template.name}</div>
+                    <div class="unit-tags">
+                        ${template.tags.map(tag => `<span class="unit-tag">${tag}</span>`).join('')}
+                    </div>
+                `;
+                
+                unitDiv.addEventListener('dragstart', handleDragStart);
+                unitDiv.addEventListener('dragend', handleDragEnd);
+                
+                palette.appendChild(unitDiv);
+            });
+        }
+        
+        function renderTimeline() {
+            const grid = document.getElementById('timelineGrid');
+            if (!grid) return;
+            
+            grid.innerHTML = '';
+            
+            // Create swimlanes
+            const swimlanes = [
+                { id: 'core', label: 'Core Units (Main Teacher)' },
+                { id: 'specialist', label: 'Specialist Units (Other Teacher)' },
+                { id: 'project', label: 'Integrated Project' },
+                { id: 'capstone', label: 'Capstone & Assessment' }
+            ];
+            
+            swimlanes.forEach(swimlane => {
+                const swimlaneDiv = document.createElement('div');
+                swimlaneDiv.className = 'swimlane';
+                swimlaneDiv.dataset.swimlane = swimlane.id;
+                
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'swimlane-label';
+                labelDiv.textContent = swimlane.label;
+                swimlaneDiv.appendChild(labelDiv);
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'swimlane-content';
+                
+                // Create week slots
+                for (let week = 1; week <= 37; week++) {
+                    const slotDiv = document.createElement('div');
+                    slotDiv.className = 'week-slot';
+                    slotDiv.dataset.week = week;
+                    slotDiv.dataset.swimlane = swimlane.id;
+                    
+                    // NO HOLIDAY CHECKING - all weeks are teaching weeks
+                    // Add empty slot indicator
+                    const emptyIndicator = document.createElement('div');
+                    emptyIndicator.className = 'empty-slot';
+                    emptyIndicator.textContent = 'Drag unit here';
+                    slotDiv.appendChild(emptyIndicator);
+                    
+                    // Make droppable
+                    slotDiv.addEventListener('dragover', handleDragOver);
+                    slotDiv.addEventListener('dragenter', handleDragEnter);
+                    slotDiv.addEventListener('dragleave', handleDragLeave);
+                    slotDiv.addEventListener('drop', handleDrop);
+                    
+                    contentDiv.appendChild(slotDiv);
+                }
+                
+                swimlaneDiv.appendChild(contentDiv);
+                grid.appendChild(swimlaneDiv);
+            });
+            
+            // Add project thread to project swimlane
+            const projectSwimlane = document.querySelector('.swimlane[data-swimlane="project"] .swimlane-content');
+            if (projectSwimlane) {
+                const threadDiv = document.createElement('div');
+                threadDiv.className = 'project-thread';
+                
+                // Add milestones
+                courseData.projectMilestones.forEach(milestone => {
+                    const milestoneDiv = document.createElement('div');
+                    milestoneDiv.className = 'project-milestone';
+                    const weekWidth = document.body.classList.contains('student-view') ? 120 : 150;
+                    milestoneDiv.style.left = `calc(${(milestone.week - 1) * weekWidth}px + ${weekWidth/2}px)`;
+                    milestoneDiv.title = milestone.label;
+                    
+                    // Add milestone label
+                    const label = document.createElement('div');
+                    label.textContent = milestone.label;
+                    label.style.position = 'absolute';
+                    label.style.top = '-20px';
+                    label.style.left = '50%';
+                    label.style.transform = 'translateX(-50%)';
+                    label.style.fontSize = '10px';
+                    label.style.whiteSpace = 'nowrap';
+                    label.style.color = '#636e72';
+                    milestoneDiv.appendChild(label);
+                    
+                    threadDiv.appendChild(milestoneDiv);
+                });
+                
+                projectSwimlane.appendChild(threadDiv);
+            }
+            
+            // Place units in timeline
+            currentUnits.forEach(unit => {
+                placeUnitInTimeline(unit);
+            });
+            
+            // Hide student term overviews in editor view
+            const studentTermOverviews = document.getElementById('studentTermOverviews');
+            if (studentTermOverviews) {
+                studentTermOverviews.style.display = 'none';
+            }
+        }
+        
+        function getSwimlaneForUnit(unit) {
+            if (unit.tags && unit.tags.includes('CAPSTONE')) return 'capstone';
+            if (unit.teacher === 'other') return 'specialist';
+            if (unit.code === 'INTEGRATION' || unit.code === 'PROJECT') return 'project';
+            return 'core';
+        }
+        
+        function placeUnitInTimeline(unit) {
+            const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+            const swimlane = getSwimlaneForUnit(unit);
+            
+            weeks.forEach(week => {
+                const slot = document.querySelector(`.week-slot[data-week="${week}"][data-swimlane="${swimlane}"]`);
+                if (slot) {
+                    // Remove empty indicator if present
+                    const emptyIndicator = slot.querySelector('.empty-slot');
+                    if (emptyIndicator) {
+                        emptyIndicator.remove();
+                    }
+                    
+                    const unitDiv = createUnitBlock(unit, week);
+                    slot.appendChild(unitDiv);
+                }
+            });
+        }
+        
+        function createUnitBlock(unit, week) {
+            const unitDiv = document.createElement('div');
+            unitDiv.className = 'unit-block';
+            unitDiv.dataset.unitId = unit.id;
+            unitDiv.dataset.week = week;
+            unitDiv.draggable = true;
+            
+            // Set color based on unit type
+            const color = colorMap[unit.color] || colorMap.foundational;
+            unitDiv.style.background = color;
+            unitDiv.style.borderLeft = `4px solid ${darkenColor(color, 30)}`;
+            
+            // Determine if this is multi-week
+            const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+            const isFirstWeek = week === Math.min(...weeks);
+            
+            unitDiv.innerHTML = `
+                <div class="unit-code">${unit.code}</div>
+                ${isFirstWeek ? `<div class="unit-name">${unit.name}</div>` : ''}
+                ${isFirstWeek && unit.tags && unit.tags.length > 0 ? 
+                    `<div class="unit-tags" style="margin-top: 5px;">
+                        ${unit.tags.map(tag => `<span class="unit-tag">${tag}</span>`).join('')}
+                    </div>` : ''}
+                ${weeks.length > 1 ? `<div class="unit-duration">${weeks.length}w</div>` : ''}
+            `;
+            
+            unitDiv.addEventListener('dragstart', handleDragStart);
+            unitDiv.addEventListener('dragend', handleDragEnd);
+            unitDiv.addEventListener('click', () => openUnitModal(unit.id));
+            
+            return unitDiv;
+        }
+        
+        // Drag and Drop Handlers
+        function handleDragStart(e) {
+            draggedUnit = this;
+            draggedFromPalette = this.classList.contains('palette-unit');
+            
+            if (draggedFromPalette) {
+                e.dataTransfer.setData('text/plain', this.dataset.template);
+            } else {
+                e.dataTransfer.setData('text/plain', this.dataset.unitId);
+            }
+            
+            setTimeout(() => {
+                this.classList.add('dragging');
+            }, 0);
+            
+            // Highlight droppable areas
+            document.querySelectorAll('.week-slot').forEach(slot => {
+                slot.classList.add('droppable');
+            });
+            
+            trackUsage('drag_start', { 
+                unitId: draggedFromPalette ? 'new' : this.dataset.unitId,
+                fromPalette: draggedFromPalette 
+            });
+        }
+        
+        function handleDragEnd() {
+            this.classList.remove('dragging');
+            
+            // Remove droppable highlights
+            document.querySelectorAll('.week-slot').forEach(slot => {
+                slot.classList.remove('droppable');
+            });
+            
+            draggedUnit = null;
+            draggedFromPalette = false;
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+        
+        function handleDragEnter(e) {
+            e.preventDefault();
+            this.style.background = 'rgba(9, 132, 227, 0.1)';
+        }
+        
+        function handleDragLeave() {
+            this.style.background = '';
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            this.style.background = '';
+            
+            const week = parseInt(this.dataset.week);
+            const swimlane = this.dataset.swimlane;
+            
+            if (draggedFromPalette) {
+                // Save to history before change
+                saveToHistory('add_unit');
+                
+                // Add new unit from palette
+                const templateCode = e.dataTransfer.getData('text/plain');
+                addUnitFromTemplate(templateCode, week, swimlane);
+            } else {
+                // Save to history before change
+                saveToHistory('move_unit');
+                
+                // Move existing unit
+                const unitId = parseInt(e.dataTransfer.getData('text/plain'));
+                moveUnit(unitId, week, swimlane);
+            }
+        }
+        
+        function addUnitFromTemplate(templateCode, week, swimlane) {
+            const template = unitTemplates.find(t => t.code === templateCode);
+            if (!template) return;
+            
+            // Find the next available unit ID
+            const nextId = Math.max(...currentUnits.map(u => u.id), 0) + 1;
+            
+            const newUnit = {
+                id: nextId,
+                code: template.code === 'CUSTOM' ? `CUST${nextId}` : template.code,
+                name: template.name,
+                weeks: [week],
+                color: template.color,
+                tags: [...template.tags],
+                teacher: swimlane === 'specialist' ? 'other' : 'main',
+                notes: '',
+                resources: []
+            };
+            
+            currentUnits.push(newUnit);
+            renderTimeline();
+            
+            // Update shared plan
+            updateSharedPlan();
+            
+            // Open modal to edit new unit
+            setTimeout(() => openUnitModal(nextId), 100);
+            
+            trackUsage('unit_added', { template: templateCode, week: week });
+        }
+        
+        function moveUnit(unitId, newWeek, newSwimlane) {
+            const unit = currentUnits.find(u => u.id === unitId);
+            if (!unit) return;
+            
+            // Check constraints for seasonal units
+            if (unit.tags && unit.tags.includes('SEASONAL') && newWeek > 10) {
+                if (!confirm("This is a seasonal unit best placed in Term 1. Move anyway?")) {
+                    renderTimeline();
+                    return;
+                }
+            }
+            
+            // Check constraints for safety units
+            if (unit.tags && unit.tags.includes('SAFETY') && newWeek > 2) {
+                if (!confirm("Safety units should be first. Move anyway?")) {
+                    renderTimeline();
+                    return;
+                }
+            }
+            
+            // Update unit weeks
+            unit.weeks = [newWeek];
+            
+            // Update teacher based on swimlane
+            if (newSwimlane === 'specialist') {
+                unit.teacher = 'other';
+                if (!unit.tags.includes('SPECIALIST')) {
+                    unit.tags.push('SPECIALIST');
+                }
+            } else if (unit.teacher === 'other' && newSwimlane !== 'specialist') {
+                unit.teacher = 'main';
+                unit.tags = unit.tags.filter(tag => tag !== 'SPECIALIST');
+            }
+            
+            renderTimeline();
+            
+            // Update shared plan
+            updateSharedPlan();
+            showSyncNotification('Changes saved to student view');
+            
+            trackUsage('unit_moved', { unitId: unitId, from: unit.weeks, to: newWeek });
+        }
+        
+        // ========== UNIT MODAL FUNCTIONS ==========
+        
+        function openUnitModal(unitId) {
+            const unit = currentUnits.find(u => u.id === unitId);
+            if (!unit) return;
+            
+            const modal = document.getElementById('unitModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            
+            if (!modal || !modalTitle || !modalBody) return;
+            
+            modalTitle.textContent = `Edit: ${unit.code} - ${unit.name}`;
+            
+            modalBody.innerHTML = `
+                <div class="form-group">
+                    <label for="unitCode">Unit Code</label>
+                    <input type="text" id="unitCode" value="${unit.code}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="unitName">Unit Name</label>
+                    <input type="text" id="unitName" value="${unit.name}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="unitWeeks">Weeks</label>
+                    <input type="text" id="unitWeeks" value="${Array.isArray(unit.weeks) ? unit.weeks.join(',') : unit.weeks}" placeholder="e.g., 1,2,3 or 5-7">
+                    <small style="color: #636e72;">Enter week numbers separated by commas or ranges (e.g., 5-7)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="unitColor">Unit Type/Color</label>
+                    <select id="unitColor">
+                        <option value="safety" ${unit.color === 'safety' ? 'selected' : ''}>Safety</option>
+                        <option value="foundational" ${unit.color === 'foundational' ? 'selected' : ''}>Foundational</option>
+                        <option value="practical" ${unit.color === 'practical' ? 'selected' : ''}>Practical</option>
+                        <option value="machinery" ${unit.color === 'machinery' ? 'selected' : ''}>Machinery</option>
+                        <option value="capstone" ${unit.color === 'capstone' ? 'selected' : ''}>Capstone</option>
+                        <option value="project" ${unit.color === 'project' ? 'selected' : ''}>Project</option>
+                        <option value="seasonal" ${unit.color === 'seasonal' ? 'selected' : ''}>Seasonal</option>
+                        <option value="specialist" ${unit.color === 'specialist' ? 'selected' : ''}>Specialist</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="unitTeacher">Teacher</label>
+                    <select id="unitTeacher">
+                        <option value="main" ${unit.teacher === 'main' ? 'selected' : ''}>Main Teacher</option>
+                        <option value="other" ${unit.teacher === 'other' ? 'selected' : ''}>Specialist Teacher</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="unitTags">Tags (comma separated)</label>
+                    <input type="text" id="unitTags" value="${unit.tags ? unit.tags.join(', ') : ''}" placeholder="SAFETY, SEASONAL, SPECIALIST">
+                </div>
+                
+                <div class="form-group">
+                    <label for="unitNotes">Notes</label>
+                    <textarea id="unitNotes" rows="4">${unit.notes || ''}</textarea>
+                </div>
+                
+                <div class="notes-section">
+                    <h4>Resources & Links</h4>
+                    <div id="resourcesList">
+                        ${unit.resources && unit.resources.length > 0 ? 
+                            unit.resources.map((res, index) => `
+                                <div class="resource-item">
+                                    <div style="display: flex; justify-content: space-between;">
+                                        <strong>${res.title}</strong>
+                                        <button onclick="removeResource(${unitId}, ${index})" style="background: none; border: none; color: #ff6b6b; cursor: pointer;">✕</button>
+                                    </div>
+                                    <div style="font-size: 12px; color: #636e72; margin-top: 5px;">${res.url}</div>
+                                    ${res.description ? `<div style="font-size: 12px; margin-top: 3px;">${res.description}</div>` : ''}
+                                </div>
+                            `).join('') : 
+                            '<p style="color: #636e72; font-size: 14px;">No resources added yet.</p>'
+                        }
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <h5>Add New Resource</h5>
+                        <div class="form-group">
+                            <input type="text" id="newResourceTitle" placeholder="Resource Title" style="margin-bottom: 10px;">
+                            <input type="text" id="newResourceUrl" placeholder="URL or Reference" style="margin-bottom: 10px;">
+                            <textarea id="newResourceDesc" placeholder="Description (optional)" rows="2"></textarea>
+                            <button onclick="addResource(${unitId})" style="margin-top: 10px; width: 100%;">Add Resource</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button onclick="saveUnitChanges(${unitId})" class="primary" style="flex: 1;">Save Changes</button>
+                    <button onclick="deleteUnit(${unitId})" style="flex: 1; background: #ff6b6b; color: white; border: none;">Delete Unit</button>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+        
+        window.saveUnitChanges = function(unitId) {
+            const unit = currentUnits.find(u => u.id === unitId);
+            if (!unit) return;
+            
+            // Save to history before change
+            saveToHistory('edit_unit');
+            
+            unit.code = document.getElementById('unitCode').value;
+            unit.name = document.getElementById('unitName').value;
+            
+            // Parse weeks input
+            const weeksInput = document.getElementById('unitWeeks').value;
+            if (weeksInput.includes('-')) {
+                const [start, end] = weeksInput.split('-').map(Number);
+                unit.weeks = Array.from({length: end - start + 1}, (_, i) => start + i);
+            } else if (weeksInput.includes(',')) {
+                unit.weeks = weeksInput.split(',').map(w => parseInt(w.trim())).filter(w => !isNaN(w));
+            } else {
+                unit.weeks = [parseInt(weeksInput) || 1];
+            }
+            
+            unit.color = document.getElementById('unitColor').value;
+            unit.teacher = document.getElementById('unitTeacher').value;
+            
+            // Parse tags
+            const tagsInput = document.getElementById('unitTags').value;
+            unit.tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+            
+            unit.notes = document.getElementById('unitNotes').value;
+            
+            // Validate unit
+            const errors = validateUnit(unit);
+            if (errors.length > 0) {
+                alert('Please fix the following errors:\n\n' + errors.join('\n'));
                 return;
             }
             
-            const projectData = {
-                markers: markers,
-                exportDate: new Date().toISOString()
+            // Close modal and re-render
+            const modal = document.getElementById('unitModal');
+            if (modal) modal.style.display = 'none';
+            renderTimeline();
+            
+            // Update shared plan
+            updateSharedPlan();
+            showSyncNotification('Unit updated in student view');
+            
+            trackUsage('unit_saved', { unitId: unitId });
+        };
+        
+        window.addResource = function(unitId) {
+            const unit = currentUnits.find(u => u.id === unitId);
+            if (!unit) return;
+            
+            const title = document.getElementById('newResourceTitle').value;
+            const url = document.getElementById('newResourceUrl').value;
+            const description = document.getElementById('newResourceDesc').value;
+            
+            if (!title || !url) {
+                alert('Please enter both title and URL');
+                return;
+            }
+            
+            if (!unit.resources) {
+                unit.resources = [];
+            }
+            
+            unit.resources.push({
+                title,
+                url,
+                description
+            });
+            
+            // Clear inputs
+            document.getElementById('newResourceTitle').value = '';
+            document.getElementById('newResourceUrl').value = '';
+            document.getElementById('newResourceDesc').value = '';
+            
+            // Re-open modal to show updated resources
+            openUnitModal(unitId);
+        };
+        
+        window.removeResource = function(unitId, resourceIndex) {
+            const unit = currentUnits.find(u => u.id === unitId);
+            if (unit && unit.resources) {
+                unit.resources.splice(resourceIndex, 1);
+                openUnitModal(unitId);
+            }
+        };
+        
+        window.deleteUnit = function(unitId) {
+            if (confirm('Are you sure you want to delete this unit?')) {
+                // Save to history before change
+                saveToHistory('delete_unit');
+                
+                currentUnits = currentUnits.filter(u => u.id !== unitId);
+                const modal = document.getElementById('unitModal');
+                if (modal) modal.style.display = 'none';
+                renderTimeline();
+                
+                // Update shared plan
+                updateSharedPlan();
+                showSyncNotification('Unit removed from student view');
+                
+                trackUsage('unit_deleted', { unitId: unitId });
+            }
+        };
+        
+        // ========== SHARE & PLAN MANAGEMENT ==========
+        
+        function setupEventListeners() {
+            // Modal close button
+            const closeModalBtn = document.querySelector('.close-modal');
+            if (closeModalBtn) {
+                closeModalBtn.addEventListener('click', function() {
+                    const modal = document.getElementById('unitModal');
+                    if (modal) modal.style.display = 'none';
+                });
+            }
+            
+            // Close modal when clicking outside
+            const modal = document.getElementById('unitModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        this.style.display = 'none';
+                    }
+                });
+            }
+            
+            // Control buttons
+            const savePlanBtn = document.getElementById('savePlan');
+            if (savePlanBtn) savePlanBtn.addEventListener('click', saveCurrentPlan);
+            
+            const sharePlanBtn = document.getElementById('sharePlan');
+            if (sharePlanBtn) sharePlanBtn.addEventListener('click', showShareDialog);
+            
+            const resetPlanBtn = document.getElementById('resetPlan');
+            if (resetPlanBtn) resetPlanBtn.addEventListener('click', resetToDefault);
+            
+            const printPlanBtn = document.getElementById('printPlan');
+            if (printPlanBtn) printPlanBtn.addEventListener('click', printPlan);
+            
+            const exportPlanBtn = document.getElementById('exportPlan');
+            if (exportPlanBtn) exportPlanBtn.addEventListener('click', exportPlan);
+            
+            const addCustomUnitBtn = document.getElementById('addCustomUnit');
+            if (addCustomUnitBtn) addCustomUnitBtn.addEventListener('click', addCustomUnit);
+            
+            const importPlanBtn = document.getElementById('importPlanBtn');
+            if (importPlanBtn) importPlanBtn.addEventListener('click', importPlanFromFile);
+            
+            // Import file input
+            const importPlanInput = document.getElementById('importPlanInput');
+            if (importPlanInput) {
+                importPlanInput.addEventListener('change', function(e) {
+                    if (e.target.files.length > 0) {
+                        importPlan(e.target.files[0]);
+                    }
+                });
+            }
+            
+            // Copy share link button
+            const copyShareLinkBtn = document.getElementById('copyShareLinkBtn');
+            if (copyShareLinkBtn) copyShareLinkBtn.addEventListener('click', copyShareLink);
+            
+            // View controls
+            const viewModeSelect = document.getElementById('viewMode');
+            if (viewModeSelect) {
+                viewModeSelect.addEventListener('change', function() {
+                    const courseTimeline = document.querySelector('.course-timeline');
+                    const studentTermOverviews = document.getElementById('studentTermOverviews');
+                    
+                    if (this.value === 'term') {
+                        createTermOverviews();
+                        if (courseTimeline) courseTimeline.style.display = 'none';
+                        if (studentTermOverviews) studentTermOverviews.style.display = 'block';
+                    } else {
+                        if (courseTimeline) courseTimeline.style.display = 'block';
+                        if (studentTermOverviews) studentTermOverviews.style.display = 'none';
+                    }
+                });
+            }
+            
+            const highlightModeSelect = document.getElementById('highlightMode');
+            if (highlightModeSelect) {
+                highlightModeSelect.addEventListener('change', function() {
+                    highlightUnits(this.value);
+                });
+            }
+            
+            // View toggle
+            const toggleViewBtn = document.getElementById('toggleView');
+            if (toggleViewBtn) {
+                toggleViewBtn.addEventListener('click', toggleViewMode);
+            }
+            
+            // Close share dialog when clicking outside
+            document.addEventListener('click', function(e) {
+                const shareContainer = document.getElementById('shareLinkContainer');
+                const toggleButton = document.getElementById('toggleView');
+                const shareButton = document.getElementById('sharePlan');
+                
+                if (shareContainer && shareContainer.classList.contains('show') && 
+                    !shareContainer.contains(e.target) && 
+                    !toggleButton.contains(e.target) &&
+                    !shareButton.contains(e.target)) {
+                    shareContainer.classList.remove('show');
+                }
+            });
+        }
+        
+        function saveCurrentPlan() {
+            const planName = prompt('Enter a name for this plan:', `Plan ${new Date().toLocaleDateString()}`);
+            if (!planName) return;
+            
+            const plan = {
+                id: Date.now().toString(),
+                name: planName,
+                date: new Date().toISOString(),
+                units: JSON.parse(JSON.stringify(currentUnits))
             };
             
-            // Create HTML content
-            const html = `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>360° Viewer</title>
-    <style>
-        body { margin: 0; padding: 0; overflow: hidden; }
-        #viewer { width: 100vw; height: 100vh; }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"><\/script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"><\/script>
-</head>
-<body>
-    <div id="viewer"></div>
-    <script>
-        // Simple exported viewer
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('viewer').appendChild(renderer.domElement);
-        
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        camera.position.set(0, 0, 0.1);
-        
-        // Note: Image would need to be hosted separately or included as base64
-        // Markers data: ${JSON.stringify(projectData.markers)}
-        
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
-        }
-        animate();
-        
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    <\/script>
-</body>
-</html>`;
+            // Save to localStorage
+            let savedPlans = JSON.parse(localStorage.getItem('conservationPlans')) || [];
+            savedPlans.push(plan);
+            localStorage.setItem('conservationPlans', JSON.stringify(savedPlans));
             
-            // Download the file
-            const blob = new Blob([html], { type: 'text/html' });
+            // Also update the shared plan
+            updateSharedPlan();
+            
+            loadSavedPlans();
+            
+            // Show sync notification
+            showSyncNotification(`Plan "${planName}" saved! Student view will update.`);
+            
+            trackUsage('plan_saved', { planName: planName });
+        }
+        
+        function loadSavedPlans() {
+            const savedPlans = JSON.parse(localStorage.getItem('conservationPlans')) || [];
+            const listDiv = document.getElementById('savedPlansList');
+            
+            if (!listDiv) return;
+            
+            if (savedPlans.length === 0) {
+                listDiv.innerHTML = '<p style="color: #636e72; font-size: 14px;">No saved plans yet.</p>';
+                return;
+            }
+            
+            listDiv.innerHTML = savedPlans.map(plan => `
+                <div style="padding: 10px; margin-bottom: 10px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #0984e3;">
+                    <div style="font-weight: 600; margin-bottom: 5px;">${plan.name}</div>
+                    <div style="font-size: 12px; color: #636e72; margin-bottom: 8px;">${new Date(plan.date).toLocaleDateString()}</div>
+                    <div style="display: flex; gap: 5px;">
+                        <button onclick="loadPlan('${plan.id}')" style="flex: 1; padding: 5px; font-size: 12px; background: #0984e3; color: white; border: none; border-radius: 4px;">Load</button>
+                        <button onclick="deletePlan('${plan.id}')" style="flex: 1; padding: 5px; font-size: 12px; background: #ff6b6b; color: white; border: none; border-radius: 4px;">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        window.loadPlan = function(planId) {
+            const savedPlans = JSON.parse(localStorage.getItem('conservationPlans')) || [];
+            const plan = savedPlans.find(p => p.id === planId);
+            
+            if (plan) {
+                // Save to history before change
+                saveToHistory('load_plan');
+                
+                currentUnits = JSON.parse(JSON.stringify(plan.units));
+                currentPlanId = planId;
+                renderTimeline();
+                
+                // Update shared plan
+                updateSharedPlan();
+                
+                showSyncNotification(`Plan "${plan.name}" loaded successfully!`);
+                
+                trackUsage('plan_loaded', { planId: planId, planName: plan.name });
+            }
+        };
+        
+        window.deletePlan = function(planId) {
+            if (confirm('Are you sure you want to delete this saved plan?')) {
+                let savedPlans = JSON.parse(localStorage.getItem('conservationPlans')) || [];
+                savedPlans = savedPlans.filter(p => p.id !== planId);
+                localStorage.setItem('conservationPlans', JSON.stringify(savedPlans));
+                loadSavedPlans();
+                
+                trackUsage('plan_deleted', { planId: planId });
+            }
+        };
+        
+        function resetToDefault() {
+            if (confirm('Reset to default course sequence? Any unsaved changes will be lost.')) {
+                // Save to history before change
+                saveToHistory('reset_to_default');
+                
+                currentUnits = JSON.parse(JSON.stringify(defaultUnits));
+                currentPlanId = 'default';
+                renderTimeline();
+                
+                // Update shared plan
+                updateSharedPlan();
+                
+                showSyncNotification('Reset to default sequence');
+                
+                trackUsage('reset_default');
+            }
+        }
+        
+        function printPlan() {
+            window.print();
+            trackUsage('print_plan');
+        }
+        
+        function addCustomUnit() {
+            // Save to history before change
+            saveToHistory('add_custom_unit');
+            
+            // Add a custom unit template
+            const nextId = Math.max(...currentUnits.map(u => u.id), 0) + 1;
+            
+            const customUnit = {
+                id: nextId,
+                code: `CUST${nextId}`,
+                name: 'Custom Unit/Block',
+                weeks: [1],
+                color: 'foundational',
+                tags: ['CUSTOM'],
+                teacher: 'main',
+                notes: 'Custom added unit',
+                resources: []
+            };
+            
+            currentUnits.push(customUnit);
+            renderTimeline();
+            
+            // Update shared plan
+            updateSharedPlan();
+            
+            // Open modal to edit
+            setTimeout(() => openUnitModal(nextId), 100);
+            
+            trackUsage('add_custom_unit');
+        }
+        
+        function highlightUnits(mode) {
+            // Remove all highlights first
+            document.querySelectorAll('.unit-block').forEach(block => {
+                block.style.boxShadow = '';
+                block.style.transform = '';
+            });
+            
+            if (mode === 'none') return;
+            
+            // Apply highlights based on mode
+            currentUnits.forEach(unit => {
+                let shouldHighlight = false;
+                
+                switch(mode) {
+                    case 'specialist':
+                        shouldHighlight = unit.teacher === 'other' || (unit.tags && unit.tags.includes('SPECIALIST'));
+                        break;
+                    case 'safety':
+                        shouldHighlight = unit.tags && unit.tags.includes('SAFETY');
+                        break;
+                    case 'seasonal':
+                        shouldHighlight = unit.tags && unit.tags.includes('SEASONAL');
+                        break;
+                    case 'assessment':
+                        shouldHighlight = unit.code === 'AHCECR309' || unit.code === 'PROJECT' || unit.code === 'ADMIN';
+                        break;
+                }
+                
+                if (shouldHighlight) {
+                    const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+                    weeks.forEach(week => {
+                        const swimlane = getSwimlaneForUnit(unit);
+                        const block = document.querySelector(`.unit-block[data-unit-id="${unit.id}"][data-week="${week}"]`);
+                        if (block) {
+                            block.style.boxShadow = '0 0 0 3px rgba(255, 215, 0, 0.7)';
+                            block.style.transform = 'scale(1.05)';
+                        }
+                    });
+                }
+            });
+        }
+        
+        // ========== EXPORT/IMPORT ==========
+        
+        function exportPlan() {
+            const data = {
+                version: '2.1',
+                timestamp: new Date().toISOString(),
+                units: currentUnits,
+                metadata: {
+                    title: document.getElementById('courseTitle').textContent,
+                    description: document.getElementById('courseDescription').textContent
+                }
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = '360-viewer.html';
+            a.download = `course-plan-${new Date().toISOString().split('T')[0]}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
-            alert('Project exported as 360-viewer.html');
+            showSyncNotification('Plan exported successfully');
+            trackUsage('export_plan');
         }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            if (autoRotate && sphere) {
-                sphere.rotation.y += 0.001;
-            }
-            
-            if (controls) controls.update();
-            if (renderer && scene && camera) {
-                renderer.render(scene, camera);
+        
+        function importPlan(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.version && data.units) {
+                        // Save to history before change
+                        saveToHistory('import_plan');
+                        
+                        currentUnits = data.units;
+                        renderTimeline();
+                        updateSharedPlan();
+                        
+                        if (data.metadata && data.metadata.title) {
+                            const courseTitle = document.getElementById('courseTitle');
+                            if (courseTitle) courseTitle.textContent = data.metadata.title;
+                        }
+                        
+                        showSyncNotification('Plan imported successfully');
+                        trackUsage('import_plan', { version: data.version });
+                    } else {
+                        alert('Invalid file format: Missing version or units data');
+                    }
+                } catch (error) {
+                    alert('Error reading file: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        function importPlanFromFile() {
+            const input = document.getElementById('importPlanInput');
+            if (input && input.files.length > 0) {
+                importPlan(input.files[0]);
+                input.value = ''; // Reset input
             }
         }
-
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            const container = document.getElementById('threeContainer');
-            if (camera && renderer) {
-                camera.aspect = container.clientWidth / container.clientHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(container.clientWidth, container.clientHeight);
+        
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                const state = history[historyIndex];
+                currentUnits = JSON.parse(JSON.stringify(state.units));
+                renderTimeline();
+                showSyncNotification('Undo: ' + state.action);
+                trackUsage('undo', { action: state.action });
             }
+        }
+        
+        function redo() {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                const state = history[historyIndex];
+                currentUnits = JSON.parse(JSON.stringify(state.units));
+                renderTimeline();
+                showSyncNotification('Redo: ' + state.action);
+                trackUsage('redo', { action: state.action });
+            }
+        }
+        
+        // ========== SHARE FUNCTIONALITY ==========
+        
+        function generateShareLink() {
+            // Save current plan as shared plan
+            const shareId = 'shared_' + Date.now();
+            const sharedPlan = {
+                id: shareId,
+                name: 'Shared Student View',
+                date: new Date().toISOString(),
+                lastUpdate: new Date().toISOString(),
+                units: JSON.parse(JSON.stringify(currentUnits))
+            };
+            
+            // Save to localStorage
+            localStorage.setItem('sharedPlan_' + shareId, JSON.stringify(sharedPlan));
+            
+            // Generate share URL
+            const baseUrl = window.location.origin + window.location.pathname;
+            const shareUrl = `${baseUrl}?student=true&plan=${shareId}`;
+            
+            return shareUrl;
+        }
+        
+        function updateSharedPlan() {
+            // Update any existing shared plan with current units
+            const sharedPlans = Object.keys(localStorage)
+                .filter(key => key.startsWith('sharedPlan_'))
+                .map(key => ({
+                    key,
+                    data: JSON.parse(localStorage.getItem(key))
+                }));
+            
+            sharedPlans.forEach(({ key, data }) => {
+                data.units = JSON.parse(JSON.stringify(currentUnits));
+                data.lastUpdate = new Date().toISOString();
+                localStorage.setItem(key, JSON.stringify(data));
+            });
+            
+            // Show sync notification
+            showSyncNotification('Changes saved to all student views');
+        }
+        
+        function showShareDialog() {
+            const shareUrl = generateShareLink();
+            const shareInput = document.getElementById('shareLink');
+            const shareContainer = document.getElementById('shareLinkContainer');
+            
+            if (!shareInput || !shareContainer) return;
+            
+            shareInput.value = shareUrl;
+            shareContainer.classList.add('show');
+            
+            // Generate QR code
+            generateQRCode(shareUrl);
+            
+            // Auto-copy to clipboard
+            copyShareLink();
+            
+            // Show sync notification
+            showSyncNotification('Student view link generated and copied!');
+            
+            trackUsage('share_link_generated');
+        }
+        
+        function copyShareLink() {
+            const shareInput = document.getElementById('shareLink');
+            if (!shareInput) return;
+            
+            shareInput.select();
+            shareInput.setSelectionRange(0, 99999);
+            
+            try {
+                navigator.clipboard.writeText(shareInput.value).then(() => {
+                    showSyncNotification('Link copied to clipboard!');
+                });
+            } catch (e) {
+                // Fallback for older browsers
+                document.execCommand('copy');
+                showSyncNotification('Link copied to clipboard!');
+            }
+            
+            trackUsage('share_link_copied');
+        }
+        
+        function generateQRCode(url) {
+            const qrContainer = document.getElementById('qrCode');
+            if (!qrContainer) return;
+            
+            // Simple QR code using Google Charts API
+            qrContainer.innerHTML = `
+                <div style="margin-bottom: 10px; font-size: 12px; color: #636e72;">Scan to open on mobile:</div>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}" 
+                     alt="QR Code" 
+                     style="border: 1px solid #ddd; border-radius: 6px;">
+                <div style="font-size: 11px; color: #636e72; margin-top: 10px;">
+                    Students can scan this code to view the schedule on their phones
+                </div>
+            `;
+        }
+        
+        function toggleViewMode() {
+            if (isStudentView) {
+                // Switch to editor view - remove student parameter
+                const url = new URL(window.location.href);
+                url.searchParams.delete('student');
+                url.searchParams.delete('plan');
+                window.location.href = url.toString();
+            } else {
+                // Switch to student view
+                const shareUrl = generateShareLink();
+                window.location.href = shareUrl;
+            }
+            
+            trackUsage('toggle_view', { from: isStudentView ? 'student' : 'editor', to: isStudentView ? 'editor' : 'student' });
+        }
+        
+        function updateViewToggle() {
+            const toggleButton = document.getElementById('toggleView');
+            const viewIcon = document.getElementById('viewIcon');
+            const viewLabel = document.getElementById('viewLabel');
+            
+            if (toggleButton && viewIcon && viewLabel) {
+                if (isStudentView) {
+                    viewIcon.textContent = '✏️';
+                    viewLabel.textContent = 'Editor View';
+                } else {
+                    viewIcon.textContent = '👁️';
+                    viewLabel.textContent = 'Student View';
+                }
+            }
+        }
+        
+        // ========== KEYBOARD NAVIGATION ==========
+        
+        function setupKeyboardNavigation() {
+            document.addEventListener('keydown', (e) => {
+                // Don't interfere with form inputs
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+                
+                switch(e.key) {
+                    case 'Escape':
+                        const modal = document.getElementById('unitModal');
+                        if (modal) modal.style.display = 'none';
+                        const shareContainer = document.getElementById('shareLinkContainer');
+                        if (shareContainer) shareContainer.classList.remove('show');
+                        break;
+                    case 'z':
+                    case 'Z':
+                        if (e.ctrlKey) {
+                            e.preventDefault();
+                            undo();
+                        }
+                        break;
+                    case 'y':
+                    case 'Y':
+                        if (e.ctrlKey) {
+                            e.preventDefault();
+                            redo();
+                        }
+                        break;
+                    case 's':
+                    case 'S':
+                        if (e.ctrlKey) {
+                            e.preventDefault();
+                            saveCurrentPlan();
+                        }
+                        break;
+                    case 'r':
+                    case 'R':
+                        if (e.ctrlKey) {
+                            e.preventDefault();
+                            resetToDefault();
+                        }
+                        break;
+                    case 'p':
+                    case 'P':
+                        if (e.ctrlKey) {
+                            e.preventDefault();
+                            printPlan();
+                        }
+                        break;
+                }
+            });
+        }
+        
+        // ========== INITIALIZATION ==========
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            if (isStudentView) {
+                // Load shared plan for student view
+                loadSharedPlan();
+                setupStudentView();
+            } else {
+                // Regular editor view
+                initializeTimeline();
+                renderPalette();
+                renderTimeline();
+                setupEventListeners();
+                loadSavedPlans();
+            }
+            
+            updateViewToggle();
+            setupKeyboardNavigation();
+            
+            // Initial history state
+            if (!isStudentView) {
+                saveToHistory('initial_state');
+            }
+            
+            trackUsage('page_load');
         });
     </script>
 </body>
