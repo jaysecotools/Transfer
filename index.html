@@ -280,32 +280,6 @@ button.success:hover {
     position: relative;
 }
 
-.term-column:nth-child(1) { 
-    width: calc(10 * var(--week-width));
-}
-.term-column:nth-child(2) { 
-    width: calc(10 * var(--week-width));
-}
-.term-column:nth-child(3) { 
-    width: calc(10 * var(--week-width));
-}
-.term-column:nth-child(4) { 
-    width: calc(7 * var(--week-width));
-}
-
-.student-view .term-column:nth-child(1) { 
-    width: calc(10 * var(--student-week-width));
-}
-.student-view .term-column:nth-child(2) { 
-    width: calc(10 * var(--student-week-width));
-}
-.student-view .term-column:nth-child(3) { 
-    width: calc(10 * var(--student-week-width));
-}
-.student-view .term-column:nth-child(4) { 
-    width: calc(7 * var(--student-week-width));
-}
-
 .week-header {
     display: flex;
     position: relative;
@@ -830,19 +804,6 @@ button.success:hover {
         width: 120px !important;
     }
     
-    .term-column:nth-child(1) { 
-        width: calc(10 * 120px) !important;
-    }
-    .term-column:nth-child(2) { 
-        width: calc(10 * 120px) !important;
-    }
-    .term-column:nth-child(3) { 
-        width: calc(10 * 120px) !important;
-    }
-    .term-column:nth-child(4) { 
-        width: calc(7 * 120px) !important;
-    }
-    
     .swimlane-content {
         min-width: calc(var(--total-weeks, 37) * 120px - 120px);
     }
@@ -869,19 +830,6 @@ button.success:hover {
     
     .week-slot {
         width: 100px !important;
-    }
-    
-    .term-column:nth-child(1) { 
-        width: calc(10 * 100px) !important;
-    }
-    .term-column:nth-child(2) { 
-        width: calc(10 * 100px) !important;
-    }
-    .term-column:nth-child(3) { 
-        width: calc(10 * 100px) !important;
-    }
-    .term-column:nth-child(4) { 
-        width: calc(7 * 100px) !important;
     }
     
     .swimlane-content {
@@ -995,9 +943,15 @@ button.success:hover {
         
         <div class="control-group">
             <label>Manage Weeks</label>
-            <div style="display: flex; gap: 5px;">
-                <button id="addWeekBtn" class="success">Add Week</button>
-                <button id="removeWeekBtn" class="warning">Remove Week</button>
+            <div style="display: flex; gap: 5px; flex-direction: column;">
+                <div style="display: flex; gap: 5px;">
+                    <button id="addWeekBtn" class="success" style="flex: 1;">Add Week</button>
+                    <button id="removeWeekBtn" class="warning" style="flex: 1;">Remove Week</button>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    <button id="addWeekToTermBtn" class="success" style="flex: 1;">Add to Term</button>
+                    <button id="removeWeekFromTermBtn" class="warning" style="flex: 1;">Remove from Term</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1120,8 +1074,20 @@ button.success:hover {
         </div>
     </div>
 
+    <div class="modal" id="termModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Manage Term</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div id="termModalBody">
+                <!-- Term management will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
     <div class="footer">
-        <p>Course Mapping Tool v2.2 | Designed for Cert III Conservation & Ecosystem Management | <span id="totalWeeksDisplay">37</span> Teaching Weeks</p>
+        <p>Course Mapping Tool v2.3 | Designed for Cert III Conservation & Ecosystem Management | <span id="totalWeeksDisplay">37</span> Teaching Weeks</p>
         <p style="font-size: 12px; margin-top: 10px;" id="footerText">
             Drag units to adjust sequence. Seasonal units have constraints. Click units to add notes and resources.
         </p>
@@ -1372,7 +1338,8 @@ button.success:hover {
         function loadCourseStructure() {
             const saved = localStorage.getItem('courseStructure');
             if (saved) {
-                dynamicCourseData = JSON.parse(saved);
+                const data = JSON.parse(saved);
+                dynamicCourseData = data;
             }
             updateTotalWeeksDisplay();
         }
@@ -1393,7 +1360,7 @@ button.success:hover {
             localStorage.setItem('blockedWeeks', JSON.stringify(blockedWeeks));
         }
         
-        // ========== TERM HEADER FUNCTIONS ==========
+        // ========== TERM MANAGEMENT FUNCTIONS ==========
         
         function updateTermHeaders() {
             const termHeaders = document.getElementById('termHeaders');
@@ -1408,20 +1375,619 @@ button.success:hover {
             termHeaders.appendChild(spacerDiv);
             
             // Add term columns
+            let currentWeek = 1;
             dynamicCourseData.terms.forEach(term => {
                 const termDiv = document.createElement('div');
                 termDiv.className = 'term-column';
                 termDiv.textContent = `Term ${term.number} (Weeks ${term.startWeek}-${term.startWeek + term.weeks - 1})`;
+                termDiv.style.width = `calc(${term.weeks} * var(--week-width))`;
+                termDiv.dataset.term = term.number;
+                termDiv.dataset.startWeek = term.startWeek;
+                termDiv.dataset.weeks = term.weeks;
                 
-                // Set width based on weeks
-                const weekWidth = isStudentView ? 
-                    parseInt(getComputedStyle(document.documentElement).getPropertyValue('--student-week-width')) :
-                    parseInt(getComputedStyle(document.documentElement).getPropertyValue('--week-width'));
+                // Add context menu for term management
+                termDiv.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    openTermModal(term.number);
+                });
                 
-                termDiv.style.width = `calc(${term.weeks} * ${weekWidth}px)`;
+                termDiv.addEventListener('click', function(e) {
+                    if (e.ctrlKey) {
+                        openTermModal(term.number);
+                    }
+                });
                 
                 termHeaders.appendChild(termDiv);
+                currentWeek += term.weeks;
             });
+        }
+        
+        function getTermForWeek(week) {
+            for (let i = 0; i < dynamicCourseData.terms.length; i++) {
+                const term = dynamicCourseData.terms[i];
+                if (week >= term.startWeek && week < term.startWeek + term.weeks) {
+                    return { term, index: i };
+                }
+            }
+            return null;
+        }
+        
+        function openTermModal(termNumber) {
+            const term = dynamicCourseData.terms.find(t => t.number === termNumber);
+            if (!term) return;
+            
+            const modal = document.getElementById('termModal');
+            const modalBody = document.getElementById('termModalBody');
+            
+            if (!modal || !modalBody) return;
+            
+            modalBody.innerHTML = `
+                <div class="form-group">
+                    <label for="termName">Term Name</label>
+                    <input type="text" id="termName" value="${term.name || ''}" placeholder="Enter term name">
+                </div>
+                
+                <div class="form-group">
+                    <label for="termWeeks">Number of Weeks</label>
+                    <input type="number" id="termWeeks" value="${term.weeks}" min="1" max="20">
+                    <small style="color: #636e72;">Changing weeks will adjust subsequent terms</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="termStartWeek">Start Week</label>
+                    <input type="number" id="termStartWeek" value="${term.startWeek}" min="1" max="${dynamicCourseData.totalWeeks}">
+                    <small style="color: #636e72;">Adjust start week (will shift subsequent terms)</small>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button onclick="saveTermChanges(${termNumber})" class="primary" style="flex: 1;">Save Changes</button>
+                    <button onclick="document.getElementById('termModal').style.display = 'none'" style="flex: 1;">Cancel</button>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+        
+        window.saveTermChanges = function(termNumber) {
+            const term = dynamicCourseData.terms.find(t => t.number === termNumber);
+            if (!term) return;
+            
+            saveToHistory('modify_term');
+            
+            const newName = document.getElementById('termName').value;
+            const newWeeks = parseInt(document.getElementById('termWeeks').value);
+            const newStartWeek = parseInt(document.getElementById('termStartWeek').value);
+            
+            term.name = newName;
+            
+            // Calculate week difference
+            const weekDiff = newWeeks - term.weeks;
+            
+            if (weekDiff !== 0) {
+                // Update term weeks
+                term.weeks = newWeeks;
+                dynamicCourseData.totalWeeks += weekDiff;
+                
+                // Update subsequent terms' start weeks
+                const termIndex = dynamicCourseData.terms.findIndex(t => t.number === termNumber);
+                for (let i = termIndex + 1; i < dynamicCourseData.terms.length; i++) {
+                    dynamicCourseData.terms[i].startWeek += weekDiff;
+                }
+                
+                // Adjust units in affected terms
+                adjustUnitsForTermChange(termNumber, weekDiff, termIndex);
+                
+                // Adjust blocked weeks
+                adjustBlockedWeeksForTermChange(termNumber, weekDiff, termIndex);
+                
+                // Adjust project milestones
+                adjustProjectMilestonesForWeekChange(weekDiff, term.startWeek + term.weeks);
+            }
+            
+            if (newStartWeek !== term.startWeek) {
+                const startDiff = newStartWeek - term.startWeek;
+                term.startWeek = newStartWeek;
+                
+                // Update subsequent terms
+                const termIndex = dynamicCourseData.terms.findIndex(t => t.number === termNumber);
+                for (let i = termIndex + 1; i < dynamicCourseData.terms.length; i++) {
+                    dynamicCourseData.terms[i].startWeek += startDiff;
+                }
+                
+                // Adjust units
+                adjustUnitsForStartWeekChange(termNumber, startDiff);
+            }
+            
+            const modal = document.getElementById('termModal');
+            if (modal) modal.style.display = 'none';
+            
+            initializeTimeline();
+            renderTimeline();
+            saveCourseStructure();
+            updateSharedPlan();
+            
+            showSyncNotification(`Term ${termNumber} updated`);
+            trackUsage('term_modified', { termNumber, weeks: newWeeks });
+        };
+        
+        function adjustUnitsForTermChange(termNumber, weekDiff, termIndex) {
+            // Adjust units in the changed term and subsequent terms
+            currentUnits.forEach(unit => {
+                const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+                const newWeeks = weeks.map(week => {
+                    // Find which term this week is in
+                    for (let i = 0; i < dynamicCourseData.terms.length; i++) {
+                        const t = dynamicCourseData.terms[i];
+                        if (week >= t.startWeek && week < t.startWeek + t.weeks) {
+                            if (i > termIndex) {
+                                // Week is in a subsequent term, shift it
+                                return week + weekDiff;
+                            }
+                            break;
+                        }
+                    }
+                    return week;
+                });
+                unit.weeks = newWeeks;
+            });
+        }
+        
+        function adjustUnitsForStartWeekChange(termNumber, startDiff) {
+            const term = dynamicCourseData.terms.find(t => t.number === termNumber);
+            if (!term) return;
+            
+            currentUnits.forEach(unit => {
+                const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+                const newWeeks = weeks.map(week => {
+                    // Find which term this week is in
+                    for (let i = 0; i < dynamicCourseData.terms.length; i++) {
+                        const t = dynamicCourseData.terms[i];
+                        if (week >= t.startWeek && week < t.startWeek + t.weeks) {
+                            if (t.number >= termNumber) {
+                                // Week is in this term or a subsequent term, shift it
+                                return week + startDiff;
+                            }
+                            break;
+                        }
+                    }
+                    return week;
+                });
+                unit.weeks = newWeeks;
+            });
+        }
+        
+        function adjustBlockedWeeksForTermChange(termNumber, weekDiff, termIndex) {
+            const newBlockedWeeks = {};
+            Object.keys(blockedWeeks).forEach(weekStr => {
+                let week = parseInt(weekStr);
+                // Find which term this week is in
+                for (let i = 0; i < dynamicCourseData.terms.length; i++) {
+                    const t = dynamicCourseData.terms[i];
+                    if (week >= t.startWeek && week < t.startWeek + t.weeks) {
+                        if (i > termIndex) {
+                            // Week is in a subsequent term, shift it
+                            week += weekDiff;
+                        }
+                        break;
+                    }
+                }
+                newBlockedWeeks[week] = blockedWeeks[weekStr];
+            });
+            blockedWeeks = newBlockedWeeks;
+        }
+        
+        // ========== WEEK MANAGEMENT FUNCTIONS ==========
+        
+        function addWeek() {
+            const position = prompt(`Add week at which position? (1-${dynamicCourseData.totalWeeks + 1}, or "end" for at the end)\n\nExample: "12" adds a week before week 12, "end" adds at the end.`);
+            if (!position) return;
+            
+            saveToHistory('add_week');
+            
+            let insertPosition;
+            if (position.toLowerCase() === 'end') {
+                insertPosition = dynamicCourseData.totalWeeks + 1;
+            } else {
+                insertPosition = parseInt(position);
+                if (isNaN(insertPosition) || insertPosition < 1 || insertPosition > dynamicCourseData.totalWeeks + 1) {
+                    alert(`Invalid position. Please enter a number between 1 and ${dynamicCourseData.totalWeeks + 1}, or "end".`);
+                    return;
+                }
+            }
+            
+            // Increment total weeks
+            dynamicCourseData.totalWeeks++;
+            
+            // Find which term this week is being inserted into
+            let termToUpdate = null;
+            let termIndex = -1;
+            
+            for (let i = 0; i < dynamicCourseData.terms.length; i++) {
+                const term = dynamicCourseData.terms[i];
+                if (insertPosition >= term.startWeek) {
+                    termToUpdate = term;
+                    termIndex = i;
+                }
+            }
+            
+            // If inserting at the very beginning
+            if (!termToUpdate) {
+                termToUpdate = dynamicCourseData.terms[0];
+                termIndex = 0;
+                termToUpdate.startWeek++;
+            }
+            
+            // Update the term where week is inserted
+            if (insertPosition >= termToUpdate.startWeek && insertPosition <= termToUpdate.startWeek + termToUpdate.weeks) {
+                termToUpdate.weeks++;
+            }
+            
+            // Update subsequent terms' start weeks
+            for (let i = termIndex + 1; i < dynamicCourseData.terms.length; i++) {
+                dynamicCourseData.terms[i].startWeek++;
+            }
+            
+            // Adjust units
+            currentUnits.forEach(unit => {
+                const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+                const newWeeks = weeks.map(week => {
+                    if (week >= insertPosition) {
+                        return week + 1;
+                    }
+                    return week;
+                });
+                unit.weeks = newWeeks;
+            });
+            
+            // Adjust blocked weeks
+            const newBlockedWeeks = {};
+            Object.keys(blockedWeeks).forEach(weekStr => {
+                let week = parseInt(weekStr);
+                if (week >= insertPosition) {
+                    week++;
+                }
+                newBlockedWeeks[week] = blockedWeeks[weekStr];
+            });
+            blockedWeeks = newBlockedWeeks;
+            
+            // Adjust project milestones
+            dynamicCourseData.projectMilestones = dynamicCourseData.projectMilestones.map(milestone => {
+                if (milestone.week >= insertPosition) {
+                    return { ...milestone, week: milestone.week + 1 };
+                }
+                return milestone;
+            });
+            
+            // Re-render everything
+            initializeTimeline();
+            renderTimeline();
+            saveCourseStructure();
+            saveBlockedWeeks();
+            updateSharedPlan();
+            
+            showSyncNotification(`Week added at position ${insertPosition}`);
+            trackUsage('add_week', { position: insertPosition });
+        }
+        
+        function removeWeek() {
+            const weekToRemove = prompt(`Remove which week? (1-${dynamicCourseData.totalWeeks})`);
+            if (!weekToRemove) return;
+            
+            const week = parseInt(weekToRemove);
+            if (isNaN(week) || week < 1 || week > dynamicCourseData.totalWeeks) {
+                alert(`Invalid week. Please enter a number between 1 and ${dynamicCourseData.totalWeeks}.`);
+                return;
+            }
+            
+            if (!confirm(`Remove Week ${week}? This will also remove any units scheduled for this week.`)) {
+                return;
+            }
+            
+            saveToHistory('remove_week');
+            
+            // Decrement total weeks
+            dynamicCourseData.totalWeeks--;
+            
+            // Find which term this week is in
+            let termToUpdate = null;
+            let termIndex = -1;
+            
+            for (let i = 0; i < dynamicCourseData.terms.length; i++) {
+                const term = dynamicCourseData.terms[i];
+                if (week >= term.startWeek && week < term.startWeek + term.weeks) {
+                    termToUpdate = term;
+                    termIndex = i;
+                    break;
+                }
+            }
+            
+            if (termToUpdate) {
+                // Update the term where week is removed
+                termToUpdate.weeks--;
+                
+                // If term has 0 weeks, remove it (shouldn't happen in practice)
+                if (termToUpdate.weeks <= 0) {
+                    dynamicCourseData.terms.splice(termIndex, 1);
+                    // Update term numbers
+                    dynamicCourseData.terms.forEach((t, idx) => {
+                        t.number = idx + 1;
+                    });
+                }
+            }
+            
+            // Update subsequent terms' start weeks
+            for (let i = termIndex + 1; i < dynamicCourseData.terms.length; i++) {
+                dynamicCourseData.terms[i].startWeek--;
+            }
+            
+            // Remove units in this week
+            currentUnits = currentUnits.filter(unit => {
+                const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+                return !weeks.includes(week);
+            });
+            
+            // Adjust remaining units
+            currentUnits.forEach(unit => {
+                const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+                const newWeeks = weeks
+                    .map(w => w > week ? w - 1 : w)
+                    .filter(w => w !== week);
+                unit.weeks = newWeeks;
+            });
+            
+            // Remove blocked week if exists
+            delete blockedWeeks[week];
+            
+            // Adjust remaining blocked weeks
+            const newBlockedWeeks = {};
+            Object.keys(blockedWeeks).forEach(weekStr => {
+                let blockedWeek = parseInt(weekStr);
+                if (blockedWeek > week) {
+                    blockedWeek--;
+                }
+                newBlockedWeeks[blockedWeek] = blockedWeeks[weekStr];
+            });
+            blockedWeeks = newBlockedWeeks;
+            
+            // Adjust project milestones
+            dynamicCourseData.projectMilestones = dynamicCourseData.projectMilestones
+                .filter(milestone => milestone.week !== week)
+                .map(milestone => {
+                    if (milestone.week > week) {
+                        return { ...milestone, week: milestone.week - 1 };
+                    }
+                    return milestone;
+                });
+            
+            // Re-render everything
+            initializeTimeline();
+            renderTimeline();
+            saveCourseStructure();
+            saveBlockedWeeks();
+            updateSharedPlan();
+            
+            showSyncNotification(`Week ${week} removed`);
+            trackUsage('remove_week', { week: week });
+        }
+        
+        function addWeekToTerm() {
+            const termNumber = prompt('Add a week to which term? (1-4)');
+            if (!termNumber) return;
+            
+            const termNum = parseInt(termNumber);
+            if (isNaN(termNum) || termNum < 1 || termNum > dynamicCourseData.terms.length) {
+                alert(`Invalid term number. Please enter a number between 1 and ${dynamicCourseData.terms.length}.`);
+                return;
+            }
+            
+            const term = dynamicCourseData.terms[termNum - 1];
+            
+            saveToHistory('add_week_to_term');
+            
+            // Increment total weeks
+            dynamicCourseData.totalWeeks++;
+            
+            // Add week to this term
+            term.weeks++;
+            
+            // Update subsequent terms' start weeks
+            for (let i = termNum; i < dynamicCourseData.terms.length; i++) {
+                dynamicCourseData.terms[i].startWeek++;
+            }
+            
+            // Adjust units in subsequent terms
+            currentUnits.forEach(unit => {
+                const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+                const newWeeks = weeks.map(w => {
+                    if (w >= term.startWeek + term.weeks - 1) { // -1 because we just added a week
+                        return w + 1;
+                    }
+                    return w;
+                });
+                unit.weeks = newWeeks;
+            });
+            
+            // Adjust blocked weeks in subsequent terms
+            const newBlockedWeeks = {};
+            Object.keys(blockedWeeks).forEach(weekStr => {
+                let week = parseInt(weekStr);
+                if (week >= term.startWeek + term.weeks - 1) {
+                    week++;
+                }
+                newBlockedWeeks[week] = blockedWeeks[weekStr];
+            });
+            blockedWeeks = newBlockedWeeks;
+            
+            // Adjust project milestones
+            dynamicCourseData.projectMilestones = dynamicCourseData.projectMilestones.map(milestone => {
+                if (milestone.week >= term.startWeek + term.weeks - 1) {
+                    return { ...milestone, week: milestone.week + 1 };
+                }
+                return milestone;
+            });
+            
+            // Re-render everything
+            initializeTimeline();
+            renderTimeline();
+            saveCourseStructure();
+            saveBlockedWeeks();
+            updateSharedPlan();
+            
+            showSyncNotification(`Week added to Term ${termNum} (now ${term.weeks} weeks)`);
+            trackUsage('add_week_to_term', { term: termNum, newWeeks: term.weeks });
+        }
+        
+        function removeWeekFromTerm() {
+            const termNumber = prompt('Remove a week from which term? (1-4)');
+            if (!termNumber) return;
+            
+            const termNum = parseInt(termNumber);
+            if (isNaN(termNum) || termNum < 1 || termNum > dynamicCourseData.terms.length) {
+                alert(`Invalid term number. Please enter a number between 1 and ${dynamicCourseData.terms.length}.`);
+                return;
+            }
+            
+            const term = dynamicCourseData.terms[termNum - 1];
+            
+            if (term.weeks <= 1) {
+                alert(`Term ${termNum} already has only 1 week. Cannot remove more weeks.`);
+                return;
+            }
+            
+            if (!confirm(`Remove a week from Term ${termNum}? This will remove week ${term.startWeek + term.weeks - 1} and shift subsequent weeks.`)) {
+                return;
+            }
+            
+            saveToHistory('remove_week_from_term');
+            
+            // Get the last week of this term
+            const weekToRemove = term.startWeek + term.weeks - 1;
+            
+            // Decrement total weeks
+            dynamicCourseData.totalWeeks--;
+            
+            // Remove week from this term
+            term.weeks--;
+            
+            // Update subsequent terms' start weeks
+            for (let i = termNum; i < dynamicCourseData.terms.length; i++) {
+                dynamicCourseData.terms[i].startWeek--;
+            }
+            
+            // Remove units in this week
+            currentUnits = currentUnits.filter(unit => {
+                const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+                return !weeks.includes(weekToRemove);
+            });
+            
+            // Adjust remaining units
+            currentUnits.forEach(unit => {
+                const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
+                const newWeeks = weeks
+                    .map(w => w > weekToRemove ? w - 1 : w)
+                    .filter(w => w !== weekToRemove);
+                unit.weeks = newWeeks;
+            });
+            
+            // Remove blocked week if exists
+            delete blockedWeeks[weekToRemove];
+            
+            // Adjust remaining blocked weeks
+            const newBlockedWeeks = {};
+            Object.keys(blockedWeeks).forEach(weekStr => {
+                let blockedWeek = parseInt(weekStr);
+                if (blockedWeek > weekToRemove) {
+                    blockedWeek--;
+                }
+                newBlockedWeeks[blockedWeek] = blockedWeeks[weekStr];
+            });
+            blockedWeeks = newBlockedWeeks;
+            
+            // Adjust project milestones
+            dynamicCourseData.projectMilestones = dynamicCourseData.projectMilestones
+                .filter(milestone => milestone.week !== weekToRemove)
+                .map(milestone => {
+                    if (milestone.week > weekToRemove) {
+                        return { ...milestone, week: milestone.week - 1 };
+                    }
+                    return milestone;
+                });
+            
+            // Re-render everything
+            initializeTimeline();
+            renderTimeline();
+            saveCourseStructure();
+            saveBlockedWeeks();
+            updateSharedPlan();
+            
+            showSyncNotification(`Week removed from Term ${termNum} (now ${term.weeks} weeks)`);
+            trackUsage('remove_week_from_term', { term: termNum, newWeeks: term.weeks });
+        }
+        
+        function adjustProjectMilestonesForWeekChange(weekDiff, afterWeek) {
+            dynamicCourseData.projectMilestones = dynamicCourseData.projectMilestones.map(milestone => {
+                if (milestone.week >= afterWeek) {
+                    return { ...milestone, week: milestone.week + weekDiff };
+                }
+                return milestone;
+            });
+        }
+        
+        function clearTimetable() {
+            if (confirm('Are you sure you want to clear ALL units from the timetable? This action cannot be undone.')) {
+                saveToHistory('clear_timetable');
+                currentUnits = [];
+                renderTimeline();
+                updateSharedPlan();
+                showSyncNotification('Timetable cleared');
+                trackUsage('timetable_cleared');
+            }
+        }
+        
+        function applyWeekBlocking() {
+            const blockingType = document.getElementById('weekBlocking').value;
+            const weekRangeInput = document.getElementById('weekRange').value;
+            
+            if (!blockingType || !weekRangeInput) {
+                alert('Please select a blocking type and enter week range');
+                return;
+            }
+            
+            let weeks = [];
+            if (weekRangeInput.includes('-')) {
+                const [start, end] = weekRangeInput.split('-').map(Number);
+                weeks = Array.from({length: end - start + 1}, (_, i) => start + i);
+            } else if (weekRangeInput.includes(',')) {
+                weeks = weekRangeInput.split(',').map(w => parseInt(w.trim())).filter(w => !isNaN(w));
+            } else {
+                weeks = [parseInt(weekRangeInput) || 1];
+            }
+            
+            weeks.forEach(week => {
+                if (week < 1 || week > dynamicCourseData.totalWeeks) {
+                    alert(`Week ${week} is outside valid range (1-${dynamicCourseData.totalWeeks})`);
+                    return;
+                }
+            });
+            
+            saveToHistory('block_weeks');
+            
+            weeks.forEach(week => {
+                if (blockingType === 'clear') {
+                    delete blockedWeeks[week];
+                } else {
+                    blockedWeeks[week] = {
+                        type: blockingType,
+                        color: colorMap[blockingType],
+                        label: blockingLabels[blockingType]
+                    };
+                }
+            });
+            
+            renderTimeline();
+            saveBlockedWeeks();
+            showSyncNotification(`Week blocking applied to weeks ${weeks.join(', ')}`);
+            trackUsage('week_blocking', { type: blockingType, weeks: weeks });
         }
         
         // ========== STUDENT VIEW FUNCTIONS ==========
@@ -1438,6 +2004,8 @@ button.success:hover {
                     const plan = JSON.parse(sharedPlanData);
                     currentUnits = JSON.parse(JSON.stringify(plan.units));
                     currentPlanId = plan.id;
+                    if (plan.courseData) dynamicCourseData = JSON.parse(JSON.stringify(plan.courseData));
+                    if (plan.blockedWeeks) blockedWeeks = JSON.parse(JSON.stringify(plan.blockedWeeks));
                     localStorage.setItem('lastPlanUpdate_' + sharedPlanId, plan.lastUpdate || plan.date);
                 } else {
                     currentUnits = JSON.parse(JSON.stringify(defaultUnits));
@@ -1446,6 +2014,7 @@ button.success:hover {
                 console.error('Error loading shared plan:', e);
                 currentUnits = JSON.parse(JSON.stringify(defaultUnits));
             }
+            updateTotalWeeksDisplay();
         }
         
         function setupStudentView() {
@@ -1459,7 +2028,7 @@ button.success:hover {
             const footerText = document.getElementById('footerText');
             
             if (courseTitle) courseTitle.textContent = 'Course Schedule - Cert III Conservation & Ecosystem Management';
-            if (courseSubtitle) courseSubtitle.textContent = 'Student View - 37-Week Plan';
+            if (courseSubtitle) courseSubtitle.textContent = 'Student View - ' + dynamicCourseData.totalWeeks + '-Week Plan';
             if (courseDescription) courseDescription.textContent = 'Interactive course timeline - Updated automatically';
             if (viewModeIndicator) viewModeIndicator.textContent = 'Student View';
             if (footerText) footerText.textContent = 'This view updates automatically as your teacher makes changes to the course schedule.';
@@ -1864,7 +2433,10 @@ button.success:hover {
                 
                 if (!lastUpdate || lastUpdate !== currentUpdate) {
                     currentUnits = JSON.parse(JSON.stringify(plan.units));
+                    if (plan.courseData) dynamicCourseData = JSON.parse(JSON.stringify(plan.courseData));
+                    if (plan.blockedWeeks) blockedWeeks = JSON.parse(JSON.stringify(plan.blockedWeeks));
                     
+                    updateTotalWeeksDisplay();
                     renderStudentTimeline();
                     createTermOverviews();
                     setupStudentProgress();
@@ -2218,192 +2790,6 @@ button.success:hover {
             trackUsage('unit_moved', { unitId: unitId, from: unit.weeks, to: newWeek });
         }
         
-        // ========== WEEK MANAGEMENT FUNCTIONS ==========
-        
-        function addWeek() {
-            const position = prompt('Add week at which position? (1-' + dynamicCourseData.totalWeeks + ', or "end" for at the end)');
-            if (!position) return;
-            
-            saveToHistory('add_week');
-            
-            if (position.toLowerCase() === 'end') {
-                dynamicCourseData.totalWeeks += 1;
-                dynamicCourseData.terms[3].weeks += 1;
-            } else {
-                const weekNum = parseInt(position);
-                if (isNaN(weekNum) || weekNum < 1 || weekNum > dynamicCourseData.totalWeeks) {
-                    alert('Invalid week position');
-                    return;
-                }
-                
-                dynamicCourseData.totalWeeks += 1;
-                
-                dynamicCourseData.terms.forEach((term, index) => {
-                    if (weekNum >= term.startWeek && index < 3) {
-                        term.weeks += 1;
-                        for (let i = index + 1; i < dynamicCourseData.terms.length; i++) {
-                            dynamicCourseData.terms[i].startWeek += 1;
-                        }
-                    }
-                });
-            }
-            
-            currentUnits.forEach(unit => {
-                const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
-                const newWeeks = weeks.map(w => {
-                    if (position.toLowerCase() === 'end' || w >= week) {
-                        return w + 1;
-                    }
-                    return w;
-                });
-                unit.weeks = newWeeks;
-            });
-            
-            adjustProjectMilestones('add', position.toLowerCase() === 'end' ? dynamicCourseData.totalWeeks : week);
-            
-            initializeTimeline();
-            renderTimeline();
-            updateTermHeaders();
-            
-            saveCourseStructure();
-            showSyncNotification('Week added successfully');
-            trackUsage('add_week', { position: position });
-        }
-        
-        function removeWeek() {
-            const weekNum = prompt('Remove which week? (1-' + dynamicCourseData.totalWeeks + ')');
-            if (!weekNum) return;
-            
-            const week = parseInt(weekNum);
-            if (isNaN(week) || week < 1 || week > dynamicCourseData.totalWeeks) {
-                alert('Invalid week number');
-                return;
-            }
-            
-            if (confirm(`Remove Week ${week}? This will also remove any units scheduled for this week.`)) {
-                saveToHistory('remove_week');
-                
-                dynamicCourseData.totalWeeks -= 1;
-                
-                currentUnits = currentUnits.filter(unit => {
-                    const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
-                    return !weeks.includes(week);
-                });
-                
-                currentUnits.forEach(unit => {
-                    const weeks = Array.isArray(unit.weeks) ? unit.weeks : [unit.weeks];
-                    const newWeeks = weeks
-                        .map(w => w > week ? w - 1 : w)
-                        .filter(w => w !== week);
-                    unit.weeks = newWeeks;
-                });
-                
-                let termToAdjust = null;
-                dynamicCourseData.terms.forEach((term, index) => {
-                    if (week >= term.startWeek && week < term.startWeek + term.weeks) {
-                        term.weeks -= 1;
-                        termToAdjust = index;
-                    }
-                });
-                
-                if (termToAdjust !== null && termToAdjust < 3) {
-                    for (let i = termToAdjust + 1; i < dynamicCourseData.terms.length; i++) {
-                        dynamicCourseData.terms[i].startWeek -= 1;
-                    }
-                }
-                
-                delete blockedWeeks[week];
-                
-                adjustProjectMilestones('remove', week);
-                
-                initializeTimeline();
-                renderTimeline();
-                updateTermHeaders();
-                
-                saveCourseStructure();
-                saveBlockedWeeks();
-                showSyncNotification('Week removed successfully');
-                trackUsage('remove_week', { week: week });
-            }
-        }
-        
-        function adjustProjectMilestones(action, week) {
-            if (action === 'add') {
-                dynamicCourseData.projectMilestones = dynamicCourseData.projectMilestones.map(milestone => {
-                    if (milestone.week >= week) {
-                        return { ...milestone, week: milestone.week + 1 };
-                    }
-                    return milestone;
-                });
-            } else if (action === 'remove') {
-                dynamicCourseData.projectMilestones = dynamicCourseData.projectMilestones
-                    .filter(milestone => milestone.week !== week)
-                    .map(milestone => {
-                        if (milestone.week > week) {
-                            return { ...milestone, week: milestone.week - 1 };
-                        }
-                        return milestone;
-                    });
-            }
-        }
-        
-        function clearTimetable() {
-            if (confirm('Are you sure you want to clear ALL units from the timetable? This action cannot be undone.')) {
-                saveToHistory('clear_timetable');
-                currentUnits = [];
-                renderTimeline();
-                updateSharedPlan();
-                showSyncNotification('Timetable cleared');
-                trackUsage('timetable_cleared');
-            }
-        }
-        
-        function applyWeekBlocking() {
-            const blockingType = document.getElementById('weekBlocking').value;
-            const weekRangeInput = document.getElementById('weekRange').value;
-            
-            if (!blockingType || !weekRangeInput) {
-                alert('Please select a blocking type and enter week range');
-                return;
-            }
-            
-            let weeks = [];
-            if (weekRangeInput.includes('-')) {
-                const [start, end] = weekRangeInput.split('-').map(Number);
-                weeks = Array.from({length: end - start + 1}, (_, i) => start + i);
-            } else if (weekRangeInput.includes(',')) {
-                weeks = weekRangeInput.split(',').map(w => parseInt(w.trim())).filter(w => !isNaN(w));
-            } else {
-                weeks = [parseInt(weekRangeInput) || 1];
-            }
-            
-            weeks.forEach(week => {
-                if (week < 1 || week > dynamicCourseData.totalWeeks) {
-                    alert(`Week ${week} is outside valid range (1-${dynamicCourseData.totalWeeks})`);
-                    return;
-                }
-            });
-            
-            saveToHistory('block_weeks');
-            
-            weeks.forEach(week => {
-                if (blockingType === 'clear') {
-                    delete blockedWeeks[week];
-                } else {
-                    blockedWeeks[week] = {
-                        type: blockingType,
-                        color: colorMap[blockingType],
-                        label: blockingLabels[blockingType]
-                    };
-                }
-            });
-            
-            renderTimeline();
-            saveBlockedWeeks();
-            showSyncNotification(`Week blocking applied to weeks ${weeks.join(', ')}`);
-            trackUsage('week_blocking', { type: blockingType, weeks: weeks });
-        }
-        
         // ========== UNIT MODAL FUNCTIONS ==========
         
         function openUnitModal(unitId) {
@@ -2607,12 +2993,23 @@ button.success:hover {
                 closeModalBtn.addEventListener('click', function() {
                     const modal = document.getElementById('unitModal');
                     if (modal) modal.style.display = 'none';
+                    const termModal = document.getElementById('termModal');
+                    if (termModal) termModal.style.display = 'none';
                 });
             }
             
             const modal = document.getElementById('unitModal');
             if (modal) {
                 modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        this.style.display = 'none';
+                    }
+                });
+            }
+            
+            const termModal = document.getElementById('termModal');
+            if (termModal) {
+                termModal.addEventListener('click', function(e) {
                     if (e.target === this) {
                         this.style.display = 'none';
                     }
@@ -2645,6 +3042,12 @@ button.success:hover {
             
             const removeWeekBtn = document.getElementById('removeWeekBtn');
             if (removeWeekBtn) removeWeekBtn.addEventListener('click', removeWeek);
+            
+            const addWeekToTermBtn = document.getElementById('addWeekToTermBtn');
+            if (addWeekToTermBtn) addWeekToTermBtn.addEventListener('click', addWeekToTerm);
+            
+            const removeWeekFromTermBtn = document.getElementById('removeWeekFromTermBtn');
+            if (removeWeekFromTermBtn) removeWeekFromTermBtn.addEventListener('click', removeWeekFromTerm);
             
             const addCustomUnitBtn = document.getElementById('addCustomUnit');
             if (addCustomUnitBtn) addCustomUnitBtn.addEventListener('click', addCustomUnit);
@@ -2892,7 +3295,7 @@ button.success:hover {
         
         function exportPlan() {
             const data = {
-                version: '2.2',
+                version: '2.3',
                 timestamp: new Date().toISOString(),
                 units: currentUnits,
                 courseData: dynamicCourseData,
@@ -3124,6 +3527,8 @@ button.success:hover {
                     case 'Escape':
                         const modal = document.getElementById('unitModal');
                         if (modal) modal.style.display = 'none';
+                        const termModal = document.getElementById('termModal');
+                        if (termModal) termModal.style.display = 'none';
                         const shareContainer = document.getElementById('shareLinkContainer');
                         if (shareContainer) shareContainer.classList.remove('show');
                         break;
