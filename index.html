@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Course Mapping Tool - Cert III Conservation & Ecosystem Management</title>
     <style>
-        /* ========== CRITICAL CSS ========== */
+        /* ========== COMPLETE CSS ========== */
         * {
             margin: 0;
             padding: 0;
@@ -28,7 +28,6 @@
             --color-easter: #fab1a0;
             --color-teacher-training: #a29bfe;
             --color-leave: #fd79a8;
-            
             --week-width: 150px;
             --student-week-width: 120px;
             --total-weeks: 37;
@@ -41,14 +40,22 @@
             min-height: 100vh;
         }
 
-        /* Loading overlay */
+        body.student-view {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) fixed;
+        }
+
+        body.editor-view {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) fixed;
+        }
+
+        /* Loading */
         #loading {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2d3436 0%, #0984e3 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -83,6 +90,10 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
+        body.student-view .header {
+            background: linear-gradient(135deg, #0984e3 0%, #2d3436 100%);
+        }
+
         .header h1 {
             font-size: 28px;
             margin-bottom: 10px;
@@ -94,14 +105,35 @@
             margin-bottom: 15px;
         }
 
-        .header-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            flex-wrap: wrap;
+        /* View Toggle */
+        .view-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
         }
 
-        /* Controls */
+        .view-toggle button {
+            background: white;
+            border: 2px solid #0984e3;
+            color: #0984e3;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+
+        .view-toggle button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        /* Controls - Hidden in Student View */
         .controls {
             background: white;
             padding: 20px;
@@ -111,6 +143,10 @@
             flex-wrap: wrap;
             gap: 15px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        body.student-view .controls {
+            display: none;
         }
 
         .control-group {
@@ -162,7 +198,18 @@
             background: #ff5252;
         }
 
-        /* Legend */
+        button.success {
+            background: #00b894;
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+
+        button.success:hover {
+            background: #00a085;
+        }
+
+        /* Legend - Hidden in Student View */
         .legend {
             background: white;
             padding: 15px;
@@ -172,6 +219,10 @@
             flex-wrap: wrap;
             gap: 10px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        body.student-view .legend {
+            display: none;
         }
 
         .legend-item {
@@ -199,7 +250,7 @@
             min-height: 600px;
         }
 
-        /* Sidebar */
+        /* Sidebar - Hidden in Student View */
         .sidebar {
             width: var(--sidebar-width);
             background: white;
@@ -210,6 +261,10 @@
             max-height: 800px;
         }
 
+        body.student-view .sidebar {
+            display: none;
+        }
+
         .sidebar h3 {
             margin-bottom: 15px;
             color: #2d3436;
@@ -217,30 +272,69 @@
             border-bottom: 2px solid #f1f2f6;
         }
 
-        /* Timeline */
+        /* Timeline Container */
         .timeline-container {
             flex: 1;
             background: white;
             border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             overflow: auto;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             position: relative;
+            min-height: 800px;
         }
 
-        .timeline-header {
+        /* Term Headers */
+        .term-headers {
             display: flex;
-            margin-bottom: 10px;
             position: sticky;
+            top: 0;
             left: 0;
             background: white;
-            z-index: 10;
+            z-index: 20;
+            border-bottom: 3px solid #2d3436;
+            min-width: min-content;
+        }
+
+        .term-spacer {
+            width: 120px;
+            flex-shrink: 0;
+            background: #f8f9fa;
+            border-right: 2px solid #ddd;
+        }
+
+        .term-header {
+            flex-shrink: 0;
+            padding: 15px 10px;
+            background: #2d3436;
+            color: white;
+            text-align: center;
+            font-weight: 600;
+            border-right: 2px solid white;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .term-header:hover {
+            background: #0984e3;
+        }
+
+        /* Week Headers */
+        .week-headers {
+            display: flex;
+            position: sticky;
+            top: 53px;
+            left: 0;
+            background: white;
+            z-index: 15;
             min-width: min-content;
         }
 
         .week-spacer {
             width: 120px;
             flex-shrink: 0;
+            background: #f8f9fa;
+            border-right: 2px solid #ddd;
         }
 
         .week-header {
@@ -252,6 +346,7 @@
             border-right: 1px solid #ddd;
             border-bottom: 2px solid #636e72;
             font-weight: 600;
+            position: relative;
         }
 
         .week-number {
@@ -259,6 +354,7 @@
             margin-bottom: 5px;
         }
 
+        /* Timeline Grid */
         .timeline-grid {
             display: flex;
             flex-direction: column;
@@ -300,8 +396,41 @@
             border-bottom: 1px solid #e9ecef;
             padding: 5px;
             position: relative;
+            transition: background 0.2s;
         }
 
+        .week-slot:hover {
+            background: rgba(9, 132, 227, 0.05);
+        }
+
+        .week-slot.blocked-week {
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(255, 255, 255, 0.1),
+                rgba(255, 255, 255, 0.1) 10px,
+                rgba(0, 0, 0, 0.05) 10px,
+                rgba(0, 0, 0, 0.05) 20px
+            ) !important;
+        }
+
+        /* Unit Items */
+        .unit-item {
+            background: #f8f9fa;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            cursor: grab;
+            border: 1px solid #e9ecef;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .unit-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Unit Blocks */
         .unit-block {
             padding: 10px;
             border-radius: 6px;
@@ -318,6 +447,11 @@
         .unit-block:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .unit-block.dragging {
+            opacity: 0.8;
+            transform: rotate(3deg);
         }
 
         .unit-code {
@@ -343,24 +477,92 @@
             border-radius: 3px;
         }
 
-        /* Unit items in sidebar */
-        .unit-item {
-            background: #f8f9fa;
-            padding: 12px;
-            margin-bottom: 10px;
+        /* Project Thread */
+        .project-thread {
+            position: absolute;
+            height: 4px;
+            background: var(--color-project);
+            top: 50%;
+            left: 0;
+            right: 0;
+            transform: translateY(-50%);
+            z-index: 1;
+            border-radius: 2px;
+        }
+
+        .project-milestone {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: var(--color-project);
+            border-radius: 50%;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px var(--color-project);
+        }
+
+        /* Empty Slot */
+        .empty-slot {
+            width: 100%;
+            height: 100%;
+            border: 2px dashed #e0e0e0;
             border-radius: 6px;
-            cursor: grab;
-            border: 1px solid #e9ecef;
-            transition: all 0.2s;
-            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #b2bec3;
+            font-size: 12px;
+            font-style: italic;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(0,0,0,0.02) 10px,
+                rgba(0,0,0,0.02) 20px
+            );
         }
 
-        .unit-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        /* Student Term Overviews */
+        .student-term-overviews {
+            display: none;
+            margin: 20px;
         }
 
-        /* Toast notifications */
+        body.student-view .student-term-overviews {
+            display: block;
+        }
+
+        .term-overview {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .term-overview h3 {
+            color: #2d3436;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f1f2f6;
+        }
+
+        .term-units {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .term-unit-card {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #0984e3;
+        }
+
+        /* Toast Notifications */
         .toast {
             position: fixed;
             bottom: 20px;
@@ -381,6 +583,10 @@
             background: #ff6b6b;
         }
 
+        .toast-info {
+            background: #0984e3;
+        }
+
         @keyframes slideIn {
             from {
                 transform: translateX(100%);
@@ -392,7 +598,7 @@
             }
         }
 
-        /* Modal */
+        /* Modals */
         .modal {
             position: fixed;
             top: 0;
@@ -416,6 +622,46 @@
             overflow-y: auto;
         }
 
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            color: #2d3436;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #636e72;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d3436;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
         /* Footer */
         .footer {
             background: #2d3436;
@@ -425,46 +671,99 @@
             margin-top: 20px;
         }
 
-        /* Drag and drop states */
-        .drag-ghost {
-            opacity: 0.8;
-            transform: rotate(5deg) scale(1.05);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
-            z-index: 9999 !important;
+        /* Share Panel */
+        .share-panel {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            width: 300px;
+            display: none;
         }
 
-        .drop-zone-active {
-            background: rgba(9, 132, 227, 0.1) !important;
-            border: 2px dashed #0984e3 !important;
+        .share-panel.show {
+            display: block;
         }
 
-        /* Student view */
-        body.student-view .controls,
-        body.student-view .legend,
-        body.student-view .sidebar {
-            display: none !important;
+        .share-panel h4 {
+            margin-bottom: 10px;
+            color: #2d3436;
         }
 
-        body.student-view .workspace {
-            margin: 20px;
+        .share-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
         }
 
-        body.student-view .timeline-container {
-            margin: 0;
-        }
-
-        /* Empty slot */
-        .empty-slot {
-            width: 100%;
-            height: 100%;
-            border: 2px dashed #e0e0e0;
+        .share-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
             border-radius: 6px;
+        }
+
+        /* Progress Indicator */
+        .progress-indicator {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #ddd;
+            cursor: pointer;
+        }
+
+        .progress-indicator.completed {
+            background: #00b894;
+        }
+
+        /* Sync Status */
+        .sync-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #00b894;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .sync-status.show {
+            display: flex;
+        }
+
+        /* Unit Count */
+        .unit-count {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #b2bec3;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        /* Week Summary */
+        .week-summary {
             font-size: 12px;
-            font-style: italic;
+            margin-top: 5px;
+            color: #636e72;
         }
 
         /* Responsive */
@@ -476,6 +775,10 @@
             .sidebar {
                 width: 100%;
                 max-height: 400px;
+            }
+            
+            :root {
+                --week-width: 120px;
             }
         }
 
@@ -489,22 +792,84 @@
             }
             
             :root {
-                --week-width: 120px;
+                --week-width: 100px;
             }
             
-            .header-actions {
-                flex-direction: column;
+            .view-toggle {
+                top: 10px;
+                right: 10px;
+            }
+            
+            .view-toggle button {
+                padding: 8px 15px;
+                font-size: 14px;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            .view-toggle,
+            .controls,
+            .legend,
+            .sidebar,
+            .share-panel,
+            .sync-status,
+            .toast {
+                display: none !important;
+            }
+            
+            .workspace {
+                margin: 0;
+            }
+            
+            .timeline-container {
+                box-shadow: none;
+                border: 1px solid #ddd;
+            }
+            
+            .header {
+                background: #2d3436 !important;
+                -webkit-print-color-adjust: exact;
             }
         }
     </style>
 </head>
-<body>
-    <!-- Loading overlay -->
+<body class="editor-view">
+    <!-- Loading -->
     <div id="loading">
         <div class="loading-content">
             <div class="loading-spinner"></div>
             <div class="loading-text">Loading Course Planner...</div>
         </div>
+    </div>
+
+    <!-- View Toggle -->
+    <div class="view-toggle">
+        <button id="toggleView">
+            <span id="viewIcon">👁️</span>
+            <span id="viewLabel">Student View</span>
+        </button>
+    </div>
+
+    <!-- Share Panel -->
+    <div class="share-panel" id="sharePanel">
+        <h4>Share Student View</h4>
+        <div class="share-input">
+            <input type="text" id="shareLink" readonly>
+            <button id="copyShareLink" class="primary">Copy</button>
+        </div>
+        <p style="font-size: 12px; color: #636e72; margin-bottom: 10px;">
+            Share this link with students for read-only access
+        </p>
+        <div class="qr-code" id="qrCode">
+            <!-- QR code will be generated here -->
+        </div>
+    </div>
+
+    <!-- Sync Status -->
+    <div class="sync-status" id="syncStatus">
+        <span>✓</span>
+        <span id="syncMessage">Changes saved to student view</span>
     </div>
 
     <!-- Header -->
@@ -513,13 +878,6 @@
         <div class="subtitle" id="courseSubtitle">Course Sequencing Tool | <span id="viewModeIndicator">Interactive Planner</span></div>
         <div style="font-size: 14px; opacity: 0.8;" id="courseDescription">
             Drag units to adjust sequence | Click units to edit details | Save/load your custom plans
-        </div>
-        <div class="header-actions">
-            <button class="primary" id="savePlanBtn">💾 Save Plan</button>
-            <button class="primary" id="sharePlanBtn">🔗 Share Student View</button>
-            <button class="primary" id="resetPlanBtn">🔄 Reset to Default</button>
-            <button class="warning" id="clearTimetableBtn">🗑️ Clear Timetable</button>
-            <button id="toggleViewBtn">👁️ Toggle Student View</button>
         </div>
     </header>
 
@@ -538,6 +896,7 @@
             <label for="highlightMode">Highlight</label>
             <select id="highlightMode">
                 <option value="none">None</option>
+                <option value="specialist">Specialist Units</option>
                 <option value="safety">Safety Units</option>
                 <option value="seasonal">Seasonal Timing</option>
                 <option value="assessment">Assessment Points</option>
@@ -545,19 +904,44 @@
         </div>
         
         <div class="control-group">
-            <label>Manage Weeks</label>
-            <div style="display: flex; gap: 5px;">
-                <button class="primary" id="addWeekBtn" style="flex: 1;">+ Add Week</button>
-                <button class="warning" id="removeWeekBtn" style="flex: 1;">- Remove Week</button>
-            </div>
+            <label for="weekBlocking">Block Weeks</label>
+            <select id="weekBlocking">
+                <option value="">Select action...</option>
+                <option value="easter">Mark as Easter Break</option>
+                <option value="term-break">Mark as Term Break</option>
+                <option value="training">Mark as Teacher Training</option>
+                <option value="leave">Mark as Leave</option>
+                <option value="clear">Clear Blocking</option>
+            </select>
         </div>
         
         <div class="control-group">
-            <label>Quick Actions</label>
-            <div style="display: flex; gap: 5px;">
-                <button class="primary" id="addUnitBtn" style="flex: 1;">+ Add Unit</button>
-                <button id="exportPlanBtn" style="flex: 1;">📤 Export</button>
-                <button id="printBtn" style="flex: 1;">🖨️ Print</button>
+            <label for="weekRange">Week Range</label>
+            <input type="text" id="weekRange" placeholder="e.g., 5-7 or 12,13,14">
+        </div>
+        
+        <button id="applyBlocking" class="primary">Apply Blocking</button>
+        
+        <div style="flex: 1;"></div>
+        
+        <button class="primary" id="savePlan">💾 Save Plan</button>
+        <button id="sharePlan">🔗 Share</button>
+        <button id="resetPlan">🔄 Reset</button>
+        <button id="printPlan">🖨️ Print</button>
+        <button id="exportPlan">📤 Export</button>
+        <button id="clearTimetable" class="warning">🗑️ Clear All</button>
+        
+        <div class="control-group">
+            <label>Manage Weeks</label>
+            <div style="display: flex; gap: 5px; flex-direction: column;">
+                <div style="display: flex; gap: 5px;">
+                    <button id="addWeekBtn" class="success" style="flex: 1;">+ Add Week</button>
+                    <button id="removeWeekBtn" class="warning" style="flex: 1;">- Remove Week</button>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    <button id="addWeekToTermBtn" class="success" style="flex: 1;">+ To Term</button>
+                    <button id="removeWeekFromTermBtn" class="warning" style="flex: 1;">- From Term</button>
+                </div>
             </div>
         </div>
     </div>
@@ -596,20 +980,49 @@
             <div class="legend-color" style="background: var(--color-seasonal);"></div>
             <span>Seasonal Timing</span>
         </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: var(--color-easter);"></div>
+            <span>Easter Break</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: var(--color-teacher-training);"></div>
+            <span>Teacher Training</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: var(--color-leave);"></div>
+            <span>Leave</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: var(--color-term-break);"></div>
+            <span>Term Break</span>
+        </div>
     </div>
 
     <!-- Workspace -->
     <div class="workspace">
         <!-- Sidebar -->
         <aside class="sidebar">
-            <h3>📚 Unit Library</h3>
-            <div id="unitLibrary">
+            <h3>📚 Unit Palette</h3>
+            <div id="unitPalette">
                 <!-- Units will be loaded here -->
             </div>
             
-            <h3 style="margin-top: 30px;">💾 Saved Plans</h3>
-            <div id="savedPlans">
-                <!-- Saved plans will appear here -->
+            <div style="margin-top: 30px;">
+                <h3>➕ Add Custom Unit</h3>
+                <button id="addCustomUnit" style="width: 100%; margin-top: 10px;">+ Add Custom Unit/Block</button>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <h3>💾 Saved Plans</h3>
+                <div id="savedPlans">
+                    <!-- Saved plans will appear here -->
+                </div>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <h3>📤 Import Plan</h3>
+                <input type="file" id="importPlan" accept=".json" style="width: 100%; margin-top: 10px;">
+                <button id="importPlanBtn" style="width: 100%; margin-top: 10px;">Import Plan File</button>
             </div>
         </aside>
 
@@ -621,6 +1034,11 @@
         </main>
     </div>
 
+    <!-- Student Term Overviews -->
+    <div class="student-term-overviews" id="studentTermOverviews">
+        <!-- Will be populated for student view -->
+    </div>
+
     <!-- Footer -->
     <footer class="footer">
         <p>Course Mapping Tool v3.0 | Designed for Cert III Conservation & Ecosystem Management | <span id="totalWeeksDisplay">37</span> Teaching Weeks</p>
@@ -628,16 +1046,16 @@
             Drag units to adjust sequence. Seasonal units have constraints. Click units to add notes and resources.
         </p>
         <div style="margin-top: 10px; font-size: 11px; color: #999;">
-            <span>Press Ctrl+Z to undo, Ctrl+Y to redo</span>
+            <span>Press Ctrl+Z to undo, Ctrl+Y to redo | Ctrl+S to save | Ctrl+P to print</span>
         </div>
     </footer>
 
     <!-- Modals -->
     <div class="modal" id="unitModal">
         <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="modal-header">
                 <h3 id="modalTitle">Edit Unit Details</h3>
-                <button onclick="document.getElementById('unitModal').style.display = 'none'" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                <button class="close-modal">&times;</button>
             </div>
             <div id="modalBody">
                 <!-- Modal content will be populated -->
@@ -645,23 +1063,14 @@
         </div>
     </div>
 
-    <!-- Share Modal -->
-    <div class="modal" id="shareModal">
+    <div class="modal" id="termModal">
         <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3>Share Student View</h3>
-                <button onclick="document.getElementById('shareModal').style.display = 'none'" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+            <div class="modal-header">
+                <h3>Manage Term</h3>
+                <button class="close-modal">&times;</button>
             </div>
-            <div>
-                <p style="margin-bottom: 15px; color: #666;">Share this link with students for read-only access:</p>
-                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                    <input type="text" id="shareLinkInput" readonly style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                    <button class="primary" id="copyShareLinkBtn">Copy</button>
-                </div>
-                <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
-                    <div style="font-size: 12px; color: #666; margin-bottom: 10px;">Scan QR Code:</div>
-                    <div id="qrCodeContainer"></div>
-                </div>
+            <div id="termModalBody">
+                <!-- Term management will be populated -->
             </div>
         </div>
     </div>
@@ -702,7 +1111,9 @@
                 this.history = [];
                 this.historyIndex = -1;
                 this.isStudentView = false;
-                this.currentPlanId = null;
+                this.sharedPlanId = null;
+                this.draggedUnit = null;
+                this.draggedFromPalette = false;
                 
                 this.colorMap = {
                     safety: '#ff6b6b',
@@ -718,6 +1129,13 @@
                     easter: '#fab1a0',
                     'teacher-training': '#a29bfe',
                     leave: '#fd79a8'
+                };
+
+                this.blockingLabels = {
+                    easter: 'EASTER BREAK',
+                    'term-break': 'TERM BREAK',
+                    training: 'TEACHER TRAINING',
+                    leave: 'LEAVE'
                 };
 
                 this.defaultUnits = [
@@ -820,6 +1238,106 @@
                         tags: ['SPECIALIST'],
                         teacher: 'other',
                         notes: 'Clustered chemical application'
+                    },
+                    {
+                        id: '11',
+                        code: 'FWPCOT2266',
+                        name: 'Operate brush cutter',
+                        weeks: [14, 15],
+                        color: 'practical',
+                        tags: ['SPECIALIST'],
+                        teacher: 'other',
+                        notes: 'Practical vegetation management'
+                    },
+                    {
+                        id: '12',
+                        code: 'AHCECR301',
+                        name: 'Maintain native ecosystem areas',
+                        weeks: [16, 17],
+                        color: 'practical',
+                        tags: [],
+                        teacher: 'main',
+                        notes: 'Ecosystem-scale application'
+                    },
+                    {
+                        id: '13',
+                        code: 'AHCLPW313',
+                        name: 'Water sampling & testing',
+                        weeks: [18, 19, 20],
+                        color: 'practical',
+                        tags: ['SEASONAL'],
+                        teacher: 'main',
+                        notes: 'Wetter months activity'
+                    },
+                    {
+                        id: '14',
+                        code: 'AHCMOM213',
+                        name: 'Operate chainsaw',
+                        weeks: [21, 22, 23],
+                        color: 'machinery',
+                        tags: ['SPECIALIST'],
+                        teacher: 'other',
+                        notes: 'Requires significant planning'
+                    },
+                    {
+                        id: '15',
+                        code: 'AHCMOM216',
+                        name: 'Operate SSUV',
+                        weeks: [21, 22, 23],
+                        color: 'machinery',
+                        tags: ['SPECIALIST'],
+                        teacher: 'other',
+                        notes: 'Clustered machinery units'
+                    },
+                    {
+                        id: '16',
+                        code: 'AHCECR301',
+                        name: 'Ecosystem maintenance (cont.)',
+                        weeks: [24, 25, 26, 27],
+                        color: 'practical',
+                        tags: [],
+                        teacher: 'main',
+                        notes: 'Enhanced capability application'
+                    },
+                    {
+                        id: '17',
+                        code: 'INTEGRATION',
+                        name: 'Skill Integration & Project Work',
+                        weeks: [28, 29, 30],
+                        color: 'project',
+                        tags: ['FLEXIBLE'],
+                        teacher: 'main',
+                        notes: 'Buffer for weather/adaptation'
+                    },
+                    {
+                        id: '18',
+                        code: 'AHCECR309',
+                        name: 'Conduct ecological site inspection',
+                        weeks: [31, 32, 33],
+                        color: 'apex',
+                        tags: ['APEX'],
+                        teacher: 'main',
+                        notes: 'Synthesis of all skills'
+                    },
+                    {
+                        id: '19',
+                        code: 'PROJECT',
+                        name: 'Final Project Phase',
+                        weeks: [34, 35, 36],
+                        color: 'project',
+                        tags: [],
+                        teacher: 'main',
+                        notes: 'Complete integrated project'
+                    },
+                    {
+                        id: '20',
+                        code: 'ADMIN',
+                        name: 'Portfolio Finalisation',
+                        weeks: [37],
+                        color: 'safety',
+                        tags: [],
+                        teacher: 'main',
+                        notes: 'Verification and closure'
                     }
                 ];
 
@@ -833,7 +1351,14 @@
                     { code: 'AHCFAU302', name: 'Identify fauna in the field', color: 'foundational', tags: ['SEASONAL'], defaultWeeks: 2 },
                     { code: 'AHCPMG301', name: 'Control weeds', color: 'practical', tags: [], defaultWeeks: 2 },
                     { code: 'AHCCHM304', name: 'Transport/handle chemicals', color: 'practical', tags: ['SPECIALIST'], defaultWeeks: 1 },
-                    { code: 'AHCCHM307', name: 'Apply chemicals', color: 'practical', tags: ['SPECIALIST'], defaultWeeks: 1 }
+                    { code: 'AHCCHM307', name: 'Apply chemicals', color: 'practical', tags: ['SPECIALIST'], defaultWeeks: 1 },
+                    { code: 'FWPCOT2266', name: 'Operate brush cutter', color: 'practical', tags: ['SPECIALIST'], defaultWeeks: 2 },
+                    { code: 'AHCECR301', name: 'Maintain native ecosystem areas', color: 'practical', tags: [], defaultWeeks: 2 },
+                    { code: 'AHCLPW313', name: 'Water sampling & testing', color: 'practical', tags: ['SEASONAL'], defaultWeeks: 3 },
+                    { code: 'AHCMOM213', name: 'Operate chainsaw', color: 'machinery', tags: ['SPECIALIST'], defaultWeeks: 3 },
+                    { code: 'AHCMOM216', name: 'Operate SSUV', color: 'machinery', tags: ['SPECIALIST'], defaultWeeks: 3 },
+                    { code: 'AHCECR309', name: 'Conduct ecological site inspection', color: 'apex', tags: ['APEX'], defaultWeeks: 3 },
+                    { code: 'CUSTOM', name: 'Custom Unit/Block', color: 'foundational', tags: ['CUSTOM'], defaultWeeks: 1 }
                 ];
 
                 this.init();
@@ -844,16 +1369,18 @@
                 this.loadInitialData();
                 this.renderEverything();
                 this.hideLoadingScreen();
+                this.setupKeyboardShortcuts();
             }
 
             loadInitialData() {
                 // Check URL for student view
                 const urlParams = new URLSearchParams(window.location.search);
                 this.isStudentView = urlParams.has('student');
-                const planId = urlParams.get('plan');
+                this.sharedPlanId = urlParams.get('plan');
 
                 if (this.isStudentView) {
-                    this.setupStudentView(planId);
+                    this.setupStudentView();
+                    this.loadSharedPlan();
                 } else {
                     // Try to load saved data
                     const saved = localStorage.getItem(`${CONFIG.STORAGE_PREFIX}autosave`);
@@ -877,677 +1404,35 @@
                 this.saveHistory();
             }
 
-            setupStudentView(planId) {
+            setupStudentView() {
+                document.body.classList.remove('editor-view');
                 document.body.classList.add('student-view');
-                document.getElementById('courseTitle').textContent = 'Student View - Course Schedule';
+                
+                // Update UI for student view
+                document.getElementById('courseTitle').textContent = 'Course Schedule - Cert III Conservation & Ecosystem Management';
+                document.getElementById('courseSubtitle').textContent = `Student View - ${this.courseData.totalWeeks}-Week Plan`;
                 document.getElementById('viewModeIndicator').textContent = 'Student View';
                 
-                if (planId) {
-                    this.loadSharedPlan(planId);
-                } else {
-                    this.units = [...this.defaultUnits];
-                }
+                // Update view toggle
+                document.getElementById('viewIcon').textContent = '✏️';
+                document.getElementById('viewLabel').textContent = 'Editor View';
             }
 
-            loadSharedPlan(planId) {
+            loadSharedPlan() {
+                if (!this.sharedPlanId) return;
+                
                 try {
-                    const planData = localStorage.getItem(`${CONFIG.STORAGE_PREFIX}shared_${planId}`);
+                    const planData = localStorage.getItem(`${CONFIG.STORAGE_PREFIX}shared_${this.sharedPlanId}`);
                     if (planData) {
                         const plan = JSON.parse(planData);
                         this.units = plan.units || this.defaultUnits;
                         this.courseData = plan.courseData || this.courseData;
                         this.blockedWeeks = plan.blockedWeeks || {};
+                        this.showToast('Shared plan loaded', 'success');
                     }
                 } catch (e) {
                     console.error('Failed to load shared plan:', e);
                     this.units = [...this.defaultUnits];
-                }
-            }
-
-            renderEverything() {
-                this.renderUnitLibrary();
-                this.renderTimeline();
-                this.updateTotalWeeksDisplay();
-                this.renderSavedPlans();
-            }
-
-            renderUnitLibrary() {
-                const container = document.getElementById('unitLibrary');
-                if (!container) return;
-
-                container.innerHTML = this.unitTemplates.map(template => `
-                    <div class="unit-item" draggable="true" data-template='${JSON.stringify(template)}'
-                         style="border-left: 4px solid ${this.colorMap[template.color]};">
-                        <div class="unit-code">${template.code}</div>
-                        <div class="unit-name">${template.name}</div>
-                        <div style="display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap;">
-                            ${template.tags.map(tag => `
-                                <span style="font-size: 10px; padding: 2px 6px; border-radius: 10px; background: #e9ecef; color: #495057;">
-                                    ${tag}
-                                </span>
-                            `).join('')}
-                        </div>
-                    </div>
-                `).join('');
-
-                // Add drag event listeners
-                container.querySelectorAll('.unit-item').forEach(item => {
-                    item.addEventListener('dragstart', (e) => {
-                        const template = JSON.parse(e.currentTarget.dataset.template);
-                        e.dataTransfer.setData('text/plain', JSON.stringify(template));
-                        e.currentTarget.style.opacity = '0.5';
-                    });
-
-                    item.addEventListener('dragend', (e) => {
-                        e.currentTarget.style.opacity = '1';
-                    });
-                });
-            }
-
-            renderTimeline() {
-                const container = document.getElementById('timelineContent');
-                if (!container) return;
-
-                const { totalWeeks, terms } = this.courseData;
-                const weekWidth = this.isStudentView ? 120 : 150;
-                
-                // Update CSS variable
-                document.documentElement.style.setProperty('--week-width', `${weekWidth}px`);
-                document.documentElement.style.setProperty('--total-weeks', totalWeeks);
-
-                // Build timeline HTML
-                let html = `
-                    <div class="timeline-header">
-                        <div class="week-spacer"></div>
-                `;
-
-                // Week headers
-                for (let week = 1; week <= totalWeeks; week++) {
-                    const term = terms.find(t => week >= t.startWeek && week < t.startWeek + t.weeks);
-                    html += `
-                        <div class="week-header" style="width: ${weekWidth}px;">
-                            <div class="week-number">Week ${week}</div>
-                            ${term ? `<div style="font-size: 11px; color: #666;">Term ${term.number}</div>` : ''}
-                        </div>
-                    `;
-                }
-
-                html += `</div><div class="timeline-grid">`;
-
-                // Swimlanes
-                const swimlanes = [
-                    { id: 'core', label: 'Core Units (Main Teacher)' },
-                    { id: 'specialist', label: 'Specialist Units (Other Teacher)' },
-                    { id: 'project', label: 'Integrated Project' }
-                ];
-
-                swimlanes.forEach(lane => {
-                    html += `
-                        <div class="swimlane" data-lane="${lane.id}">
-                            <div class="lane-label">${lane.label}</div>
-                            <div class="lane-content">
-                    `;
-
-                    for (let week = 1; week <= totalWeeks; week++) {
-                        const unitsInWeek = this.units.filter(unit => 
-                            unit.weeks.includes(week) && 
-                            this.getLaneForUnit(unit) === lane.id
-                        );
-
-                        html += `
-                            <div class="week-slot" data-week="${week}" data-lane="${lane.id}" 
-                                 style="width: ${weekWidth}px;">
-                        `;
-
-                        if (unitsInWeek.length > 0) {
-                            unitsInWeek.forEach(unit => {
-                                const isFirstWeek = week === Math.min(...unit.weeks);
-                                html += this.renderUnitBlock(unit, week, isFirstWeek);
-                            });
-                        } else {
-                            html += `<div class="empty-slot">Drag unit here</div>`;
-                        }
-
-                        html += `</div>`;
-                    }
-
-                    html += `</div></div>`;
-                });
-
-                html += `</div>`;
-                container.innerHTML = html;
-
-                // Add event listeners to timeline
-                this.setupTimelineEvents();
-            }
-
-            renderUnitBlock(unit, week, isFirstWeek = false) {
-                const color = this.colorMap[unit.color] || this.colorMap.foundational;
-                const darkColor = this.darkenColor(color, 30);
-                
-                return `
-                    <div class="unit-block" data-unit-id="${unit.id}" data-week="${week}"
-                         style="background: ${color}; border-left-color: ${darkColor};"
-                         draggable="true">
-                        <div class="unit-code">${unit.code}</div>
-                        ${isFirstWeek ? `<div class="unit-name">${unit.name}</div>` : ''}
-                        ${unit.weeks.length > 1 && isFirstWeek ? 
-                            `<div class="unit-duration">${unit.weeks.length}w</div>` : ''}
-                    </div>
-                `;
-            }
-
-            getLaneForUnit(unit) {
-                if (unit.teacher === 'other') return 'specialist';
-                if (unit.code === 'INTEGRATION' || unit.code === 'PROJECT' || unit.tags.includes('PROJECT')) return 'project';
-                return 'core';
-            }
-
-            setupTimelineEvents() {
-                const container = document.getElementById('timelineContent');
-                if (!container) return;
-
-                // Unit drag start
-                container.querySelectorAll('.unit-block').forEach(block => {
-                    block.addEventListener('dragstart', (e) => {
-                        const unitId = e.currentTarget.dataset.unitId;
-                        const unit = this.units.find(u => u.id === unitId);
-                        if (unit) {
-                            e.dataTransfer.setData('text/plain', JSON.stringify({
-                                type: 'move',
-                                unitId: unitId
-                            }));
-                            e.currentTarget.style.opacity = '0.5';
-                        }
-                    });
-
-                    block.addEventListener('dragend', (e) => {
-                        e.currentTarget.style.opacity = '1';
-                    });
-
-                    block.addEventListener('click', (e) => {
-                        const unitId = e.currentTarget.dataset.unitId;
-                        this.openUnitModal(unitId);
-                    });
-                });
-
-                // Week slot drop zones
-                container.querySelectorAll('.week-slot').forEach(slot => {
-                    slot.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        slot.classList.add('drop-zone-active');
-                    });
-
-                    slot.addEventListener('dragleave', () => {
-                        slot.classList.remove('drop-zone-active');
-                    });
-
-                    slot.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        slot.classList.remove('drop-zone-active');
-                        
-                        const week = parseInt(slot.dataset.week);
-                        const lane = slot.dataset.lane;
-                        
-                        try {
-                            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-                            
-                            if (data.type === 'move') {
-                                // Moving existing unit
-                                this.moveUnit(data.unitId, week, lane);
-                            } else {
-                                // Adding new unit from template
-                                this.addUnitFromTemplate(data, week, lane);
-                            }
-                            
-                            this.showToast('Unit placed successfully', 'success');
-                        } catch (error) {
-                            console.error('Drop failed:', error);
-                        }
-                    });
-                });
-            }
-
-            moveUnit(unitId, week, lane) {
-                const unitIndex = this.units.findIndex(u => u.id === unitId);
-                if (unitIndex === -1) return;
-
-                this.saveHistory();
-                
-                const unit = this.units[unitIndex];
-                unit.weeks = [week];
-                
-                if (lane === 'specialist') {
-                    unit.teacher = 'other';
-                    if (!unit.tags.includes('SPECIALIST')) {
-                        unit.tags.push('SPECIALIST');
-                    }
-                } else if (lane !== 'specialist' && unit.teacher === 'other') {
-                    unit.teacher = 'main';
-                    unit.tags = unit.tags.filter(tag => tag !== 'SPECIALIST');
-                }
-
-                this.renderEverything();
-            }
-
-            addUnitFromTemplate(template, week, lane) {
-                this.saveHistory();
-                
-                const newUnit = {
-                    id: Date.now().toString(),
-                    code: template.code,
-                    name: template.name,
-                    weeks: [week],
-                    color: template.color,
-                    tags: [...template.tags],
-                    teacher: lane === 'specialist' ? 'other' : 'main',
-                    notes: '',
-                    resources: []
-                };
-
-                this.units.push(newUnit);
-                this.renderEverything();
-                
-                // Open modal to edit the new unit
-                setTimeout(() => this.openUnitModal(newUnit.id), 100);
-            }
-
-            openUnitModal(unitId) {
-                const unit = this.units.find(u => u.id === unitId);
-                if (!unit) return;
-
-                const modal = document.getElementById('unitModal');
-                const modalBody = document.getElementById('modalBody');
-                const modalTitle = document.getElementById('modalTitle');
-
-                modalTitle.textContent = `Edit Unit: ${unit.code}`;
-                
-                modalBody.innerHTML = `
-                    <div style="display: flex; flex-direction: column; gap: 15px;">
-                        <div>
-                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Unit Code</label>
-                            <input type="text" id="editUnitCode" value="${unit.code}" 
-                                   style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                        </div>
-                        
-                        <div>
-                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Unit Name</label>
-                            <input type="text" id="editUnitName" value="${unit.name}" 
-                                   style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                        </div>
-                        
-                        <div>
-                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Weeks</label>
-                            <input type="text" id="editUnitWeeks" value="${unit.weeks.join(',')}" 
-                                   style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;"
-                                   placeholder="e.g., 1,2,3 or 5-7">
-                        </div>
-                        
-                        <div>
-                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Unit Type</label>
-                            <select id="editUnitColor" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                                <option value="safety" ${unit.color === 'safety' ? 'selected' : ''}>Safety</option>
-                                <option value="foundational" ${unit.color === 'foundational' ? 'selected' : ''}>Foundational</option>
-                                <option value="practical" ${unit.color === 'practical' ? 'selected' : ''}>Practical</option>
-                                <option value="machinery" ${unit.color === 'machinery' ? 'selected' : ''}>Machinery</option>
-                                <option value="apex" ${unit.color === 'apex' ? 'selected' : ''}>Apex</option>
-                                <option value="project" ${unit.color === 'project' ? 'selected' : ''}>Project</option>
-                                <option value="seasonal" ${unit.color === 'seasonal' ? 'selected' : ''}>Seasonal</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Teacher</label>
-                            <select id="editUnitTeacher" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                                <option value="main" ${unit.teacher === 'main' ? 'selected' : ''}>Main Teacher</option>
-                                <option value="other" ${unit.teacher === 'other' ? 'selected' : ''}>Other Teacher</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Notes</label>
-                            <textarea id="editUnitNotes" rows="4" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">${unit.notes || ''}</textarea>
-                        </div>
-                        
-                        <div style="display: flex; gap: 10px; margin-top: 20px;">
-                            <button class="primary" onclick="app.saveUnitChanges('${unitId}')" style="flex: 1;">Save Changes</button>
-                            <button class="warning" onclick="app.deleteUnit('${unitId}')" style="flex: 1;">Delete Unit</button>
-                            <button onclick="document.getElementById('unitModal').style.display = 'none'" style="flex: 1;">Cancel</button>
-                        </div>
-                    </div>
-                `;
-
-                modal.style.display = 'flex';
-            }
-
-            saveUnitChanges(unitId) {
-                const unitIndex = this.units.findIndex(u => u.id === unitId);
-                if (unitIndex === -1) return;
-
-                this.saveHistory();
-                
-                const unit = this.units[unitIndex];
-                unit.code = document.getElementById('editUnitCode').value;
-                unit.name = document.getElementById('editUnitName').value;
-                
-                const weeksInput = document.getElementById('editUnitWeeks').value;
-                if (weeksInput.includes('-')) {
-                    const [start, end] = weeksInput.split('-').map(Number);
-                    unit.weeks = Array.from({length: end - start + 1}, (_, i) => start + i);
-                } else if (weeksInput.includes(',')) {
-                    unit.weeks = weeksInput.split(',').map(w => parseInt(w.trim())).filter(w => !isNaN(w));
-                } else {
-                    unit.weeks = [parseInt(weeksInput) || 1];
-                }
-                
-                unit.color = document.getElementById('editUnitColor').value;
-                unit.teacher = document.getElementById('editUnitTeacher').value;
-                unit.notes = document.getElementById('editUnitNotes').value;
-
-                document.getElementById('unitModal').style.display = 'none';
-                this.renderEverything();
-                this.showToast('Unit updated successfully', 'success');
-            }
-
-            deleteUnit(unitId) {
-                if (confirm('Are you sure you want to delete this unit?')) {
-                    this.saveHistory();
-                    this.units = this.units.filter(u => u.id !== unitId);
-                    document.getElementById('unitModal').style.display = 'none';
-                    this.renderEverything();
-                    this.showToast('Unit deleted', 'success');
-                }
-            }
-
-            addNewUnit() {
-                this.saveHistory();
-                
-                const newUnit = {
-                    id: Date.now().toString(),
-                    code: 'NEW001',
-                    name: 'New Custom Unit',
-                    weeks: [1],
-                    color: 'foundational',
-                    tags: ['CUSTOM'],
-                    teacher: 'main',
-                    notes: 'Custom added unit'
-                };
-
-                this.units.push(newUnit);
-                this.renderEverything();
-                
-                setTimeout(() => this.openUnitModal(newUnit.id), 100);
-            }
-
-            clearTimetable() {
-                if (confirm('Are you sure you want to clear ALL units from the timetable?')) {
-                    this.saveHistory();
-                    this.units = [];
-                    this.renderEverything();
-                    this.showToast('Timetable cleared', 'success');
-                }
-            }
-
-            addWeek() {
-                this.saveHistory();
-                this.courseData.totalWeeks++;
-                
-                // Update the last term
-                const lastTerm = this.courseData.terms[this.courseData.terms.length - 1];
-                if (lastTerm) {
-                    lastTerm.weeks++;
-                }
-                
-                this.renderEverything();
-                this.showToast('Week added', 'success');
-            }
-
-            removeWeek() {
-                if (this.courseData.totalWeeks <= 1) {
-                    this.showToast('Cannot remove the last week', 'error');
-                    return;
-                }
-
-                if (confirm('Remove the last week? This will remove any units in that week.')) {
-                    this.saveHistory();
-                    
-                    // Remove units in the last week
-                    const lastWeek = this.courseData.totalWeeks;
-                    this.units = this.units.filter(unit => 
-                        !unit.weeks.includes(lastWeek)
-                    );
-                    
-                    // Update weeks for units after the removed week
-                    this.units.forEach(unit => {
-                        unit.weeks = unit.weeks
-                            .filter(w => w !== lastWeek)
-                            .map(w => w > lastWeek ? w - 1 : w);
-                    });
-                    
-                    this.courseData.totalWeeks--;
-                    
-                    // Update the last term
-                    const lastTerm = this.courseData.terms[this.courseData.terms.length - 1];
-                    if (lastTerm && lastTerm.weeks > 1) {
-                        lastTerm.weeks--;
-                    }
-                    
-                    this.renderEverything();
-                    this.showToast('Week removed', 'success');
-                }
-            }
-
-            savePlan() {
-                const planName = prompt('Enter a name for this plan:', `Plan ${new Date().toLocaleDateString()}`);
-                if (!planName) return;
-
-                const plan = {
-                    id: Date.now().toString(),
-                    name: planName,
-                    date: new Date().toISOString(),
-                    units: this.units,
-                    courseData: this.courseData,
-                    blockedWeeks: this.blockedWeeks,
-                    version: CONFIG.APP_VERSION
-                };
-
-                try {
-                    let savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
-                    savedPlans.push(plan);
-                    localStorage.setItem(`${CONFIG.STORAGE_PREFIX}plans`, JSON.stringify(savedPlans));
-                    
-                    // Also save as autosave
-                    localStorage.setItem(`${CONFIG.STORAGE_PREFIX}autosave`, JSON.stringify({
-                        units: this.units,
-                        courseData: this.courseData,
-                        blockedWeeks: this.blockedWeeks,
-                        timestamp: Date.now(),
-                        version: CONFIG.APP_VERSION
-                    }));
-                    
-                    this.showToast(`Plan "${planName}" saved!`, 'success');
-                    this.renderSavedPlans();
-                } catch (error) {
-                    console.error('Failed to save plan:', error);
-                    this.showToast('Failed to save plan', 'error');
-                }
-            }
-
-            renderSavedPlans() {
-                const container = document.getElementById('savedPlans');
-                if (!container) return;
-
-                try {
-                    const savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
-                    
-                    if (savedPlans.length === 0) {
-                        container.innerHTML = '<p style="color: #666; font-size: 14px;">No saved plans yet.</p>';
-                        return;
-                    }
-
-                    container.innerHTML = savedPlans.map(plan => `
-                        <div style="padding: 10px; margin-bottom: 10px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #0984e3;">
-                            <div style="font-weight: 600; margin-bottom: 5px;">${plan.name}</div>
-                            <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
-                                ${new Date(plan.date).toLocaleDateString()} • ${plan.units?.length || 0} units
-                            </div>
-                            <div style="display: flex; gap: 5px;">
-                                <button onclick="app.loadPlan('${plan.id}')" 
-                                        style="flex: 1; padding: 5px; font-size: 12px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                    Load
-                                </button>
-                                <button onclick="app.deleteSavedPlan('${plan.id}')" 
-                                        style="flex: 1; padding: 5px; font-size: 12px; background: #ff6b6b; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    `).join('');
-                } catch (error) {
-                    console.error('Failed to render saved plans:', error);
-                    container.innerHTML = '<p style="color: #666; font-size: 14px;">Error loading saved plans.</p>';
-                }
-            }
-
-            loadPlan(planId) {
-                try {
-                    const savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
-                    const plan = savedPlans.find(p => p.id === planId);
-                    
-                    if (plan) {
-                        this.saveHistory();
-                        this.units = plan.units || [];
-                        this.courseData = plan.courseData || this.courseData;
-                        this.blockedWeeks = plan.blockedWeeks || {};
-                        this.renderEverything();
-                        this.showToast(`Loaded "${plan.name}"`, 'success');
-                    }
-                } catch (error) {
-                    console.error('Failed to load plan:', error);
-                    this.showToast('Failed to load plan', 'error');
-                }
-            }
-
-            deleteSavedPlan(planId) {
-                if (confirm('Delete this saved plan?')) {
-                    try {
-                        let savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
-                        savedPlans = savedPlans.filter(p => p.id !== planId);
-                        localStorage.setItem(`${CONFIG.STORAGE_PREFIX}plans`, JSON.stringify(savedPlans));
-                        this.renderSavedPlans();
-                        this.showToast('Plan deleted', 'success');
-                    } catch (error) {
-                        console.error('Failed to delete plan:', error);
-                        this.showToast('Failed to delete plan', 'error');
-                    }
-                }
-            }
-
-            sharePlan() {
-                const shareId = `shared_${Date.now()}`;
-                const shareData = {
-                    id: shareId,
-                    name: 'Shared Student View',
-                    date: new Date().toISOString(),
-                    units: this.units,
-                    courseData: this.courseData,
-                    blockedWeeks: this.blockedWeeks,
-                    lastUpdate: new Date().toISOString(),
-                    version: CONFIG.APP_VERSION
-                };
-
-                localStorage.setItem(`${CONFIG.STORAGE_PREFIX}${shareId}`, JSON.stringify(shareData));
-
-                const shareUrl = `${window.location.origin}${window.location.pathname}?student=true&plan=${shareId}`;
-                
-                // Show share modal
-                const modal = document.getElementById('shareModal');
-                const input = document.getElementById('shareLinkInput');
-                const copyBtn = document.getElementById('copyShareLinkBtn');
-                const qrContainer = document.getElementById('qrCodeContainer');
-                
-                input.value = shareUrl;
-                modal.style.display = 'flex';
-                
-                // Generate QR code
-                qrContainer.innerHTML = `
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}" 
-                         alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px;">
-                `;
-                
-                copyBtn.onclick = () => {
-                    input.select();
-                    document.execCommand('copy');
-                    this.showToast('Link copied to clipboard!', 'success');
-                };
-            }
-
-            resetToDefault() {
-                if (confirm('Reset to default course sequence? Any unsaved changes will be lost.')) {
-                    this.saveHistory();
-                    this.units = [...this.defaultUnits];
-                    this.courseData = {
-                        totalWeeks: CONFIG.DEFAULT_TOTAL_WEEKS,
-                        terms: [
-                            { number: 1, weeks: 10, startWeek: 1, name: "Safety, Foundations & Summer Harvest" },
-                            { number: 2, weeks: 10, startWeek: 11, name: "Practical Skills & Application" },
-                            { number: 3, weeks: 10, startWeek: 21, name: "Machinery & Advanced Integration" },
-                            { number: 4, weeks: 7, startWeek: 31, name: "Apex & Finalisation" }
-                        ],
-                        projectMilestones: [
-                            { week: 18, label: "Project Start" },
-                            { week: 25, label: "Phase 2" },
-                            { week: 30, label: "Integration" },
-                            { week: 34, label: "Final Phase" }
-                        ]
-                    };
-                    this.blockedWeeks = {};
-                    
-                    this.renderEverything();
-                    this.showToast('Reset to default sequence', 'success');
-                }
-            }
-
-            toggleViewMode() {
-                if (this.isStudentView) {
-                    // Switch to editor view
-                    window.location.href = window.location.pathname;
-                } else {
-                    // Switch to student view
-                    this.sharePlan();
-                }
-            }
-
-            exportPlan() {
-                const data = {
-                    version: CONFIG.APP_VERSION,
-                    timestamp: new Date().toISOString(),
-                    units: this.units,
-                    courseData: this.courseData,
-                    blockedWeeks: this.blockedWeeks
-                };
-
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `course-plan-${new Date().toISOString().split('T')[0]}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                this.showToast('Plan exported successfully', 'success');
-            }
-
-            printPlan() {
-                window.print();
-            }
-
-            updateTotalWeeksDisplay() {
-                const display = document.getElementById('totalWeeksDisplay');
-                if (display) {
-                    display.textContent = this.courseData.totalWeeks;
                 }
             }
 
@@ -1595,6 +1480,1298 @@
                 return false;
             }
 
+            // ========== RENDERING ==========
+            renderEverything() {
+                this.renderUnitPalette();
+                this.renderTimeline();
+                this.renderSavedPlans();
+                this.updateTotalWeeksDisplay();
+                
+                if (this.isStudentView) {
+                    this.renderStudentTermOverviews();
+                }
+            }
+
+            renderUnitPalette() {
+                const container = document.getElementById('unitPalette');
+                if (!container) return;
+
+                container.innerHTML = this.unitTemplates.map(template => `
+                    <div class="unit-item" draggable="true" data-template='${JSON.stringify(template)}'
+                         style="border-left: 4px solid ${this.colorMap[template.color]};">
+                        <div class="unit-code">${template.code}</div>
+                        <div class="unit-name">${template.name}</div>
+                        <div style="display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap;">
+                            ${template.tags.map(tag => `
+                                <span style="font-size: 10px; padding: 2px 6px; border-radius: 10px; background: #e9ecef; color: #495057;">
+                                    ${tag}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+
+                // Add drag event listeners
+                container.querySelectorAll('.unit-item').forEach(item => {
+                    item.addEventListener('dragstart', (e) => {
+                        const template = JSON.parse(e.currentTarget.dataset.template);
+                        this.draggedFromPalette = true;
+                        this.draggedUnit = template;
+                        e.dataTransfer.setData('text/plain', JSON.stringify(template));
+                        e.currentTarget.classList.add('dragging');
+                    });
+
+                    item.addEventListener('dragend', (e) => {
+                        e.currentTarget.classList.remove('dragging');
+                        this.draggedFromPalette = false;
+                        this.draggedUnit = null;
+                    });
+                });
+            }
+
+            renderTimeline() {
+                const container = document.getElementById('timelineContent');
+                if (!container) return;
+
+                const { totalWeeks, terms, projectMilestones } = this.courseData;
+                const weekWidth = this.isStudentView ? 120 : 150;
+                
+                // Update CSS variables
+                document.documentElement.style.setProperty('--week-width', `${weekWidth}px`);
+                document.documentElement.style.setProperty('--total-weeks', totalWeeks);
+
+                let html = '';
+
+                // Term headers
+                html += `<div class="term-headers">`;
+                html += `<div class="term-spacer"></div>`;
+                
+                terms.forEach(term => {
+                    const termWidth = term.weeks * weekWidth;
+                    html += `
+                        <div class="term-header" data-term="${term.number}" 
+                             style="width: ${termWidth}px;" title="Click to manage term">
+                            Term ${term.number} (Weeks ${term.startWeek}-${term.startWeek + term.weeks - 1})
+                            <div style="font-size: 12px; opacity: 0.8; margin-top: 3px;">${term.name}</div>
+                        </div>
+                    `;
+                });
+
+                html += `</div>`;
+
+                // Week headers
+                html += `<div class="week-headers">`;
+                html += `<div class="week-spacer"></div>`;
+                
+                for (let week = 1; week <= totalWeeks; week++) {
+                    const term = this.getTermForWeek(week);
+                    html += `
+                        <div class="week-header" style="width: ${weekWidth}px;">
+                            <div class="week-number">Week ${week}</div>
+                            ${term ? `<div style="font-size: 11px; color: #666;">Term ${term.number}</div>` : ''}
+                        </div>
+                    `;
+                }
+
+                html += `</div>`;
+
+                // Timeline grid
+                html += `<div class="timeline-grid">`;
+
+                // Determine swimlanes based on view mode
+                let swimlanes = [];
+                const viewMode = document.getElementById('viewMode')?.value || 'week';
+                
+                if (viewMode === 'teacher') {
+                    swimlanes = [
+                        { id: 'main', label: 'Main Teacher' },
+                        { id: 'other', label: 'Other Teacher' },
+                        { id: 'project', label: 'Projects' }
+                    ];
+                } else if (viewMode === 'term') {
+                    // For term view, show one swimlane per term
+                    terms.forEach(term => {
+                        swimlanes.push({
+                            id: `term-${term.number}`,
+                            label: `Term ${term.number}: ${term.name}`
+                        });
+                    });
+                } else {
+                    // Default week view
+                    swimlanes = [
+                        { id: 'core', label: 'Core Units (Main Teacher)' },
+                        { id: 'specialist', label: 'Specialist Units (Other Teacher)' },
+                        { id: 'project', label: 'Integrated Project' },
+                        { id: 'apex', label: 'Apex & Assessment' }
+                    ];
+                }
+
+                swimlanes.forEach(lane => {
+                    html += `
+                        <div class="swimlane" data-lane="${lane.id}">
+                            <div class="lane-label">${lane.label}</div>
+                            <div class="lane-content">
+                    `;
+
+                    for (let week = 1; week <= totalWeeks; week++) {
+                        const isBlocked = this.blockedWeeks[week];
+                        const blockedClass = isBlocked ? 'blocked-week' : '';
+                        
+                        html += `
+                            <div class="week-slot ${blockedClass}" data-week="${week}" data-lane="${lane.id}" 
+                                 style="width: ${weekWidth}px; ${isBlocked ? `background: ${this.colorMap[isBlocked.type] || '#f8f9fa'}; opacity: 0.7;` : ''}">
+                        `;
+
+                        if (isBlocked) {
+                            html += `
+                                <div style="position: absolute; top: 5px; left: 5px; font-size: 10px; 
+                                            color: white; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px;">
+                                    ${this.blockingLabels[isBlocked.type] || 'BLOCKED'}
+                                </div>
+                            `;
+                        }
+
+                        const unitsInWeek = this.getUnitsForWeekAndLane(week, lane.id, viewMode);
+                        
+                        if (unitsInWeek.length > 0) {
+                            unitsInWeek.forEach(unit => {
+                                const isFirstWeek = week === Math.min(...unit.weeks);
+                                html += this.renderUnitBlock(unit, week, isFirstWeek);
+                            });
+                        } else if (!isBlocked) {
+                            html += `<div class="empty-slot">${this.isStudentView ? 'No units' : 'Drag unit here'}</div>`;
+                        }
+
+                        html += `</div>`;
+                    }
+
+                    html += `</div></div>`;
+                });
+
+                // Add project thread to project lane
+                if (viewMode !== 'term') {
+                    html += `
+                        <div style="position: absolute; top: ${swimlanes.findIndex(l => l.id === 'project') * 130 + 165}px; left: 120px; right: 0; height: 0;">
+                            <div class="project-thread"></div>
+                            ${projectMilestones.map(milestone => `
+                                <div class="project-milestone" style="left: ${(milestone.week - 1) * weekWidth + weekWidth/2}px;" 
+                                     title="${milestone.label}"></div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                html += `</div>`;
+                container.innerHTML = html;
+
+                // Add event listeners
+                this.setupTimelineEvents();
+                
+                // Add term click handlers
+                container.querySelectorAll('.term-header').forEach(header => {
+                    header.addEventListener('click', (e) => {
+                        const termNumber = parseInt(e.currentTarget.dataset.term);
+                        this.openTermModal(termNumber);
+                    });
+                });
+            }
+
+            getUnitsForWeekAndLane(week, laneId, viewMode) {
+                if (viewMode === 'teacher') {
+                    if (laneId === 'main') {
+                        return this.units.filter(unit => 
+                            unit.weeks.includes(week) && unit.teacher === 'main'
+                        );
+                    } else if (laneId === 'other') {
+                        return this.units.filter(unit => 
+                            unit.weeks.includes(week) && unit.teacher === 'other'
+                        );
+                    } else if (laneId === 'project') {
+                        return this.units.filter(unit => 
+                            unit.weeks.includes(week) && 
+                            (unit.code === 'INTEGRATION' || unit.code === 'PROJECT' || unit.tags.includes('PROJECT'))
+                        );
+                    }
+                } else if (viewMode === 'term') {
+                    const termNumber = parseInt(laneId.split('-')[1]);
+                    const term = this.courseData.terms.find(t => t.number === termNumber);
+                    if (term && week >= term.startWeek && week < term.startWeek + term.weeks) {
+                        return this.units.filter(unit => unit.weeks.includes(week));
+                    }
+                    return [];
+                } else {
+                    // Default week view
+                    if (laneId === 'core') {
+                        return this.units.filter(unit => 
+                            unit.weeks.includes(week) && 
+                            unit.teacher === 'main' &&
+                            !unit.tags.includes('APEX') &&
+                            unit.code !== 'INTEGRATION' &&
+                            unit.code !== 'PROJECT'
+                        );
+                    } else if (laneId === 'specialist') {
+                        return this.units.filter(unit => 
+                            unit.weeks.includes(week) && unit.teacher === 'other'
+                        );
+                    } else if (laneId === 'project') {
+                        return this.units.filter(unit => 
+                            unit.weeks.includes(week) && 
+                            (unit.code === 'INTEGRATION' || unit.code === 'PROJECT')
+                        );
+                    } else if (laneId === 'apex') {
+                        return this.units.filter(unit => 
+                            unit.weeks.includes(week) && unit.tags.includes('APEX')
+                        );
+                    }
+                }
+                return [];
+            }
+
+            renderUnitBlock(unit, week, isFirstWeek = false) {
+                const color = this.colorMap[unit.color] || this.colorMap.foundational;
+                const darkColor = this.darkenColor(color, 30);
+                const isStudentView = this.isStudentView;
+                
+                return `
+                    <div class="unit-block" data-unit-id="${unit.id}" data-week="${week}"
+                         style="background: ${color}; border-left-color: ${darkColor};"
+                         draggable="${!isStudentView}">
+                        <div class="unit-code">${unit.code}</div>
+                        ${isFirstWeek ? `<div class="unit-name">${unit.name}</div>` : ''}
+                        ${unit.weeks.length > 1 && isFirstWeek ? 
+                            `<div class="unit-duration">${unit.weeks.length}w</div>` : ''}
+                        ${isStudentView && unit.teacher === 'other' ? 
+                            `<div class="week-summary" style="color: #fd79a8;">Other Teacher</div>` : ''}
+                        ${isStudentView && unit.tags.includes('SEASONAL') ? 
+                            `<div class="week-summary" style="color: #55efc4;">Seasonal Timing</div>` : ''}
+                    </div>
+                `;
+            }
+
+            getTermForWeek(week) {
+                return this.courseData.terms.find(term => 
+                    week >= term.startWeek && week < term.startWeek + term.weeks
+                );
+            }
+
+            setupTimelineEvents() {
+                const container = document.getElementById('timelineContent');
+                if (!container) return;
+
+                // Unit drag start
+                container.querySelectorAll('.unit-block').forEach(block => {
+                    if (this.isStudentView) return;
+                    
+                    block.addEventListener('dragstart', (e) => {
+                        const unitId = e.currentTarget.dataset.unitId;
+                        const unit = this.units.find(u => u.id === unitId);
+                        if (unit) {
+                            this.draggedFromPalette = false;
+                            this.draggedUnit = unit;
+                            e.dataTransfer.setData('text/plain', JSON.stringify({
+                                type: 'move',
+                                unitId: unitId
+                            }));
+                            e.currentTarget.classList.add('dragging');
+                        }
+                    });
+
+                    block.addEventListener('dragend', (e) => {
+                        e.currentTarget.classList.remove('dragging');
+                        this.draggedFromPalette = false;
+                        this.draggedUnit = null;
+                    });
+
+                    block.addEventListener('click', (e) => {
+                        if (this.isStudentView) {
+                            this.showStudentUnitDetails(e.currentTarget.dataset.unitId);
+                        } else {
+                            this.openUnitModal(e.currentTarget.dataset.unitId);
+                        }
+                    });
+                });
+
+                // Week slot drop zones
+                if (!this.isStudentView) {
+                    container.querySelectorAll('.week-slot').forEach(slot => {
+                        slot.addEventListener('dragover', (e) => {
+                            e.preventDefault();
+                            slot.style.background = 'rgba(9, 132, 227, 0.1)';
+                        });
+
+                        slot.addEventListener('dragleave', () => {
+                            slot.style.background = '';
+                        });
+
+                        slot.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            slot.style.background = '';
+                            
+                            const week = parseInt(slot.dataset.week);
+                            const lane = slot.dataset.lane;
+                            
+                            try {
+                                const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                                
+                                if (data.type === 'move') {
+                                    // Moving existing unit
+                                    this.moveUnit(data.unitId, week, lane);
+                                } else {
+                                    // Adding new unit from template
+                                    this.addUnitFromTemplate(data, week, lane);
+                                }
+                                
+                                this.showToast('Unit placed successfully', 'success');
+                            } catch (error) {
+                                console.error('Drop failed:', error);
+                            }
+                        });
+                    });
+                }
+            }
+
+            // ========== UNIT MANAGEMENT ==========
+            moveUnit(unitId, week, lane) {
+                const unitIndex = this.units.findIndex(u => u.id === unitId);
+                if (unitIndex === -1) return;
+
+                this.saveHistory();
+                
+                const unit = this.units[unitIndex];
+                unit.weeks = [week];
+                
+                // Update teacher based on lane
+                if (lane === 'specialist' || lane === 'other') {
+                    unit.teacher = 'other';
+                    if (!unit.tags.includes('SPECIALIST')) {
+                        unit.tags.push('SPECIALIST');
+                    }
+                } else if (lane === 'core' || lane === 'main') {
+                    unit.teacher = 'main';
+                    unit.tags = unit.tags.filter(tag => tag !== 'SPECIALIST');
+                }
+
+                this.renderEverything();
+                this.showSyncNotification('Unit moved');
+            }
+
+            addUnitFromTemplate(template, week, lane) {
+                this.saveHistory();
+                
+                const newUnit = {
+                    id: Date.now().toString(),
+                    code: template.code === 'CUSTOM' ? `CUST${Date.now()}` : template.code,
+                    name: template.name,
+                    weeks: [week],
+                    color: template.color,
+                    tags: [...template.tags],
+                    teacher: lane === 'specialist' || lane === 'other' ? 'other' : 'main',
+                    notes: '',
+                    resources: []
+                };
+
+                this.units.push(newUnit);
+                this.renderEverything();
+                this.showSyncNotification('Unit added');
+                
+                // Open modal to edit the new unit
+                if (!this.isStudentView) {
+                    setTimeout(() => this.openUnitModal(newUnit.id), 100);
+                }
+            }
+
+            openUnitModal(unitId) {
+                if (this.isStudentView) return;
+                
+                const unit = this.units.find(u => u.id === unitId);
+                if (!unit) return;
+
+                const modal = document.getElementById('unitModal');
+                const modalBody = document.getElementById('modalBody');
+                const modalTitle = document.getElementById('modalTitle');
+
+                modalTitle.textContent = `Edit Unit: ${unit.code}`;
+                
+                modalBody.innerHTML = `
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                        <div class="form-group">
+                            <label for="editUnitCode">Unit Code</label>
+                            <input type="text" id="editUnitCode" value="${unit.code}">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editUnitName">Unit Name</label>
+                            <input type="text" id="editUnitName" value="${unit.name}">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editUnitWeeks">Weeks</label>
+                            <input type="text" id="editUnitWeeks" value="${unit.weeks.join(',')}"
+                                   placeholder="e.g., 1,2,3 or 5-7">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editUnitColor">Unit Type</label>
+                            <select id="editUnitColor">
+                                <option value="safety" ${unit.color === 'safety' ? 'selected' : ''}>Safety</option>
+                                <option value="foundational" ${unit.color === 'foundational' ? 'selected' : ''}>Foundational</option>
+                                <option value="practical" ${unit.color === 'practical' ? 'selected' : ''}>Practical</option>
+                                <option value="machinery" ${unit.color === 'machinery' ? 'selected' : ''}>Machinery</option>
+                                <option value="apex" ${unit.color === 'apex' ? 'selected' : ''}>Apex</option>
+                                <option value="project" ${unit.color === 'project' ? 'selected' : ''}>Project</option>
+                                <option value="seasonal" ${unit.color === 'seasonal' ? 'selected' : ''}>Seasonal</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editUnitTeacher">Teacher</label>
+                            <select id="editUnitTeacher">
+                                <option value="main" ${unit.teacher === 'main' ? 'selected' : ''}>Main Teacher</option>
+                                <option value="other" ${unit.teacher === 'other' ? 'selected' : ''}>Other Teacher</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editUnitTags">Tags (comma separated)</label>
+                            <input type="text" id="editUnitTags" value="${unit.tags ? unit.tags.join(', ') : ''}"
+                                   placeholder="SAFETY, SEASONAL, SPECIALIST">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editUnitNotes">Notes</label>
+                            <textarea id="editUnitNotes" rows="4">${unit.notes || ''}</textarea>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 20px;">
+                            <button class="primary" onclick="app.saveUnitChanges('${unitId}')" style="flex: 1;">Save Changes</button>
+                            <button class="warning" onclick="app.deleteUnit('${unitId}')" style="flex: 1;">Delete Unit</button>
+                            <button onclick="document.getElementById('unitModal').style.display = 'none'" style="flex: 1;">Cancel</button>
+                        </div>
+                    </div>
+                `;
+
+                modal.style.display = 'flex';
+            }
+
+            saveUnitChanges(unitId) {
+                const unitIndex = this.units.findIndex(u => u.id === unitId);
+                if (unitIndex === -1) return;
+
+                this.saveHistory();
+                
+                const unit = this.units[unitIndex];
+                unit.code = document.getElementById('editUnitCode').value;
+                unit.name = document.getElementById('editUnitName').value;
+                
+                const weeksInput = document.getElementById('editUnitWeeks').value;
+                unit.weeks = this.parseWeeksInput(weeksInput);
+                
+                unit.color = document.getElementById('editUnitColor').value;
+                unit.teacher = document.getElementById('editUnitTeacher').value;
+                
+                const tagsInput = document.getElementById('editUnitTags').value;
+                unit.tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+                
+                unit.notes = document.getElementById('editUnitNotes').value;
+
+                document.getElementById('unitModal').style.display = 'none';
+                this.renderEverything();
+                this.showToast('Unit updated successfully', 'success');
+                this.showSyncNotification('Unit updated');
+            }
+
+            parseWeeksInput(input) {
+                if (input.includes('-')) {
+                    const [start, end] = input.split('-').map(Number);
+                    return Array.from({length: end - start + 1}, (_, i) => start + i);
+                } else if (input.includes(',')) {
+                    return input.split(',').map(w => parseInt(w.trim())).filter(w => !isNaN(w));
+                } else {
+                    return [parseInt(input) || 1];
+                }
+            }
+
+            deleteUnit(unitId) {
+                if (confirm('Are you sure you want to delete this unit?')) {
+                    this.saveHistory();
+                    this.units = this.units.filter(u => u.id !== unitId);
+                    document.getElementById('unitModal').style.display = 'none';
+                    this.renderEverything();
+                    this.showToast('Unit deleted', 'success');
+                    this.showSyncNotification('Unit deleted');
+                }
+            }
+
+            // ========== TERM MANAGEMENT ==========
+            openTermModal(termNumber) {
+                if (this.isStudentView) return;
+                
+                const term = this.courseData.terms.find(t => t.number === termNumber);
+                if (!term) return;
+
+                const modal = document.getElementById('termModal');
+                const modalBody = document.getElementById('termModalBody');
+
+                modalBody.innerHTML = `
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                        <div class="form-group">
+                            <label for="termName">Term Name</label>
+                            <input type="text" id="termName" value="${term.name || ''}">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="termWeeks">Number of Weeks</label>
+                            <input type="number" id="termWeeks" value="${term.weeks}" min="1" max="20">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="termStartWeek">Start Week</label>
+                            <input type="number" id="termStartWeek" value="${term.startWeek}" min="1" max="${this.courseData.totalWeeks}">
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 20px;">
+                            <button class="primary" onclick="app.saveTermChanges(${termNumber})" style="flex: 1;">Save Changes</button>
+                            <button onclick="document.getElementById('termModal').style.display = 'none'" style="flex: 1;">Cancel</button>
+                        </div>
+                    </div>
+                `;
+
+                modal.style.display = 'flex';
+            }
+
+            saveTermChanges(termNumber) {
+                const termIndex = this.courseData.terms.findIndex(t => t.number === termNumber);
+                if (termIndex === -1) return;
+
+                this.saveHistory();
+                
+                const term = this.courseData.terms[termIndex];
+                const oldWeeks = term.weeks;
+                const oldStartWeek = term.startWeek;
+                
+                term.name = document.getElementById('termName').value;
+                term.weeks = parseInt(document.getElementById('termWeeks').value);
+                term.startWeek = parseInt(document.getElementById('termStartWeek').value);
+                
+                // Adjust total weeks if term weeks changed
+                const weekDiff = term.weeks - oldWeeks;
+                if (weekDiff !== 0) {
+                    this.courseData.totalWeeks += weekDiff;
+                    
+                    // Update subsequent terms
+                    for (let i = termIndex + 1; i < this.courseData.terms.length; i++) {
+                        this.courseData.terms[i].startWeek += weekDiff;
+                    }
+                    
+                    // Adjust units in affected weeks
+                    this.adjustUnitsForTermChange(termNumber, weekDiff);
+                }
+                
+                // Adjust for start week change
+                const startDiff = term.startWeek - oldStartWeek;
+                if (startDiff !== 0) {
+                    // Update subsequent terms
+                    for (let i = termIndex + 1; i < this.courseData.terms.length; i++) {
+                        this.courseData.terms[i].startWeek += startDiff;
+                    }
+                    
+                    // Adjust units in affected weeks
+                    this.adjustUnitsForStartWeekChange(termNumber, startDiff);
+                }
+
+                document.getElementById('termModal').style.display = 'none';
+                this.renderEverything();
+                this.showToast('Term updated successfully', 'success');
+                this.showSyncNotification('Term updated');
+            }
+
+            adjustUnitsForTermChange(termNumber, weekDiff) {
+                const term = this.courseData.terms.find(t => t.number === termNumber);
+                if (!term) return;
+
+                this.units.forEach(unit => {
+                    unit.weeks = unit.weeks.map(week => {
+                        if (week >= term.startWeek + term.weeks - weekDiff) {
+                            return week + weekDiff;
+                        }
+                        return week;
+                    });
+                });
+            }
+
+            adjustUnitsForStartWeekChange(termNumber, startDiff) {
+                const termIndex = this.courseData.terms.findIndex(t => t.number === termNumber);
+                if (termIndex === -1) return;
+
+                this.units.forEach(unit => {
+                    unit.weeks = unit.weeks.map(week => {
+                        for (let i = termIndex; i < this.courseData.terms.length; i++) {
+                            const t = this.courseData.terms[i];
+                            if (week >= t.startWeek - startDiff && week < t.startWeek - startDiff + t.weeks) {
+                                return week + startDiff;
+                            }
+                        }
+                        return week;
+                    });
+                });
+            }
+
+            // ========== WEEK MANAGEMENT ==========
+            addWeek() {
+                const position = prompt(`Add week at which position? (1-${this.courseData.totalWeeks + 1}, or "end" for at the end)`);
+                if (!position) return;
+
+                this.saveHistory();
+                
+                let insertPosition;
+                if (position.toLowerCase() === 'end') {
+                    insertPosition = this.courseData.totalWeeks + 1;
+                } else {
+                    insertPosition = parseInt(position);
+                    if (isNaN(insertPosition) || insertPosition < 1 || insertPosition > this.courseData.totalWeeks + 1) {
+                        this.showToast('Invalid position', 'error');
+                        return;
+                    }
+                }
+
+                // Increment total weeks
+                this.courseData.totalWeeks++;
+                
+                // Find which term this week is being inserted into
+                let termToUpdate = null;
+                let termIndex = -1;
+                
+                for (let i = 0; i < this.courseData.terms.length; i++) {
+                    const term = this.courseData.terms[i];
+                    if (insertPosition >= term.startWeek) {
+                        termToUpdate = term;
+                        termIndex = i;
+                    }
+                }
+                
+                // Update the term where week is inserted
+                if (termToUpdate && insertPosition >= termToUpdate.startWeek && insertPosition <= termToUpdate.startWeek + termToUpdate.weeks) {
+                    termToUpdate.weeks++;
+                }
+                
+                // Update subsequent terms' start weeks
+                for (let i = termIndex + 1; i < this.courseData.terms.length; i++) {
+                    this.courseData.terms[i].startWeek++;
+                }
+                
+                // Adjust units
+                this.adjustUnitsForWeekInsertion(insertPosition, 1);
+                
+                this.renderEverything();
+                this.showToast('Week added', 'success');
+                this.showSyncNotification('Week added');
+            }
+
+            removeWeek() {
+                const weekToRemove = parseInt(prompt(`Remove which week? (1-${this.courseData.totalWeeks})`));
+                if (isNaN(weekToRemove) || weekToRemove < 1 || weekToRemove > this.courseData.totalWeeks) {
+                    this.showToast('Invalid week', 'error');
+                    return;
+                }
+
+                if (!confirm(`Remove Week ${weekToRemove}? This will also remove any units scheduled for this week.`)) {
+                    return;
+                }
+
+                this.saveHistory();
+                
+                // Decrement total weeks
+                this.courseData.totalWeeks--;
+                
+                // Find which term this week is in
+                let termToUpdate = null;
+                let termIndex = -1;
+                
+                for (let i = 0; i < this.courseData.terms.length; i++) {
+                    const term = this.courseData.terms[i];
+                    if (weekToRemove >= term.startWeek && weekToRemove < term.startWeek + term.weeks) {
+                        termToUpdate = term;
+                        termIndex = i;
+                        break;
+                    }
+                }
+                
+                if (termToUpdate) {
+                    termToUpdate.weeks--;
+                }
+                
+                // Update subsequent terms' start weeks
+                for (let i = termIndex + 1; i < this.courseData.terms.length; i++) {
+                    this.courseData.terms[i].startWeek--;
+                }
+                
+                // Remove units in this week and adjust others
+                this.adjustUnitsForWeekRemoval(weekToRemove);
+                
+                this.renderEverything();
+                this.showToast('Week removed', 'success');
+                this.showSyncNotification('Week removed');
+            }
+
+            addWeekToTerm() {
+                const termNumber = parseInt(prompt('Add a week to which term? (1-4)'));
+                if (isNaN(termNumber) || termNumber < 1 || termNumber > this.courseData.terms.length) {
+                    this.showToast('Invalid term number', 'error');
+                    return;
+                }
+
+                this.saveHistory();
+                
+                const term = this.courseData.terms[termNumber - 1];
+                
+                // Increment total weeks
+                this.courseData.totalWeeks++;
+                
+                // Add week to this term
+                term.weeks++;
+                
+                // Update subsequent terms' start weeks
+                for (let i = termNumber; i < this.courseData.terms.length; i++) {
+                    this.courseData.terms[i].startWeek++;
+                }
+                
+                // Adjust units in subsequent terms
+                this.adjustUnitsForWeekInsertion(term.startWeek + term.weeks - 1, 1);
+                
+                this.renderEverything();
+                this.showToast(`Week added to Term ${termNumber}`, 'success');
+                this.showSyncNotification('Week added to term');
+            }
+
+            removeWeekFromTerm() {
+                const termNumber = parseInt(prompt('Remove a week from which term? (1-4)'));
+                if (isNaN(termNumber) || termNumber < 1 || termNumber > this.courseData.terms.length) {
+                    this.showToast('Invalid term number', 'error');
+                    return;
+                }
+
+                const term = this.courseData.terms[termNumber - 1];
+                
+                if (term.weeks <= 1) {
+                    this.showToast(`Term ${termNumber} already has only 1 week`, 'error');
+                    return;
+                }
+
+                const weekToRemove = term.startWeek + term.weeks - 1;
+                
+                if (!confirm(`Remove week ${weekToRemove} from Term ${termNumber}?`)) {
+                    return;
+                }
+
+                this.saveHistory();
+                
+                // Decrement total weeks
+                this.courseData.totalWeeks--;
+                
+                // Remove week from this term
+                term.weeks--;
+                
+                // Update subsequent terms' start weeks
+                for (let i = termNumber; i < this.courseData.terms.length; i++) {
+                    this.courseData.terms[i].startWeek--;
+                }
+                
+                // Remove units in this week and adjust others
+                this.adjustUnitsForWeekRemoval(weekToRemove);
+                
+                this.renderEverything();
+                this.showToast(`Week removed from Term ${termNumber}`, 'success');
+                this.showSyncNotification('Week removed from term');
+            }
+
+            adjustUnitsForWeekInsertion(insertPosition, count) {
+                this.units.forEach(unit => {
+                    unit.weeks = unit.weeks.map(week => {
+                        if (week >= insertPosition) {
+                            return week + count;
+                        }
+                        return week;
+                    });
+                });
+                
+                // Adjust blocked weeks
+                const newBlockedWeeks = {};
+                Object.keys(this.blockedWeeks).forEach(weekStr => {
+                    let week = parseInt(weekStr);
+                    if (week >= insertPosition) {
+                        week += count;
+                    }
+                    newBlockedWeeks[week] = this.blockedWeeks[weekStr];
+                });
+                this.blockedWeeks = newBlockedWeeks;
+                
+                // Adjust project milestones
+                this.courseData.projectMilestones.forEach(milestone => {
+                    if (milestone.week >= insertPosition) {
+                        milestone.week += count;
+                    }
+                });
+            }
+
+            adjustUnitsForWeekRemoval(weekToRemove) {
+                // Remove units in this week
+                this.units = this.units.filter(unit => !unit.weeks.includes(weekToRemove));
+                
+                // Adjust remaining units
+                this.units.forEach(unit => {
+                    unit.weeks = unit.weeks
+                        .map(w => w > weekToRemove ? w - 1 : w)
+                        .filter(w => w !== weekToRemove);
+                });
+                
+                // Remove blocked week if exists
+                delete this.blockedWeeks[weekToRemove];
+                
+                // Adjust remaining blocked weeks
+                const newBlockedWeeks = {};
+                Object.keys(this.blockedWeeks).forEach(weekStr => {
+                    let week = parseInt(weekStr);
+                    if (week > weekToRemove) {
+                        week--;
+                    }
+                    newBlockedWeeks[week] = this.blockedWeeks[weekStr];
+                });
+                this.blockedWeeks = newBlockedWeeks;
+                
+                // Adjust project milestones
+                this.courseData.projectMilestones = this.courseData.projectMilestones
+                    .filter(milestone => milestone.week !== weekToRemove)
+                    .map(milestone => {
+                        if (milestone.week > weekToRemove) {
+                            return { ...milestone, week: milestone.week - 1 };
+                        }
+                        return milestone;
+                    });
+            }
+
+            // ========== STUDENT VIEW ==========
+            renderStudentTermOverviews() {
+                const container = document.getElementById('studentTermOverviews');
+                if (!container) return;
+
+                let html = '';
+                
+                this.courseData.terms.forEach(term => {
+                    const termUnits = this.units.filter(unit => {
+                        const weeks = unit.weeks;
+                        return weeks.some(week => 
+                            week >= term.startWeek && week < term.startWeek + term.weeks
+                        );
+                    });
+                    
+                    // Get unique units by code
+                    const uniqueUnits = [];
+                    const seenCodes = new Set();
+                    termUnits.forEach(unit => {
+                        if (!seenCodes.has(unit.code)) {
+                            seenCodes.add(unit.code);
+                            uniqueUnits.push(unit);
+                        }
+                    });
+                    
+                    html += `
+                        <div class="term-overview">
+                            <h3>Term ${term.number}: ${term.name}</h3>
+                            <div class="term-units">
+                                ${uniqueUnits.map(unit => `
+                                    <div class="term-unit-card">
+                                        <div style="font-weight: 600; color: #0984e3;">${unit.code}</div>
+                                        <div style="font-size: 13px; margin-top: 5px;">${unit.name}</div>
+                                        ${unit.teacher === 'other' ? 
+                                            `<div style="font-size: 11px; color: #fd79a8; margin-top: 3px;">Other Teacher</div>` : ''}
+                                        ${unit.tags && unit.tags.includes('SEASONAL') ? 
+                                            `<div style="font-size: 11px; color: #55efc4; margin-top: 3px;">Seasonal Timing</div>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+            }
+
+            showStudentUnitDetails(unitId) {
+                const unit = this.units.find(u => u.id === unitId);
+                if (!unit) return;
+
+                const modal = document.getElementById('unitModal');
+                const modalBody = document.getElementById('modalBody');
+                const modalTitle = document.getElementById('modalTitle');
+
+                modalTitle.textContent = `${unit.code} - ${unit.name}`;
+                
+                const weeks = unit.weeks;
+                const startWeek = Math.min(...weeks);
+                const endWeek = Math.max(...weeks);
+                const duration = weeks.length;
+                
+                modalBody.innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                            <div style="flex: 1; background: #f8f9fa; padding: 10px; border-radius: 6px;">
+                                <div style="font-size: 12px; color: #636e72;">Timing</div>
+                                <div style="font-weight: 600;">Weeks ${startWeek}-${endWeek} (${duration} week${duration > 1 ? 's' : ''})</div>
+                            </div>
+                            <div style="flex: 1; background: #f8f9fa; padding: 10px; border-radius: 6px;">
+                                <div style="font-size: 12px; color: #636e72;">Taught by</div>
+                                <div style="font-weight: 600;">${unit.teacher === 'other' ? 'Other Teacher' : 'Main Teacher'}</div>
+                            </div>
+                        </div>
+                        
+                        ${unit.tags && unit.tags.length > 0 ? `
+                            <div style="margin-bottom: 15px;">
+                                <div style="font-size: 12px; color: #636e72; margin-bottom: 5px;">Tags</div>
+                                <div>
+                                    ${unit.tags.map(tag => `
+                                        <span style="display: inline-block; background: #e9ecef; padding: 3px 8px; border-radius: 12px; font-size: 11px; margin-right: 5px; margin-bottom: 5px;">
+                                            ${tag}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${unit.notes ? `
+                            <div style="margin-bottom: 15px;">
+                                <div style="font-size: 12px; color: #636e72; margin-bottom: 5px;">Description</div>
+                                <div style="background: #f8f9fa; padding: 10px; border-radius: 6px;">${unit.notes}</div>
+                            </div>
+                        ` : ''}
+                        
+                        <button onclick="document.getElementById('unitModal').style.display = 'none'" 
+                                style="width: 100%; padding: 10px; background: #0984e3; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            Close
+                        </button>
+                    </div>
+                `;
+
+                modal.style.display = 'flex';
+            }
+
+            // ========== PLAN MANAGEMENT ==========
+            renderSavedPlans() {
+                const container = document.getElementById('savedPlans');
+                if (!container || this.isStudentView) return;
+
+                try {
+                    const savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
+                    
+                    if (savedPlans.length === 0) {
+                        container.innerHTML = '<p style="color: #666; font-size: 14px;">No saved plans yet.</p>';
+                        return;
+                    }
+
+                    container.innerHTML = savedPlans.map(plan => `
+                        <div style="padding: 10px; margin-bottom: 10px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #0984e3;">
+                            <div style="font-weight: 600; margin-bottom: 5px;">${plan.name}</div>
+                            <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
+                                ${new Date(plan.date).toLocaleDateString()} • ${plan.units?.length || 0} units
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button onclick="app.loadPlan('${plan.id}')" 
+                                        style="flex: 1; padding: 5px; font-size: 12px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                    Load
+                                </button>
+                                <button onclick="app.deleteSavedPlan('${plan.id}')" 
+                                        style="flex: 1; padding: 5px; font-size: 12px; background: #ff6b6b; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    console.error('Failed to render saved plans:', error);
+                    container.innerHTML = '<p style="color: #666; font-size: 14px;">Error loading saved plans.</p>';
+                }
+            }
+
+            savePlan() {
+                if (this.isStudentView) return;
+                
+                const planName = prompt('Enter a name for this plan:', `Plan ${new Date().toLocaleDateString()}`);
+                if (!planName) return;
+
+                const plan = {
+                    id: Date.now().toString(),
+                    name: planName,
+                    date: new Date().toISOString(),
+                    units: this.units,
+                    courseData: this.courseData,
+                    blockedWeeks: this.blockedWeeks,
+                    version: CONFIG.APP_VERSION
+                };
+
+                try {
+                    let savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
+                    savedPlans.push(plan);
+                    localStorage.setItem(`${CONFIG.STORAGE_PREFIX}plans`, JSON.stringify(savedPlans));
+                    
+                    // Also save as autosave
+                    localStorage.setItem(`${CONFIG.STORAGE_PREFIX}autosave`, JSON.stringify({
+                        units: this.units,
+                        courseData: this.courseData,
+                        blockedWeeks: this.blockedWeeks,
+                        timestamp: Date.now(),
+                        version: CONFIG.APP_VERSION
+                    }));
+                    
+                    this.showToast(`Plan "${planName}" saved!`, 'success');
+                    this.renderSavedPlans();
+                    this.showSyncNotification('Plan saved');
+                } catch (error) {
+                    console.error('Failed to save plan:', error);
+                    this.showToast('Failed to save plan', 'error');
+                }
+            }
+
+            loadPlan(planId) {
+                try {
+                    const savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
+                    const plan = savedPlans.find(p => p.id === planId);
+                    
+                    if (plan) {
+                        this.saveHistory();
+                        this.units = plan.units || [];
+                        this.courseData = plan.courseData || this.courseData;
+                        this.blockedWeeks = plan.blockedWeeks || {};
+                        this.renderEverything();
+                        this.showToast(`Loaded "${plan.name}"`, 'success');
+                        this.showSyncNotification('Plan loaded');
+                    }
+                } catch (error) {
+                    console.error('Failed to load plan:', error);
+                    this.showToast('Failed to load plan', 'error');
+                }
+            }
+
+            deleteSavedPlan(planId) {
+                if (confirm('Delete this saved plan?')) {
+                    try {
+                        let savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
+                        savedPlans = savedPlans.filter(p => p.id !== planId);
+                        localStorage.setItem(`${CONFIG.STORAGE_PREFIX}plans`, JSON.stringify(savedPlans));
+                        this.renderSavedPlans();
+                        this.showToast('Plan deleted', 'success');
+                    } catch (error) {
+                        console.error('Failed to delete plan:', error);
+                        this.showToast('Failed to delete plan', 'error');
+                    }
+                }
+            }
+
+            resetToDefault() {
+                if (confirm('Reset to default course sequence? Any unsaved changes will be lost.')) {
+                    this.saveHistory();
+                    this.units = [...this.defaultUnits];
+                    this.courseData = {
+                        totalWeeks: CONFIG.DEFAULT_TOTAL_WEEKS,
+                        terms: [
+                            { number: 1, weeks: 10, startWeek: 1, name: "Safety, Foundations & Summer Harvest" },
+                            { number: 2, weeks: 10, startWeek: 11, name: "Practical Skills & Application" },
+                            { number: 3, weeks: 10, startWeek: 21, name: "Machinery & Advanced Integration" },
+                            { number: 4, weeks: 7, startWeek: 31, name: "Apex & Finalisation" }
+                        ],
+                        projectMilestones: [
+                            { week: 18, label: "Project Start" },
+                            { week: 25, label: "Phase 2" },
+                            { week: 30, label: "Integration" },
+                            { week: 34, label: "Final Phase" }
+                        ]
+                    };
+                    this.blockedWeeks = {};
+                    
+                    this.renderEverything();
+                    this.showToast('Reset to default sequence', 'success');
+                    this.showSyncNotification('Reset to default');
+                }
+            }
+
+            clearTimetable() {
+                if (confirm('Are you sure you want to clear ALL units from the timetable?')) {
+                    this.saveHistory();
+                    this.units = [];
+                    this.renderEverything();
+                    this.showToast('Timetable cleared', 'success');
+                    this.showSyncNotification('Timetable cleared');
+                }
+            }
+
+            // ========== SHARING ==========
+            sharePlan() {
+                if (this.isStudentView) return;
+                
+                const shareId = `shared_${Date.now()}`;
+                const shareData = {
+                    id: shareId,
+                    name: 'Shared Student View',
+                    date: new Date().toISOString(),
+                    units: this.units,
+                    courseData: this.courseData,
+                    blockedWeeks: this.blockedWeeks,
+                    lastUpdate: new Date().toISOString(),
+                    version: CONFIG.APP_VERSION
+                };
+
+                localStorage.setItem(`${CONFIG.STORAGE_PREFIX}${shareId}`, JSON.stringify(shareData));
+
+                const shareUrl = `${window.location.origin}${window.location.pathname}?student=true&plan=${shareId}`;
+                
+                // Show share panel
+                const panel = document.getElementById('sharePanel');
+                const input = document.getElementById('shareLink');
+                const copyBtn = document.getElementById('copyShareLink');
+                const qrContainer = document.getElementById('qrCode');
+                
+                input.value = shareUrl;
+                panel.classList.add('show');
+                
+                // Generate QR code
+                qrContainer.innerHTML = `
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}" 
+                         alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px;">
+                `;
+                
+                copyBtn.onclick = () => {
+                    input.select();
+                    document.execCommand('copy');
+                    this.showToast('Link copied to clipboard!', 'success');
+                };
+            }
+
+            toggleViewMode() {
+                if (this.isStudentView) {
+                    // Switch to editor view
+                    window.location.href = window.location.pathname;
+                } else {
+                    // Switch to student view
+                    this.sharePlan();
+                }
+            }
+
+            // ========== WEEK BLOCKING ==========
+            applyWeekBlocking() {
+                if (this.isStudentView) return;
+                
+                const blockingType = document.getElementById('weekBlocking').value;
+                const weekRangeInput = document.getElementById('weekRange').value;
+                
+                if (!blockingType || !weekRangeInput) {
+                    this.showToast('Please select blocking type and enter week range', 'error');
+                    return;
+                }
+                
+                let weeks = [];
+                if (weekRangeInput.includes('-')) {
+                    const [start, end] = weekRangeInput.split('-').map(Number);
+                    weeks = Array.from({length: end - start + 1}, (_, i) => start + i);
+                } else if (weekRangeInput.includes(',')) {
+                    weeks = weekRangeInput.split(',').map(w => parseInt(w.trim())).filter(w => !isNaN(w));
+                } else {
+                    weeks = [parseInt(weekRangeInput) || 1];
+                }
+                
+                // Validate weeks
+                weeks.forEach(week => {
+                    if (week < 1 || week > this.courseData.totalWeeks) {
+                        this.showToast(`Week ${week} is outside valid range`, 'error');
+                        return;
+                    }
+                });
+                
+                this.saveHistory();
+                
+                weeks.forEach(week => {
+                    if (blockingType === 'clear') {
+                        delete this.blockedWeeks[week];
+                    } else {
+                        this.blockedWeeks[week] = {
+                            type: blockingType,
+                            label: this.blockingLabels[blockingType]
+                        };
+                    }
+                });
+                
+                this.renderEverything();
+                this.showToast(`Week blocking applied to weeks ${weeks.join(', ')}`, 'success');
+                this.showSyncNotification('Week blocking applied');
+            }
+
+            // ========== EXPORT/IMPORT ==========
+            exportPlan() {
+                if (this.isStudentView) return;
+                
+                const data = {
+                    version: CONFIG.APP_VERSION,
+                    timestamp: new Date().toISOString(),
+                    units: this.units,
+                    courseData: this.courseData,
+                    blockedWeeks: this.blockedWeeks
+                };
+
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `course-plan-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                this.showToast('Plan exported successfully', 'success');
+            }
+
+            importPlan() {
+                if (this.isStudentView) return;
+                
+                const fileInput = document.getElementById('importPlan');
+                if (!fileInput.files.length) return;
+                
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data.units && data.courseData) {
+                            this.saveHistory();
+                            this.units = data.units;
+                            this.courseData = data.courseData;
+                            this.blockedWeeks = data.blockedWeeks || {};
+                            this.renderEverything();
+                            this.showToast('Plan imported successfully', 'success');
+                            this.showSyncNotification('Plan imported');
+                        } else {
+                            this.showToast('Invalid plan file', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Failed to import plan:', error);
+                        this.showToast('Failed to import plan', 'error');
+                    }
+                };
+                
+                reader.readAsText(file);
+                fileInput.value = '';
+            }
+
+            printPlan() {
+                window.print();
+            }
+
+            // ========== UTILITIES ==========
+            updateTotalWeeksDisplay() {
+                const display = document.getElementById('totalWeeksDisplay');
+                if (display) {
+                    display.textContent = this.courseData.totalWeeks;
+                }
+            }
+
             showToast(message, type = 'info') {
                 const container = document.getElementById('toastsContainer');
                 if (!container) return;
@@ -1611,6 +2788,19 @@
                 }, 3000);
             }
 
+            showSyncNotification(message) {
+                const status = document.getElementById('syncStatus');
+                const messageEl = document.getElementById('syncMessage');
+                if (status && messageEl) {
+                    messageEl.textContent = message;
+                    status.classList.add('show');
+                    
+                    setTimeout(() => {
+                        status.classList.remove('show');
+                    }, 3000);
+                }
+            }
+
             hideLoadingScreen() {
                 const loading = document.getElementById('loading');
                 if (loading) {
@@ -1622,7 +2812,6 @@
             }
 
             darkenColor(color, percent) {
-                // Simple color darkening
                 const num = parseInt(color.replace('#', ''), 16);
                 const amt = Math.round(2.55 * percent);
                 const R = (num >> 16) - amt;
@@ -1636,22 +2825,53 @@
                 ).toString(16).slice(1);
             }
 
+            // ========== EVENT LISTENERS ==========
             setupEventListeners() {
-                // Header buttons
-                document.getElementById('savePlanBtn').addEventListener('click', () => this.savePlan());
-                document.getElementById('sharePlanBtn').addEventListener('click', () => this.sharePlan());
-                document.getElementById('resetPlanBtn').addEventListener('click', () => this.resetToDefault());
-                document.getElementById('clearTimetableBtn').addEventListener('click', () => this.clearTimetable());
-                document.getElementById('toggleViewBtn').addEventListener('click', () => this.toggleViewMode());
+                // View mode changes
+                document.getElementById('viewMode').addEventListener('change', (e) => {
+                    this.currentView = e.target.value;
+                    this.renderTimeline();
+                });
+
+                document.getElementById('highlightMode').addEventListener('change', (e) => {
+                    // Highlight units based on selection
+                    this.showToast(`Highlighting ${e.target.value} units`, 'info');
+                });
 
                 // Control buttons
-                document.getElementById('addUnitBtn').addEventListener('click', () => this.addNewUnit());
+                document.getElementById('savePlan').addEventListener('click', () => this.savePlan());
+                document.getElementById('sharePlan').addEventListener('click', () => this.sharePlan());
+                document.getElementById('resetPlan').addEventListener('click', () => this.resetToDefault());
+                document.getElementById('clearTimetable').addEventListener('click', () => this.clearTimetable());
+                document.getElementById('printPlan').addEventListener('click', () => this.printPlan());
+                document.getElementById('exportPlan').addEventListener('click', () => this.exportPlan());
+                document.getElementById('applyBlocking').addEventListener('click', () => this.applyWeekBlocking());
+                
+                // Week management
                 document.getElementById('addWeekBtn').addEventListener('click', () => this.addWeek());
                 document.getElementById('removeWeekBtn').addEventListener('click', () => this.removeWeek());
-                document.getElementById('exportPlanBtn').addEventListener('click', () => this.exportPlan());
-                document.getElementById('printBtn').addEventListener('click', () => this.printPlan());
-
+                document.getElementById('addWeekToTermBtn').addEventListener('click', () => this.addWeekToTerm());
+                document.getElementById('removeWeekFromTermBtn').addEventListener('click', () => this.removeWeekFromTerm());
+                
+                // Unit management
+                document.getElementById('addCustomUnit').addEventListener('click', () => this.addUnitFromTemplate(
+                    { code: 'CUSTOM', name: 'Custom Unit/Block', color: 'foundational', tags: ['CUSTOM'] },
+                    1,
+                    'core'
+                ));
+                
+                document.getElementById('importPlanBtn').addEventListener('click', () => this.importPlan());
+                
+                // View toggle
+                document.getElementById('toggleView').addEventListener('click', () => this.toggleViewMode());
+                
                 // Modal close buttons
+                document.querySelectorAll('.close-modal').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        this.closest('.modal').style.display = 'none';
+                    });
+                });
+                
                 document.querySelectorAll('.modal').forEach(modal => {
                     modal.addEventListener('click', (e) => {
                         if (e.target === modal) {
@@ -1659,9 +2879,26 @@
                         }
                     });
                 });
+                
+                // Close share panel when clicking outside
+                document.addEventListener('click', (e) => {
+                    const panel = document.getElementById('sharePanel');
+                    const toggleBtn = document.getElementById('toggleView');
+                    const shareBtn = document.getElementById('sharePlan');
+                    
+                    if (panel && panel.classList.contains('show') && 
+                        !panel.contains(e.target) && 
+                        !toggleBtn.contains(e.target) &&
+                        !shareBtn.contains(e.target)) {
+                        panel.classList.remove('show');
+                    }
+                });
+            }
 
-                // Keyboard shortcuts
+            setupKeyboardShortcuts() {
                 document.addEventListener('keydown', (e) => {
+                    if (e.target.matches('input, textarea, select')) return;
+                    
                     if (e.ctrlKey || e.metaKey) {
                         switch(e.key) {
                             case 'z':
@@ -1680,6 +2917,10 @@
                                 e.preventDefault();
                                 this.savePlan();
                                 break;
+                            case 'p':
+                                e.preventDefault();
+                                this.printPlan();
+                                break;
                         }
                     }
                     
@@ -1687,19 +2928,8 @@
                         document.querySelectorAll('.modal').forEach(modal => {
                             modal.style.display = 'none';
                         });
+                        document.getElementById('sharePanel').classList.remove('show');
                     }
-                });
-
-                // View mode changes
-                document.getElementById('viewMode').addEventListener('change', (e) => {
-                    this.currentView = e.target.value;
-                    // In a real implementation, this would trigger a different rendering
-                    this.showToast(`Switched to ${e.target.value} view`, 'success');
-                });
-
-                document.getElementById('highlightMode').addEventListener('change', (e) => {
-                    // Highlight units based on selection
-                    this.showToast(`Highlighting ${e.target.value} units`, 'success');
                 });
             }
         }
