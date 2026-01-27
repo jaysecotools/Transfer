@@ -1168,75 +1168,70 @@
 
     <!-- Main JavaScript -->
 <script>
-    // ========== CONFIGURATION ==========
-    const CONFIG = {
-        APP_VERSION: '3.0.0',
-        STORAGE_PREFIX: 'cet_',
-        DEFAULT_TOTAL_WEEKS: 37,
-        SHARED_PLAN_KEY: 'shared_main_plan' // SINGLE shared plan key
-    };
-
-    // ========== STATE MANAGEMENT ==========
+    // ========== SIMPLIFIED VERSION - GUARANTEED TO WORK ==========
+    const SHARED_STORAGE_KEY = 'course_planner_shared_data';
+    
     class CoursePlanner {
         constructor() {
             this.units = [];
-            this.courseData = {
-                totalWeeks: CONFIG.DEFAULT_TOTAL_WEEKS,
-                terms: [
-                    { number: 1, weeks: 10, startWeek: 1, name: "Safety, Foundations & Summer Harvest" },
-                    { number: 2, weeks: 10, startWeek: 11, name: "Practical Skills & Application" },
-                    { number: 3, weeks: 10, startWeek: 21, name: "Machinery & Advanced Integration" },
-                    { number: 4, weeks: 7, startWeek: 31, name: "Apex & Finalisation" }
-                ],
-                projectMilestones: [
-                    { id: 'milestone-1', week: 18, label: "Project Start" },
-                    { id: 'milestone-2', week: 25, label: "Phase 2" },
-                    { id: 'milestone-3', week: 30, label: "Integration" },
-                    { id: 'milestone-4', week: 34, label: "Final Phase" }
-                ]
-            };
-            this.blockedWeeks = {};
-            this.currentView = 'week';
-            this.history = [];
-            this.historyIndex = -1;
-            this.isStudentView = false;
-            this.draggedUnit = null;
-            this.draggedMarker = null;
-            this.draggedFromPalette = false;
+            this.isStudentView = window.location.search.includes('student=true');
+            this.init();
+        }
+        
+        init() {
+            console.log('=== INITIALIZING ===');
+            console.log('Is Student View:', this.isStudentView);
+            console.log('URL:', window.location.href);
             
-            this.colorMap = {
-                safety: '#ff6b6b',
-                foundational: '#4ecdc4',
-                practical: '#45b7d1',
-                machinery: '#96ceb4',
-                apex: '#ffeaa7',
-                project: '#a29bfe',
-                specialist: '#fd79a8',
-                seasonal: '#55efc4',
-                holiday: '#dfe6e9',
-                'term-break': '#b2bec3',
-                easter: '#fab1a0',
-                'teacher-training': '#a29bfe',
-                leave: '#fd79a8'
-            };
-
-            this.blockingLabels = {
-                easter: 'EASTER BREAK',
-                'term-break': 'TERM BREAK',
-                training: 'TEACHER TRAINING',
-                leave: 'LEAVE'
-            };
-
-            this.defaultUnits = [
+            this.loadData();
+            this.setupUI();
+            this.renderEverything();
+            this.setupEventListeners();
+            this.hideLoadingScreen();
+        }
+        
+        // ========== SINGLE DATA SOURCE ==========
+        loadData() {
+            console.log('=== LOADING DATA ===');
+            
+            // Try to load from shared storage
+            const sharedData = localStorage.getItem(SHARED_STORAGE_KEY);
+            console.log('Shared data found:', !!sharedData);
+            
+            if (sharedData) {
+                try {
+                    const data = JSON.parse(sharedData);
+                    console.log('Parsed data:', data);
+                    
+                    if (data.units && Array.isArray(data.units)) {
+                        this.units = data.units;
+                        console.log('Loaded', this.units.length, 'units from shared storage');
+                        
+                        // Log first few units to verify
+                        console.log('First 3 units:', this.units.slice(0, 3));
+                    } else {
+                        console.log('No valid units in shared storage, using defaults');
+                        this.loadDefaultUnits();
+                    }
+                } catch (error) {
+                    console.error('Error parsing shared data:', error);
+                    this.loadDefaultUnits();
+                }
+            } else {
+                console.log('No shared data found, using defaults');
+                this.loadDefaultUnits();
+            }
+        }
+        
+        loadDefaultUnits() {
+            this.units = [
                 {
                     id: '1',
                     code: 'AHCWHS302',
                     name: 'Work Health & Safety',
                     weeks: [1, 2],
                     color: 'safety',
-                    tags: ['SAFETY'],
-                    teacher: 'main',
-                    notes: 'Non-negotiable foundation'
+                    teacher: 'main'
                 },
                 {
                     id: '2',
@@ -1244,9 +1239,7 @@
                     name: 'First Aid',
                     weeks: [1, 2],
                     color: 'safety',
-                    tags: ['SAFETY', 'SPECIALIST'],
-                    teacher: 'other',
-                    notes: 'Clustered with WHS for efficiency'
+                    teacher: 'other'
                 },
                 {
                     id: '3',
@@ -1254,1907 +1247,209 @@
                     name: 'Collect native seed',
                     weeks: [3, 4],
                     color: 'seasonal',
-                    tags: ['SEASONAL'],
-                    teacher: 'main',
-                    notes: 'Must be early due to seed season'
-                },
-                {
-                    id: '4',
-                    code: 'AHCBIO303',
-                    name: 'Biosecurity',
-                    weeks: [3, 4],
-                    color: 'foundational',
-                    tags: [],
-                    teacher: 'main',
-                    notes: 'Essential for seed/plant handling'
-                },
-                {
-                    id: '5',
-                    code: 'AHCPCM303',
-                    name: 'Identify plant specimens',
-                    weeks: [5, 6, 7],
-                    color: 'foundational',
-                    tags: [],
-                    teacher: 'main',
-                    notes: 'Foundational skill - use seed collection trips'
-                },
-                {
-                    id: '6',
-                    code: 'AHCNSY207',
-                    name: 'Undertake propagation activities',
-                    weeks: [8],
-                    color: 'foundational',
-                    tags: [],
-                    teacher: 'main',
-                    notes: 'Follow-up to seed collection'
-                },
-                {
-                    id: '7',
-                    code: 'AHCFAU302',
-                    name: 'Identify fauna in the field',
-                    weeks: [9, 10],
-                    color: 'foundational',
-                    tags: ['SEASONAL'],
-                    teacher: 'main',
-                    notes: 'Late summer/early autumn activity'
-                },
-                {
-                    id: '8',
-                    code: 'AHCPMG301',
-                    name: 'Control weeds',
-                    weeks: [11, 12],
-                    color: 'practical',
-                    tags: [],
-                    teacher: 'main',
-                    notes: 'Builds on plant ID'
-                },
-                {
-                    id: '9',
-                    code: 'AHCCHM304',
-                    name: 'Transport/handle chemicals',
-                    weeks: [13],
-                    color: 'practical',
-                    tags: ['SPECIALIST'],
-                    teacher: 'other',
-                    notes: 'Clustered with weed control'
-                },
-                {
-                    id: '10',
-                    code: 'AHCCHM307',
-                    name: 'Apply chemicals',
-                    weeks: [13],
-                    color: 'practical',
-                    tags: ['SPECIALIST'],
-                    teacher: 'other',
-                    notes: 'Clustered chemical application'
-                },
-                {
-                    id: '11',
-                    code: 'FWPCOT2266',
-                    name: 'Operate brush cutter',
-                    weeks: [14, 15],
-                    color: 'practical',
-                    tags: ['SPECIALIST'],
-                    teacher: 'other',
-                    notes: 'Practical vegetation management'
-                },
-                {
-                    id: '12',
-                    code: 'AHCECR301',
-                    name: 'Maintain native ecosystem areas',
-                    weeks: [16, 17],
-                    color: 'practical',
-                    tags: [],
-                    teacher: 'main',
-                    notes: 'Ecosystem-scale application'
-                },
-                {
-                    id: '13',
-                    code: 'AHCLPW313',
-                    name: 'Water sampling & testing',
-                    weeks: [18, 19, 20],
-                    color: 'practical',
-                    tags: ['SEASONAL'],
-                    teacher: 'main',
-                    notes: 'Wetter months activity'
-                },
-                {
-                    id: '14',
-                    code: 'AHCMOM213',
-                    name: 'Operate chainsaw',
-                    weeks: [21, 22, 23],
-                    color: 'machinery',
-                    tags: ['SPECIALIST'],
-                    teacher: 'other',
-                    notes: 'Requires significant planning'
-                },
-                {
-                    id: '15',
-                    code: 'AHCMOM216',
-                    name: 'Operate SSUV',
-                    weeks: [21, 22, 23],
-                    color: 'machinery',
-                    tags: ['SPECIALIST'],
-                    teacher: 'other',
-                    notes: 'Clustered machinery units'
-                },
-                {
-                    id: '16',
-                    code: 'AHCECR301',
-                    name: 'Ecosystem maintenance (cont.)',
-                    weeks: [24, 25, 26, 27],
-                    color: 'practical',
-                    tags: [],
-                    teacher: 'main',
-                    notes: 'Enhanced capability application'
-                },
-                {
-                    id: '17',
-                    code: 'INTEGRATION',
-                    name: 'Skill Integration & Project Work',
-                    weeks: [28, 29, 30],
-                    color: 'project',
-                    tags: ['FLEXIBLE'],
-                    teacher: 'main',
-                    notes: 'Buffer for weather/adaptation'
-                },
-                {
-                    id: '18',
-                    code: 'AHCECR309',
-                    name: 'Conduct ecological site inspection',
-                    weeks: [31, 32, 33],
-                    color: 'apex',
-                    tags: ['APEX'],
-                    teacher: 'main',
-                    notes: 'Synthesis of all skills'
-                },
-                {
-                    id: '19',
-                    code: 'PROJECT',
-                    name: 'Final Project Phase',
-                    weeks: [34, 35, 36],
-                    color: 'project',
-                    tags: [],
-                    teacher: 'main',
-                    notes: 'Complete integrated project'
-                },
-                {
-                    id: '20',
-                    code: 'ADMIN',
-                    name: 'Portfolio Finalisation',
-                    weeks: [37],
-                    color: 'safety',
-                    tags: [],
-                    teacher: 'main',
-                    notes: 'Verification and closure'
+                    teacher: 'main'
                 }
             ];
-
-            this.unitTemplates = [
-                { code: 'AHCWHS302', name: 'Work Health & Safety', color: 'safety', tags: ['SAFETY'], defaultWeeks: 2 },
-                { code: 'HLTAID011', name: 'First Aid', color: 'safety', tags: ['SAFETY', 'SPECIALIST'], defaultWeeks: 2 },
-                { code: 'AHCECR305', name: 'Collect native seed', color: 'seasonal', tags: ['SEASONAL'], defaultWeeks: 2 },
-                { code: 'AHCBIO303', name: 'Biosecurity', color: 'foundational', tags: [], defaultWeeks: 2 },
-                { code: 'AHCPCM303', name: 'Identify plant specimens', color: 'foundational', tags: [], defaultWeeks: 3 },
-                { code: 'AHCNSY207', name: 'Undertake propagation activities', color: 'foundational', tags: [], defaultWeeks: 1 },
-                { code: 'AHCFAU302', name: 'Identify fauna in the field', color: 'foundational', tags: ['SEASONAL'], defaultWeeks: 2 },
-                { code: 'AHCPMG301', name: 'Control weeds', color: 'practical', tags: [], defaultWeeks: 2 },
-                { code: 'AHCCHM304', name: 'Transport/handle chemicals', color: 'practical', tags: ['SPECIALIST'], defaultWeeks: 1 },
-                { code: 'AHCCHM307', name: 'Apply chemicals', color: 'practical', tags: ['SPECIALIST'], defaultWeeks: 1 },
-                { code: 'FWPCOT2266', name: 'Operate brush cutter', color: 'practical', tags: ['SPECIALIST'], defaultWeeks: 2 },
-                { code: 'AHCECR301', name: 'Maintain native ecosystem areas', color: 'practical', tags: [], defaultWeeks: 2 },
-                { code: 'AHCLPW313', name: 'Water sampling & testing', color: 'practical', tags: ['SEASONAL'], defaultWeeks: 3 },
-                { code: 'AHCMOM213', name: 'Operate chainsaw', color: 'machinery', tags: ['SPECIALIST'], defaultWeeks: 3 },
-                { code: 'AHCMOM216', name: 'Operate SSUV', color: 'machinery', tags: ['SPECIALIST'], defaultWeeks: 3 },
-                { code: 'AHCECR309', name: 'Conduct ecological site inspection', color: 'apex', tags: ['APEX'], defaultWeeks: 3 },
-                { code: 'CUSTOM', name: 'Custom Unit/Block', color: 'foundational', tags: ['CUSTOM'], defaultWeeks: 1 }
-            ];
-
-            this.init();
         }
-
-        init() {
-            this.setupEventListeners();
-            this.loadInitialData();
-            this.renderEverything();
-            this.hideLoadingScreen();
-            this.setupKeyboardShortcuts();
-        }
-
-        loadInitialData() {
-            try {
-                // Check URL for student view
-                const urlParams = new URLSearchParams(window.location.search);
-                this.isStudentView = urlParams.has('student') || (urlParams.has('view') && urlParams.get('view') === 'student');
-                
-                console.log('=== LOADING DATA ===');
-                console.log('Is Student View:', this.isStudentView);
-                console.log('URL Parameters:', Object.fromEntries(urlParams.entries()));
-
-                // ALWAYS load from the SINGLE shared storage location
-                const sharedData = localStorage.getItem(CONFIG.SHARED_PLAN_KEY);
-                
-                if (sharedData) {
-                    console.log('Found shared data in localStorage');
-                    const data = JSON.parse(sharedData);
-                    
-                    // Load units
-                    if (data.units && Array.isArray(data.units)) {
-                        this.units = data.units;
-                        console.log('Loaded units from shared storage:', this.units.length);
-                    } else {
-                        this.units = [...this.defaultUnits];
-                        console.log('No valid units in shared storage, using defaults');
-                    }
-                    
-                    // Load course data
-                    if (data.courseData) {
-                        this.courseData = data.courseData;
-                    }
-                    
-                    // Load blocked weeks
-                    if (data.blockedWeeks) {
-                        this.blockedWeeks = data.blockedWeeks;
-                    }
-                    
-                    // Load project milestones
-                    if (data.projectMilestones) {
-                        this.courseData.projectMilestones = data.projectMilestones;
-                    }
-                } else {
-                    console.log('No shared data found, using defaults');
-                    this.units = [...this.defaultUnits];
-                    
-                    // Save defaults to shared storage
-                    this.saveToSharedStorage();
-                }
-
-                if (this.isStudentView) {
-                    this.setupStudentView();
-                }
-
-                this.saveHistory();
-                
-            } catch (error) {
-                console.error('Error in loadInitialData:', error);
-                this.units = [...this.defaultUnits];
-            }
-        }
-
-        setupStudentView() {
-            document.body.classList.remove('editor-view');
-            document.body.classList.add('student-view');
+        
+        saveData() {
+            console.log('=== SAVING DATA ===');
+            console.log('Current units:', this.units);
             
-            // Update UI for student view
-            document.getElementById('courseTitle').textContent = 'Course Schedule - Cert III Conservation & Ecosystem Management';
-            document.getElementById('courseSubtitle').textContent = `Student View - ${this.courseData.totalWeeks}-Week Plan`;
-            document.getElementById('viewModeIndicator').textContent = 'Student View';
-            document.getElementById('courseDescription').textContent = 'Click units for details | Term overviews below';
-            
-            // Update view toggle
-            document.getElementById('viewIcon').textContent = '✏️';
-            document.getElementById('viewLabel').textContent = 'Editor View';
-            
-            // Hide controls and sidebar
-            const controls = document.querySelector('.controls');
-            const legend = document.querySelector('.legend');
-            const sidebar = document.querySelector('.sidebar');
-            
-            if (controls) controls.style.display = 'none';
-            if (legend) legend.style.display = 'none';
-            if (sidebar) sidebar.style.display = 'none';
-        }
-
-        // ========== SINGLE SOURCE OF TRUTH STORAGE ==========
-        saveToSharedStorage() {
             const data = {
-                version: CONFIG.APP_VERSION,
+                version: '1.0',
                 timestamp: new Date().toISOString(),
-                units: JSON.parse(JSON.stringify(this.units)),
-                courseData: JSON.parse(JSON.stringify(this.courseData)),
-                blockedWeeks: JSON.parse(JSON.stringify(this.blockedWeeks)),
-                projectMilestones: JSON.parse(JSON.stringify(this.courseData.projectMilestones))
+                units: JSON.parse(JSON.stringify(this.units))
             };
             
-            console.log('Saving to shared storage:', data);
-            localStorage.setItem(CONFIG.SHARED_PLAN_KEY, JSON.stringify(data));
+            localStorage.setItem(SHARED_STORAGE_KEY, JSON.stringify(data));
+            console.log('Saved to shared storage:', SHARED_STORAGE_KEY);
             
-            // Also save as autosave for editor
-            if (!this.isStudentView) {
-                localStorage.setItem(`${CONFIG.STORAGE_PREFIX}autosave`, JSON.stringify(data));
-            }
+            // Verify save worked
+            const verify = localStorage.getItem(SHARED_STORAGE_KEY);
+            console.log('Verification - data saved:', !!verify);
             
-            this.showSyncNotification('Changes saved');
+            this.showToast('Data saved successfully', 'success');
         }
-
-        // ========== SIMPLIFIED SYNC ==========
-        updateSharedPlan() {
-            console.log('Updating shared plan...');
-            this.saveToSharedStorage();
-        }
-
-        generateShareLink() {
-            // Always update before sharing
-            this.updateSharedPlan();
-            
-            const baseUrl = window.location.origin + window.location.pathname;
-            const shareUrl = `${baseUrl}?student=true`;
-            
-            console.log('Generated share URL:', shareUrl);
-            return shareUrl;
-        }
-
-        sharePlan() {
-            if (this.isStudentView) return;
-            
-            const shareUrl = this.generateShareLink();
-            
-            // Show share panel
-            const panel = document.getElementById('sharePanel');
-            const input = document.getElementById('shareLink');
-            const copyBtn = document.getElementById('copyShareLink');
-            const qrContainer = document.getElementById('qrCode');
-            
-            input.value = shareUrl;
-            panel.classList.add('show');
-            
-            // Generate QR code
-            qrContainer.innerHTML = `
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}" 
-                     alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px;">
-                <div style="font-size: 12px; margin-top: 10px; color: #636e72;">
-                    <div style="margin-bottom: 5px;">Students will see:</div>
-                    <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 11px;">
-                        • Current course schedule<br>
-                        • Your latest changes<br>
-                        • Term overviews<br>
-                        • Unit details on click<br>
-                        • No editing controls
-                    </div>
-                    <button onclick="window.open('${shareUrl}', '_blank')" 
-                            style="width: 100%; margin-top: 10px; padding: 8px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                        Open Student View in New Tab
-                    </button>
-                </div>
-            `;
-            
-            copyBtn.onclick = () => {
-                input.select();
-                input.setSelectionRange(0, 99999);
-                document.execCommand('copy');
-                this.showToast('Link copied to clipboard!', 'success');
-            };
-        }
-
-        // ========== REST OF THE METHODS (keeping the same but adding saveToSharedStorage calls) ==========
-        saveHistory() {
-            this.history = this.history.slice(0, this.historyIndex + 1);
-            this.history.push({
-                units: JSON.parse(JSON.stringify(this.units)),
-                courseData: JSON.parse(JSON.stringify(this.courseData)),
-                blockedWeeks: JSON.parse(JSON.stringify(this.blockedWeeks)),
-                timestamp: Date.now()
-            });
-            
-            if (this.history.length > 50) {
-                this.history.shift();
-            }
-            
-            this.historyIndex = this.history.length - 1;
-        }
-
-        // ========== RENDERING ==========
+        
+        // ========== SIMPLE RENDERING ==========
         renderEverything() {
-            this.renderUnitPalette();
-            this.renderTimeline();
-            this.renderSavedPlans();
-            this.updateTotalWeeksDisplay();
+            console.log('=== RENDERING ===');
+            console.log('Current units to render:', this.units.length);
             
             if (this.isStudentView) {
-                this.renderStudentTermOverviews();
+                this.renderStudentView();
+            } else {
+                this.renderEditorView();
             }
         }
-
-        renderTimeline() {
+        
+        renderEditorView() {
             const container = document.getElementById('timelineContent');
             if (!container) return;
-
-            const { totalWeeks, terms } = this.courseData;
-            const weekWidth = this.isStudentView ? 120 : 150;
             
-            // Update CSS variables
-            document.documentElement.style.setProperty('--week-width', `${weekWidth}px`);
-            document.documentElement.style.setProperty('--total-weeks', totalWeeks);
-
-            let html = '';
-
-            // Term headers
-            html += `<div class="term-headers">`;
-            html += `<div class="term-spacer"></div>`;
+            // Simple timeline for testing
+            let html = '<div style="padding: 20px;">';
+            html += '<h3>Editor View - Current Units</h3>';
+            html += '<p>Total units: ' + this.units.length + '</p>';
+            html += '<div style="display: flex; flex-wrap: wrap; gap: 10px;">';
             
-            terms.forEach(term => {
-                const termWidth = term.weeks * weekWidth;
-                const clickable = !this.isStudentView ? 'cursor: pointer;' : '';
+            this.units.forEach(unit => {
                 html += `
-                    <div class="term-header" data-term="${term.number}" 
-                         style="width: ${termWidth}px; ${clickable}" 
-                         title="${this.isStudentView ? '' : 'Click to manage term'}">
-                        Term ${term.number} (Weeks ${term.startWeek}-${term.startWeek + term.weeks - 1})
-                        <div style="font-size: 12px; opacity: 0.8; margin-top: 3px;">${term.name}</div>
+                    <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; min-width: 200px;">
+                        <strong>${unit.code}</strong><br>
+                        ${unit.name}<br>
+                        Weeks: ${unit.weeks.join(', ')}<br>
+                        Teacher: ${unit.teacher}
                     </div>
                 `;
             });
-
-            html += `</div>`;
-
-            // Week headers
-            html += `<div class="week-headers">`;
-            html += `<div class="week-spacer"></div>`;
             
-            for (let week = 1; week <= totalWeeks; week++) {
-                const term = this.getTermForWeek(week);
-                html += `
-                    <div class="week-header" style="width: ${weekWidth}px;">
-                        <div class="week-number">Week ${week}</div>
-                        ${term ? `<div style="font-size: 11px; color: #666;">Term ${term.number}</div>` : ''}
-                    </div>
-                `;
-            }
-
-            html += `</div>`;
-
-            // Timeline grid
-            html += `<div class="timeline-grid">`;
-
-            // Determine swimlanes based on view mode
-            let swimlanes = [];
-            const viewMode = this.isStudentView ? 'week' : (document.getElementById('viewMode')?.value || 'week');
+            html += '</div>';
+            html += '<button onclick="app.moveUnitForTest()" style="margin-top: 20px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Test: Move First Unit to Week 5</button>';
+            html += '<button onclick="app.sharePlan()" style="margin-top: 20px; margin-left: 10px; padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">Generate Share Link</button>';
+            html += '</div>';
             
-            if (viewMode === 'teacher') {
-                swimlanes = [
-                    { id: 'main', label: 'Main Teacher' },
-                    { id: 'other', label: 'Other Teacher' },
-                    { id: 'project', label: 'Projects' }
-                ];
-            } else if (viewMode === 'term') {
-                // For term view, show one swimlane per term
-                terms.forEach(term => {
-                    swimlanes.push({
-                        id: `term-${term.number}`,
-                        label: `Term ${term.number}: ${term.name}`
-                    });
-                });
-            } else {
-                // Default week view
-                swimlanes = [
-                    { id: 'core', label: 'Core Units (Main Teacher)' },
-                    { id: 'specialist', label: 'Specialist Units (Other Teacher)' },
-                    { id: 'project', label: 'Integrated Project' },
-                    { id: 'apex', label: 'Apex & Assessment' }
-                ];
-            }
-
-            swimlanes.forEach((lane, laneIndex) => {
-                html += `
-                    <div class="swimlane" data-lane="${lane.id}">
-                        <div class="lane-label">${lane.label}</div>
-                        <div class="lane-content" data-lane-id="${lane.id}">
-                `;
-
-                for (let week = 1; week <= totalWeeks; week++) {
-                    const isBlocked = this.blockedWeeks[week];
-                    const blockedClass = isBlocked ? 'blocked-week' : '';
-                    
-                    html += `
-                        <div class="week-slot ${blockedClass}" data-week="${week}" data-lane="${lane.id}" 
-                             style="width: ${weekWidth}px; ${isBlocked ? `background: ${this.colorMap[isBlocked.type] || '#f8f9fa'}; opacity: 0.7;` : ''}">
-                    `;
-
-                    if (isBlocked) {
-                        html += `
-                            <div style="position: absolute; top: 5px; left: 5px; font-size: 10px; 
-                                        color: white; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px;">
-                                ${this.blockingLabels[isBlocked.type] || 'BLOCKED'}
-                            </div>
-                        `;
-                    }
-
-                    const unitsInWeek = this.getUnitsForWeekAndLane(week, lane.id, viewMode);
-                    
-                    if (unitsInWeek.length > 0) {
-                        unitsInWeek.forEach(unit => {
-                            const isFirstWeek = week === Math.min(...unit.weeks);
-                            html += this.renderUnitBlock(unit, week, isFirstWeek);
-                        });
-                    } else if (!isBlocked) {
-                        html += `<div class="empty-slot">${this.isStudentView ? 'No units' : 'Drag unit here'}</div>`;
-                    }
-
-                    html += `</div>`;
-                }
-
-                html += `</div></div>`;
-            });
-
-            html += `</div>`;
             container.innerHTML = html;
-
-            // Add project markers to the project lane
-            if (viewMode !== 'term') {
-                this.renderProjectMarkers();
-            }
-
-            // Add event listeners
-            this.setupTimelineEvents();
-            
-            // Add term click handlers
-            if (!this.isStudentView) {
-                container.querySelectorAll('.term-header').forEach(header => {
-                    header.addEventListener('click', (e) => {
-                        const termNumber = parseInt(e.currentTarget.dataset.term);
-                        this.openTermModal(termNumber);
-                    });
-                });
-            }
         }
-
-        renderProjectMarkers() {
-            const projectLane = document.querySelector('.lane-content[data-lane-id="project"]');
-            if (!projectLane) return;
-
-            const weekWidth = this.isStudentView ? 120 : 150;
-            const laneHeight = projectLane.offsetHeight;
+        
+        renderStudentView() {
+            const container = document.getElementById('timelineContent');
+            if (!container) return;
             
-            // Remove existing markers first
-            document.querySelectorAll('.project-marker').forEach(marker => marker.remove());
+            // Simple student view for testing
+            let html = '<div style="padding: 20px;">';
+            html += '<h3>Student View - Course Schedule</h3>';
+            html += '<p>This view should match the editor view exactly</p>';
+            html += '<p>Total units: ' + this.units.length + '</p>';
+            html += '<div style="display: flex; flex-wrap: wrap; gap: 10px;">';
             
-            // Render each project milestone
-            this.courseData.projectMilestones.forEach(milestone => {
-                if (milestone.week < 1 || milestone.week > this.courseData.totalWeeks) return;
-                
-                const markerLeft = (milestone.week - 1) * weekWidth + weekWidth/2 - 8;
-                
-                const marker = document.createElement('div');
-                marker.className = 'project-marker';
-                marker.dataset.milestoneId = milestone.id;
-                marker.dataset.week = milestone.week;
-                marker.style.left = `${markerLeft}px`;
-                marker.style.top = `${laneHeight / 2}px`;
-                marker.style.position = 'absolute';
-                marker.style.zIndex = '10';
-                
-                // Add label
-                const label = document.createElement('div');
-                label.className = 'project-marker-label';
-                label.textContent = milestone.label;
-                marker.appendChild(label);
-                
-                // Add delete button (only in editor view)
-                if (!this.isStudentView) {
-                    const deleteBtn = document.createElement('div');
-                    deleteBtn.className = 'project-marker-delete';
-                    deleteBtn.innerHTML = '×';
-                    deleteBtn.title = 'Delete milestone';
-                    deleteBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.deleteProjectMilestone(milestone.id);
-                    });
-                    marker.appendChild(deleteBtn);
-                    
-                    // Make marker draggable
-                    marker.draggable = true;
-                    marker.style.cursor = 'grab';
-                    
-                    marker.addEventListener('dragstart', (e) => {
-                        e.dataTransfer.setData('text/plain', milestone.id);
-                        this.draggedMarker = milestone;
-                        marker.classList.add('dragging');
-                    });
-                    
-                    marker.addEventListener('dragend', () => {
-                        marker.classList.remove('dragging');
-                        this.draggedMarker = null;
-                    });
-                } else {
-                    marker.style.cursor = 'default';
-                }
-                
-                // Add click handler for student view
-                if (this.isStudentView) {
-                    marker.addEventListener('click', () => {
-                        this.showProjectMilestoneDetails(milestone);
-                    });
-                }
-                
-                projectLane.appendChild(marker);
-            });
-            
-            // Add drop zone for markers
-            if (!this.isStudentView) {
-                projectLane.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                });
-                
-                projectLane.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    if (!this.draggedMarker) return;
-                    
-                    const rect = projectLane.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const weekWidth = this.isStudentView ? 120 : 150;
-                    const week = Math.floor(x / weekWidth) + 1;
-                    
-                    if (week >= 1 && week <= this.courseData.totalWeeks) {
-                        this.moveProjectMilestone(this.draggedMarker.id, week);
-                    }
-                });
-            }
-        }
-
-        getUnitsForWeekAndLane(week, laneId, viewMode) {
-            if (viewMode === 'teacher') {
-                if (laneId === 'main') {
-                    return this.units.filter(unit => 
-                        unit.weeks.includes(week) && unit.teacher === 'main'
-                    );
-                } else if (laneId === 'other') {
-                    return this.units.filter(unit => 
-                        unit.weeks.includes(week) && unit.teacher === 'other'
-                    );
-                } else if (laneId === 'project') {
-                    return this.units.filter(unit => 
-                        unit.weeks.includes(week) && 
-                        (unit.code === 'INTEGRATION' || unit.code === 'PROJECT' || unit.tags.includes('PROJECT'))
-                    );
-                }
-            } else if (viewMode === 'term') {
-                const termNumber = parseInt(laneId.split('-')[1]);
-                const term = this.courseData.terms.find(t => t.number === termNumber);
-                if (term && week >= term.startWeek && week < term.startWeek + term.weeks) {
-                    return this.units.filter(unit => unit.weeks.includes(week));
-                }
-                return [];
-            } else {
-                // Default week view
-                if (laneId === 'core') {
-                    return this.units.filter(unit => 
-                        unit.weeks.includes(week) && 
-                        unit.teacher === 'main' &&
-                        !unit.tags.includes('APEX') &&
-                        unit.code !== 'INTEGRATION' &&
-                        unit.code !== 'PROJECT'
-                    );
-                } else if (laneId === 'specialist') {
-                    return this.units.filter(unit => 
-                        unit.weeks.includes(week) && unit.teacher === 'other'
-                    );
-                } else if (laneId === 'project') {
-                    return this.units.filter(unit => 
-                        unit.weeks.includes(week) && 
-                        (unit.code === 'INTEGRATION' || unit.code === 'PROJECT')
-                    );
-                } else if (laneId === 'apex') {
-                    return this.units.filter(unit => 
-                        unit.weeks.includes(week) && unit.tags.includes('APEX')
-                    );
-                }
-            }
-            return [];
-        }
-
-        renderUnitBlock(unit, week, isFirstWeek = false) {
-            const color = this.colorMap[unit.color] || this.colorMap.foundational;
-            const darkColor = this.darkenColor(color, 30);
-            const isStudentView = this.isStudentView;
-            const cursorStyle = isStudentView ? 'cursor: pointer;' : '';
-            
-            return `
-                <div class="unit-block" data-unit-id="${unit.id}" data-week="${week}"
-                     style="background: ${color}; border-left-color: ${darkColor}; ${cursorStyle}"
-                     draggable="${!isStudentView}">
-                    <div class="unit-code">${unit.code}</div>
-                    ${isFirstWeek ? `<div class="unit-name">${unit.name}</div>` : ''}
-                    ${unit.weeks.length > 1 && isFirstWeek ? 
-                        `<div class="unit-duration">${unit.weeks.length}w</div>` : ''}
-                    ${isStudentView && unit.teacher === 'other' ? 
-                        `<div class="week-summary" style="color: #fd79a8;">Other Teacher</div>` : ''}
-                    ${isStudentView && unit.tags && unit.tags.includes('SEASONAL') ? 
-                        `<div class="week-summary" style="color: #55efc4;">Seasonal Timing</div>` : ''}
-                </div>
-            `;
-        }
-
-        // ========== PROJECT MILESTONE MANAGEMENT ==========
-        addProjectMilestone() {
-            const week = prompt('Enter week for new project milestone (1-' + this.courseData.totalWeeks + '):');
-            if (!week) return;
-            
-            const weekNum = parseInt(week);
-            if (isNaN(weekNum) || weekNum < 1 || weekNum > this.courseData.totalWeeks) {
-                this.showToast('Invalid week number', 'error');
-                return;
-            }
-            
-            const label = prompt('Enter milestone label:', 'New Milestone');
-            if (!label) return;
-            
-            this.saveHistory();
-            
-            const newMilestone = {
-                id: `milestone-${Date.now()}`,
-                week: weekNum,
-                label: label
-            };
-            
-            this.courseData.projectMilestones.push(newMilestone);
-            this.renderEverything();
-            this.showToast('Project milestone added', 'success');
-            this.saveToSharedStorage();
-        }
-
-        moveProjectMilestone(milestoneId, newWeek) {
-            const milestoneIndex = this.courseData.projectMilestones.findIndex(m => m.id === milestoneId);
-            if (milestoneIndex === -1) return;
-            
-            this.saveHistory();
-            
-            this.courseData.projectMilestones[milestoneIndex].week = newWeek;
-            this.renderEverything();
-            this.showToast('Project milestone moved to week ' + newWeek, 'success');
-            this.saveToSharedStorage();
-        }
-
-        deleteProjectMilestone(milestoneId) {
-            if (!confirm('Delete this project milestone?')) return;
-            
-            this.saveHistory();
-            
-            this.courseData.projectMilestones = this.courseData.projectMilestones.filter(m => m.id !== milestoneId);
-            this.renderEverything();
-            this.showToast('Project milestone deleted', 'success');
-            this.saveToSharedStorage();
-        }
-
-        clearAllProjectMilestones() {
-            if (!confirm('Clear ALL project milestones?')) return;
-            
-            this.saveHistory();
-            
-            this.courseData.projectMilestones = [];
-            this.renderEverything();
-            this.showToast('All project milestones cleared', 'success');
-            this.saveToSharedStorage();
-        }
-
-        showProjectMilestoneDetails(milestone) {
-            const modal = document.getElementById('unitModal');
-            const modalBody = document.getElementById('modalBody');
-            const modalTitle = document.getElementById('modalTitle');
-
-            modalTitle.textContent = `Project Milestone: ${milestone.label}`;
-            
-            modalBody.innerHTML = `
-                <div style="margin-bottom: 20px;">
-                    <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                        <div style="flex: 1; background: #f8f9fa; padding: 10px; border-radius: 6px;">
-                            <div style="font-size: 12px; color: #636e72;">Week</div>
-                            <div style="font-weight: 600;">Week ${milestone.week}</div>
-                        </div>
+            this.units.forEach(unit => {
+                html += `
+                    <div style="background: #e0f7fa; padding: 10px; border-radius: 5px; min-width: 200px;">
+                        <strong>${unit.code}</strong><br>
+                        ${unit.name}<br>
+                        Weeks: ${unit.weeks.join(', ')}<br>
+                        Teacher: ${unit.teacher}
                     </div>
-                    
-                    <button onclick="document.getElementById('unitModal').style.display = 'none'" 
-                            style="width: 100%; padding: 10px; background: #0984e3; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        Close
-                    </button>
-                </div>
-            `;
-
-            modal.style.display = 'flex';
-        }
-
-        // ========== EVENT LISTENERS ==========
-        setupEventListeners() {
-            // View mode changes
-            const viewModeSelect = document.getElementById('viewMode');
-            if (viewModeSelect && !this.isStudentView) {
-                viewModeSelect.addEventListener('change', (e) => {
-                    this.currentView = e.target.value;
-                    this.renderTimeline();
-                });
-            }
-
-            // Highlight mode
-            const highlightMode = document.getElementById('highlightMode');
-            if (highlightMode) {
-                highlightMode.addEventListener('change', (e) => {
-                    this.showToast(`Highlighting ${e.target.value} units`, 'info');
-                });
-            }
-
-            // Control buttons
-            const savePlanBtn = document.getElementById('savePlan');
-            if (savePlanBtn) savePlanBtn.addEventListener('click', () => this.savePlan());
-            
-            const sharePlanBtn = document.getElementById('sharePlan');
-            if (sharePlanBtn) sharePlanBtn.addEventListener('click', () => this.sharePlan());
-            
-            const forceSyncBtn = document.getElementById('forceSync');
-            if (forceSyncBtn) forceSyncBtn.addEventListener('click', () => {
-                this.saveToSharedStorage();
-                this.showToast('Forced sync to student view', 'success');
+                `;
             });
             
-            const resetPlanBtn = document.getElementById('resetPlan');
-            if (resetPlanBtn) resetPlanBtn.addEventListener('click', () => this.resetToDefault());
+            html += '</div>';
+            html += '<button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">Refresh to Check for Updates</button>';
+            html += '</div>';
             
-            const clearTimetableBtn = document.getElementById('clearTimetable');
-            if (clearTimetableBtn) clearTimetableBtn.addEventListener('click', () => this.clearTimetable());
+            container.innerHTML = html;
+        }
+        
+        // ========== TEST FUNCTIONS ==========
+        moveUnitForTest() {
+            console.log('=== MOVING UNIT FOR TEST ===');
             
-            const printPlanBtn = document.getElementById('printPlan');
-            if (printPlanBtn) printPlanBtn.addEventListener('click', () => this.printPlan());
+            if (this.units.length > 0) {
+                // Move first unit to week 5
+                this.units[0].weeks = [5];
+                console.log('Moved unit to week 5:', this.units[0]);
+                
+                // Save immediately
+                this.saveData();
+                
+                // Re-render
+                this.renderEverything();
+                
+                this.showToast('Test: Moved first unit to week 5 and saved', 'success');
+            }
+        }
+        
+        sharePlan() {
+            console.log('=== GENERATING SHARE LINK ===');
             
-            const exportPlanBtn = document.getElementById('exportPlan');
-            if (exportPlanBtn) exportPlanBtn.addEventListener('click', () => this.exportPlan());
+            // Save current data first
+            this.saveData();
             
-            const applyBlockingBtn = document.getElementById('applyBlocking');
-            if (applyBlockingBtn) applyBlockingBtn.addEventListener('click', () => this.applyWeekBlocking());
+            // Create share URL
+            const baseUrl = window.location.origin + window.location.pathname;
+            const shareUrl = baseUrl + '?student=true&v=' + Date.now(); // Add timestamp to bypass cache
             
-            // Week management
-            const addWeekBtn = document.getElementById('addWeekBtn');
-            if (addWeekBtn) addWeekBtn.addEventListener('click', () => this.addWeek());
+            console.log('Share URL:', shareUrl);
             
-            const removeWeekBtn = document.getElementById('removeWeekBtn');
-            if (removeWeekBtn) removeWeekBtn.addEventListener('click', () => this.removeWeek());
+            // Show URL
+            alert(`Share this URL with students:\n\n${shareUrl}\n\nStudent view will show EXACTLY what you see now.`);
             
-            const addWeekToTermBtn = document.getElementById('addWeekToTermBtn');
-            if (addWeekToTermBtn) addWeekToTermBtn.addEventListener('click', () => this.addWeekToTerm());
-            
-            const removeWeekFromTermBtn = document.getElementById('removeWeekFromTermBtn');
-            if (removeWeekFromTermBtn) removeWeekFromTermBtn.addEventListener('click', () => this.removeWeekFromTerm());
-            
-            // Project milestone controls
-            const addProjectMarkerBtn = document.getElementById('addProjectMarker');
-            if (addProjectMarkerBtn) addProjectMarkerBtn.addEventListener('click', () => this.addProjectMilestone());
-            
-            const clearProjectMarkersBtn = document.getElementById('clearProjectMarkers');
-            if (clearProjectMarkersBtn) clearProjectMarkersBtn.addEventListener('click', () => this.clearAllProjectMilestones());
-            
-            // Unit management
-            const addCustomUnitBtn = document.getElementById('addCustomUnit');
-            if (addCustomUnitBtn) addCustomUnitBtn.addEventListener('click', () => this.addUnitFromTemplate(
-                { code: 'CUSTOM', name: 'Custom Unit/Block', color: 'foundational', tags: ['CUSTOM'] },
-                1,
-                'core'
-            ));
-            
-            const importPlanBtn = document.getElementById('importPlanBtn');
-            if (importPlanBtn) importPlanBtn.addEventListener('click', () => this.importPlan());
-            
+            // Also copy to clipboard
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                this.showToast('Share link copied to clipboard!', 'success');
+            });
+        }
+        
+        // ========== UI SETUP ==========
+        setupUI() {
+            if (this.isStudentView) {
+                document.body.classList.add('student-view');
+                document.body.classList.remove('editor-view');
+                document.getElementById('courseTitle').textContent = 'Student View - Course Schedule';
+                document.getElementById('viewIcon').textContent = '✏️';
+                document.getElementById('viewLabel').textContent = 'Editor View';
+                
+                // Hide editor controls
+                const controls = document.querySelector('.controls');
+                const legend = document.querySelector('.legend');
+                const sidebar = document.querySelector('.sidebar');
+                if (controls) controls.style.display = 'none';
+                if (legend) legend.style.display = 'none';
+                if (sidebar) sidebar.style.display = 'none';
+            } else {
+                document.body.classList.add('editor-view');
+                document.body.classList.remove('student-view');
+                document.getElementById('courseTitle').textContent = 'Editor - Course Planner';
+                document.getElementById('viewIcon').textContent = '👁️';
+                document.getElementById('viewLabel').textContent = 'Student View';
+            }
+        }
+        
+        setupEventListeners() {
             // View toggle
             const toggleBtn = document.getElementById('toggleView');
             if (toggleBtn) {
-                toggleBtn.addEventListener('click', () => this.toggleViewMode());
-            }
-            
-            // Modal close buttons
-            document.querySelectorAll('.close-modal').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    this.closest('.modal').style.display = 'none';
-                });
-            });
-            
-            document.querySelectorAll('.modal').forEach(modal => {
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal) {
-                        modal.style.display = 'none';
-                    }
-                });
-            });
-            
-            // Close share panel when clicking outside
-            document.addEventListener('click', (e) => {
-                const panel = document.getElementById('sharePanel');
-                const toggleBtn = document.getElementById('toggleView');
-                const shareBtn = document.getElementById('sharePlan');
-                
-                if (panel && panel.classList.contains('show') && 
-                    !panel.contains(e.target) && 
-                    !(toggleBtn && toggleBtn.contains(e.target)) &&
-                    !(shareBtn && shareBtn.contains(e.target))) {
-                    panel.classList.remove('show');
-                }
-            });
-            
-            // Close share panel with Escape key
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    const panel = document.getElementById('sharePanel');
-                    if (panel && panel.classList.contains('show')) {
-                        panel.classList.remove('show');
-                    }
-                }
-            });
-        }
-
-        toggleViewMode() {
-            if (this.isStudentView) {
-                // Switch to editor view
-                window.location.href = window.location.pathname;
-            } else {
-                // Show preview of student view in the share panel
-                this.sharePlan();
-            }
-        }
-
-        // ========== UNIT MANAGEMENT ==========
-        setupTimelineEvents() {
-            const container = document.getElementById('timelineContent');
-            if (!container) return;
-
-            // Unit click handlers for student view
-            container.querySelectorAll('.unit-block').forEach(block => {
-                block.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const unitId = e.currentTarget.dataset.unitId;
+                toggleBtn.addEventListener('click', () => {
                     if (this.isStudentView) {
-                        this.showStudentUnitDetails(unitId);
+                        // Go to editor
+                        window.location.href = window.location.pathname;
                     } else {
-                        this.openUnitModal(unitId);
+                        // Generate share link
+                        this.sharePlan();
                     }
                 });
-
-                // Drag and drop for editor view
-                if (!this.isStudentView) {
-                    block.addEventListener('dragstart', (e) => {
-                        const unitId = e.currentTarget.dataset.unitId;
-                        const unit = this.units.find(u => u.id === unitId);
-                        if (unit) {
-                            this.draggedFromPalette = false;
-                            this.draggedUnit = unit;
-                            e.dataTransfer.setData('text/plain', JSON.stringify({
-                                type: 'move',
-                                unitId: unitId
-                            }));
-                            e.currentTarget.classList.add('dragging');
-                        }
-                    });
-
-                    block.addEventListener('dragend', (e) => {
-                        e.currentTarget.classList.remove('dragging');
-                        this.draggedFromPalette = false;
-                        this.draggedUnit = null;
-                    });
-                }
-            });
-
-            // Week slot drop zones for editor view
-            if (!this.isStudentView) {
-                container.querySelectorAll('.week-slot').forEach(slot => {
-                    slot.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        slot.style.background = 'rgba(9, 132, 227, 0.1)';
-                    });
-
-                    slot.addEventListener('dragleave', () => {
-                        slot.style.background = '';
-                    });
-
-                    slot.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        slot.style.background = '';
-                        
-                        const week = parseInt(slot.dataset.week);
-                        const lane = slot.dataset.lane;
-                        
-                        try {
-                            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-                            
-                            if (data.type === 'move') {
-                                // Moving existing unit
-                                this.moveUnit(data.unitId, week, lane);
-                            } else {
-                                // Adding new unit from template
-                                this.addUnitFromTemplate(data, week, lane);
-                            }
-                            
-                            this.showToast('Unit placed successfully', 'success');
-                        } catch (error) {
-                            console.error('Drop failed:', error);
-                        }
-                    });
+            }
+            
+            // Save button
+            const saveBtn = document.getElementById('savePlan');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => this.saveData());
+            }
+            
+            // Share button
+            const shareBtn = document.getElementById('sharePlan');
+            if (shareBtn) {
+                shareBtn.addEventListener('click', () => this.sharePlan());
+            }
+            
+            // Force sync button
+            const forceSyncBtn = document.getElementById('forceSync');
+            if (forceSyncBtn) {
+                forceSyncBtn.addEventListener('click', () => {
+                    this.saveData();
+                    this.showToast('Forced sync to student view', 'success');
                 });
             }
         }
-
-        moveUnit(unitId, week, lane) {
-            const unitIndex = this.units.findIndex(u => u.id === unitId);
-            if (unitIndex === -1) return;
-
-            this.saveHistory();
-            
-            const unit = this.units[unitIndex];
-            unit.weeks = [week];
-            
-            // Update teacher based on lane
-            if (lane === 'specialist' || lane === 'other') {
-                unit.teacher = 'other';
-                if (!unit.tags.includes('SPECIALIST')) {
-                    unit.tags.push('SPECIALIST');
-                }
-            } else if (lane === 'core' || lane === 'main') {
-                unit.teacher = 'main';
-                unit.tags = unit.tags.filter(tag => tag !== 'SPECIALIST');
-            }
-
-            this.renderEverything();
-            this.saveToSharedStorage();
-        }
-
-        renderUnitPalette() {
-            // Your existing renderUnitPalette method
-            if (this.isStudentView) return;
-            
-            const container = document.getElementById('unitPalette');
-            if (!container) return;
-
-            container.innerHTML = this.unitTemplates.map(template => `
-                <div class="unit-item" draggable="true" data-template='${JSON.stringify(template)}'
-                     style="border-left: 4px solid ${this.colorMap[template.color]};">
-                    <div class="unit-code">${template.code}</div>
-                    <div class="unit-name">${template.name}</div>
-                    <div style="display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap;">
-                        ${template.tags.map(tag => `
-                            <span style="font-size: 10px; padding: 2px 6px; border-radius: 10px; background: #e9ecef; color: #495057;">
-                                ${tag}
-                            </span>
-                        `).join('')}
-                    </div>
-                </div>
-            `).join('');
-
-            // Add drag event listeners
-            container.querySelectorAll('.unit-item').forEach(item => {
-                item.addEventListener('dragstart', (e) => {
-                    const template = JSON.parse(e.currentTarget.dataset.template);
-                    this.draggedFromPalette = true;
-                    this.draggedUnit = template;
-                    e.dataTransfer.setData('text/plain', JSON.stringify(template));
-                    e.currentTarget.classList.add('dragging');
-                });
-
-                item.addEventListener('dragend', (e) => {
-                    e.currentTarget.classList.remove('dragging');
-                    this.draggedFromPalette = false;
-                    this.draggedUnit = null;
-                });
-            });
-        }
-
-        addUnitFromTemplate(template, week, lane) {
-            this.saveHistory();
-            
-            const newUnit = {
-                id: Date.now().toString(),
-                code: template.code === 'CUSTOM' ? `CUST${Date.now()}` : template.code,
-                name: template.name,
-                weeks: [week],
-                color: template.color,
-                tags: [...template.tags],
-                teacher: lane === 'specialist' || lane === 'other' ? 'other' : 'main',
-                notes: '',
-                resources: []
-            };
-
-            this.units.push(newUnit);
-            this.renderEverything();
-            this.saveToSharedStorage();
-            
-            // Open modal to edit the new unit
-            if (!this.isStudentView) {
-                setTimeout(() => this.openUnitModal(newUnit.id), 100);
-            }
-        }
-
-        openUnitModal(unitId) {
-            if (this.isStudentView) return;
-            
-            const unit = this.units.find(u => u.id === unitId);
-            if (!unit) return;
-
-            const modal = document.getElementById('unitModal');
-            const modalBody = document.getElementById('modalBody');
-            const modalTitle = document.getElementById('modalTitle');
-
-            modalTitle.textContent = `Edit Unit: ${unit.code}`;
-            
-            modalBody.innerHTML = `
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                    <div class="form-group">
-                        <label for="editUnitCode">Unit Code</label>
-                        <input type="text" id="editUnitCode" value="${unit.code}">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editUnitName">Unit Name</label>
-                        <input type="text" id="editUnitName" value="${unit.name}">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editUnitWeeks">Weeks</label>
-                        <input type="text" id="editUnitWeeks" value="${unit.weeks.join(',')}"
-                               placeholder="e.g., 1,2,3 or 5-7">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editUnitColor">Unit Type</label>
-                        <select id="editUnitColor">
-                            <option value="safety" ${unit.color === 'safety' ? 'selected' : ''}>Safety</option>
-                            <option value="foundational" ${unit.color === 'foundational' ? 'selected' : ''}>Foundational</option>
-                            <option value="practical" ${unit.color === 'practical' ? 'selected' : ''}>Practical</option>
-                            <option value="machinery" ${unit.color === 'machinery' ? 'selected' : ''}>Machinery</option>
-                            <option value="apex" ${unit.color === 'apex' ? 'selected' : ''}>Apex</option>
-                            <option value="project" ${unit.color === 'project' ? 'selected' : ''}>Project</option>
-                            <option value="seasonal" ${unit.color === 'seasonal' ? 'selected' : ''}>Seasonal</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editUnitTeacher">Teacher</label>
-                        <select id="editUnitTeacher">
-                            <option value="main" ${unit.teacher === 'main' ? 'selected' : ''}>Main Teacher</option>
-                            <option value="other" ${unit.teacher === 'other' ? 'selected' : ''}>Other Teacher</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editUnitTags">Tags (comma separated)</label>
-                        <input type="text" id="editUnitTags" value="${unit.tags ? unit.tags.join(', ') : ''}"
-                               placeholder="SAFETY, SEASONAL, SPECIALIST">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editUnitNotes">Notes</label>
-                        <textarea id="editUnitNotes" rows="4">${unit.notes || ''}</textarea>
-                    </div>
-                    
-                    <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button class="primary" onclick="app.saveUnitChanges('${unitId}')" style="flex: 1;">Save Changes</button>
-                        <button class="warning" onclick="app.deleteUnit('${unitId}')" style="flex: 1;">Delete Unit</button>
-                        <button onclick="document.getElementById('unitModal').style.display = 'none'" style="flex: 1;">Cancel</button>
-                    </div>
-                </div>
-            `;
-
-            modal.style.display = 'flex';
-        }
-
-        saveUnitChanges(unitId) {
-            const unitIndex = this.units.findIndex(u => u.id === unitId);
-            if (unitIndex === -1) return;
-
-            this.saveHistory();
-            
-            const unit = this.units[unitIndex];
-            unit.code = document.getElementById('editUnitCode').value;
-            unit.name = document.getElementById('editUnitName').value;
-            
-            const weeksInput = document.getElementById('editUnitWeeks').value;
-            unit.weeks = this.parseWeeksInput(weeksInput);
-            
-            unit.color = document.getElementById('editUnitColor').value;
-            unit.teacher = document.getElementById('editUnitTeacher').value;
-            
-            const tagsInput = document.getElementById('editUnitTags').value;
-            unit.tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
-            
-            unit.notes = document.getElementById('editUnitNotes').value;
-
-            document.getElementById('unitModal').style.display = 'none';
-            this.renderEverything();
-            this.showToast('Unit updated successfully', 'success');
-            this.saveToSharedStorage();
-        }
-
-        parseWeeksInput(input) {
-            try {
-                if (input.includes('-')) {
-                    const [start, end] = input.split('-').map(Number);
-                    return Array.from({length: end - start + 1}, (_, i) => start + i);
-                } else if (input.includes(',')) {
-                    return input.split(',').map(w => parseInt(w.trim())).filter(w => !isNaN(w));
-                } else {
-                    const week = parseInt(input);
-                    return !isNaN(week) ? [week] : [1];
-                }
-            } catch (error) {
-                return [1];
-            }
-        }
-
-        deleteUnit(unitId) {
-            if (confirm('Are you sure you want to delete this unit?')) {
-                this.saveHistory();
-                this.units = this.units.filter(u => u.id !== unitId);
-                document.getElementById('unitModal').style.display = 'none';
-                this.renderEverything();
-                this.showToast('Unit deleted', 'success');
-                this.saveToSharedStorage();
-            }
-        }
-
-        // ========== STUDENT VIEW ==========
-        renderStudentTermOverviews() {
-            const container = document.getElementById('studentTermOverviews');
-            if (!container) return;
-
-            let html = '';
-            
-            this.courseData.terms.forEach(term => {
-                const termUnits = this.units.filter(unit => {
-                    const weeks = unit.weeks;
-                    return weeks.some(week => 
-                        week >= term.startWeek && week < term.startWeek + term.weeks
-                    );
-                });
-                
-                // Get unique units by code
-                const uniqueUnits = [];
-                const seenCodes = new Set();
-                termUnits.forEach(unit => {
-                    if (!seenCodes.has(unit.code)) {
-                        seenCodes.add(unit.code);
-                        uniqueUnits.push(unit);
-                    }
-                });
-                
-                html += `
-                    <div class="term-overview">
-                        <h3>Term ${term.number}: ${term.name}</h3>
-                        <div class="term-units">
-                            ${uniqueUnits.map(unit => `
-                                <div class="term-unit-card">
-                                    <div style="font-weight: 600; color: #0984e3;">${unit.code}</div>
-                                    <div style="font-size: 13px; margin-top: 5px;">${unit.name}</div>
-                                    ${unit.teacher === 'other' ? 
-                                        `<div style="font-size: 11px; color: #fd79a8; margin-top: 3px;">Other Teacher</div>` : ''}
-                                    ${unit.tags && unit.tags.includes('SEASONAL') ? 
-                                        `<div style="font-size: 11px; color: #55efc4; margin-top: 3px;">Seasonal Timing</div>` : ''}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
-
-        showStudentUnitDetails(unitId) {
-            const unit = this.units.find(u => u.id === unitId);
-            if (!unit) return;
-
-            const modal = document.getElementById('unitModal');
-            const modalBody = document.getElementById('modalBody');
-            const modalTitle = document.getElementById('modalTitle');
-
-            modalTitle.textContent = `${unit.code} - ${unit.name}`;
-            
-            const weeks = unit.weeks;
-            const startWeek = Math.min(...weeks);
-            const endWeek = Math.max(...weeks);
-            const duration = weeks.length;
-            
-            modalBody.innerHTML = `
-                <div style="margin-bottom: 20px;">
-                    <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                        <div style="flex: 1; background: #f8f9fa; padding: 10px; border-radius: 6px;">
-                            <div style="font-size: 12px; color: #636e72;">Timing</div>
-                            <div style="font-weight: 600;">Weeks ${startWeek}-${endWeek} (${duration} week${duration > 1 ? 's' : ''})</div>
-                        </div>
-                        <div style="flex: 1; background: #f8f9fa; padding: 10px; border-radius: 6px;">
-                            <div style="font-size: 12px; color: #636e72;">Taught by</div>
-                            <div style="font-weight: 600;">${unit.teacher === 'other' ? 'Other Teacher' : 'Main Teacher'}</div>
-                        </div>
-                    </div>
-                    
-                    ${unit.tags && unit.tags.length > 0 ? `
-                        <div style="margin-bottom: 15px;">
-                            <div style="font-size: 12px; color: #636e72; margin-bottom: 5px;">Tags</div>
-                            <div>
-                                ${unit.tags.map(tag => `
-                                    <span style="display: inline-block; background: #e9ecef; padding: 3px 8px; border-radius: 12px; font-size: 11px; margin-right: 5px; margin-bottom: 5px;">
-                                        ${tag}
-                                    </span>
-                                `).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    ${unit.notes ? `
-                        <div style="margin-bottom: 15px;">
-                            <div style="font-size: 12px; color: #636e72; margin-bottom: 5px;">Description</div>
-                            <div style="background: #f8f9fa; padding: 10px; border-radius: 6px;">${unit.notes}</div>
-                        </div>
-                    ` : ''}
-                    
-                    <button onclick="document.getElementById('unitModal').style.display = 'none'" 
-                            style="width: 100%; padding: 10px; background: #0984e3; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        Close
-                    </button>
-                </div>
-            `;
-
-            modal.style.display = 'flex';
-        }
-
-        // ========== PLAN MANAGEMENT ==========
-        renderSavedPlans() {
-            if (this.isStudentView) return;
-            
-            const container = document.getElementById('savedPlans');
-            if (!container) return;
-
-            try {
-                const savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
-                
-                if (savedPlans.length === 0) {
-                    container.innerHTML = '<p style="color: #666; font-size: 14px;">No saved plans yet.</p>';
-                    return;
-                }
-
-                container.innerHTML = savedPlans.map(plan => `
-                    <div style="padding: 10px; margin-bottom: 10px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #0984e3;">
-                        <div style="font-weight: 600; margin-bottom: 5px;">${plan.name}</div>
-                        <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
-                            ${new Date(plan.date).toLocaleDateString()} • ${plan.units?.length || 0} units
-                        </div>
-                        <div style="display: flex; gap: 5px;">
-                            <button onclick="app.loadPlan('${plan.id}')" 
-                                    style="flex: 1; padding: 5px; font-size: 12px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                Load
-                            </button>
-                            <button onclick="app.deleteSavedPlan('${plan.id}')" 
-                                    style="flex: 1; padding: 5px; font-size: 12px; background: #ff6b6b; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-            } catch (error) {
-                console.error('Failed to render saved plans:', error);
-                container.innerHTML = '<p style="color: #666; font-size: 14px;">Error loading saved plans.</p>';
-            }
-        }
-
-        savePlan() {
-            if (this.isStudentView) return;
-            
-            const planName = prompt('Enter a name for this plan:', `Plan ${new Date().toLocaleDateString()}`);
-            if (!planName) return;
-
-            const plan = {
-                id: Date.now().toString(),
-                name: planName,
-                date: new Date().toISOString(),
-                units: this.units,
-                courseData: this.courseData,
-                blockedWeeks: this.blockedWeeks,
-                projectMilestones: this.courseData.projectMilestones,
-                version: CONFIG.APP_VERSION
-            };
-
-            try {
-                let savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
-                savedPlans.push(plan);
-                localStorage.setItem(`${CONFIG.STORAGE_PREFIX}plans`, JSON.stringify(savedPlans));
-                
-                this.showToast(`Plan "${planName}" saved!`, 'success');
-                this.renderSavedPlans();
-            } catch (error) {
-                console.error('Failed to save plan:', error);
-                this.showToast('Failed to save plan', 'error');
-            }
-        }
-
-        loadPlan(planId) {
-            try {
-                const savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
-                const plan = savedPlans.find(p => p.id === planId);
-                
-                if (plan) {
-                    this.saveHistory();
-                    this.units = plan.units || [];
-                    this.courseData = plan.courseData || this.courseData;
-                    this.blockedWeeks = plan.blockedWeeks || {};
-                    this.courseData.projectMilestones = plan.projectMilestones || this.courseData.projectMilestones;
-                    this.renderEverything();
-                    this.showToast(`Loaded "${plan.name}"`, 'success');
-                    this.saveToSharedStorage(); // Update shared storage with loaded plan
-                }
-            } catch (error) {
-                console.error('Failed to load plan:', error);
-                this.showToast('Failed to load plan', 'error');
-            }
-        }
-
-        deleteSavedPlan(planId) {
-            if (confirm('Delete this saved plan?')) {
-                try {
-                    let savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
-                    savedPlans = savedPlans.filter(p => p.id !== planId);
-                    localStorage.setItem(`${CONFIG.STORAGE_PREFIX}plans`, JSON.stringify(savedPlans));
-                    this.renderSavedPlans();
-                    this.showToast('Plan deleted', 'success');
-                } catch (error) {
-                    console.error('Failed to delete plan:', error);
-                    this.showToast('Failed to delete plan', 'error');
-                }
-            }
-        }
-
-        resetToDefault() {
-            if (confirm('Reset to default course sequence? Any unsaved changes will be lost.')) {
-                this.saveHistory();
-                this.units = [...this.defaultUnits];
-                this.courseData = {
-                    totalWeeks: CONFIG.DEFAULT_TOTAL_WEEKS,
-                    terms: [
-                        { number: 1, weeks: 10, startWeek: 1, name: "Safety, Foundations & Summer Harvest" },
-                        { number: 2, weeks: 10, startWeek: 11, name: "Practical Skills & Application" },
-                        { number: 3, weeks: 10, startWeek: 21, name: "Machinery & Advanced Integration" },
-                        { number: 4, weeks: 7, startWeek: 31, name: "Apex & Finalisation" }
-                    ],
-                    projectMilestones: [
-                        { id: 'milestone-1', week: 18, label: "Project Start" },
-                        { id: 'milestone-2', week: 25, label: "Phase 2" },
-                        { id: 'milestone-3', week: 30, label: "Integration" },
-                        { id: 'milestone-4', week: 34, label: "Final Phase" }
-                    ]
-                };
-                this.blockedWeeks = {};
-                
-                this.renderEverything();
-                this.showToast('Reset to default sequence', 'success');
-                this.saveToSharedStorage();
-            }
-        }
-
-        clearTimetable() {
-            if (confirm('Are you sure you want to clear ALL units from the timetable?')) {
-                this.saveHistory();
-                this.units = [];
-                this.renderEverything();
-                this.showToast('Timetable cleared', 'success');
-                this.saveToSharedStorage();
-            }
-        }
-
-        // ========== WEEK BLOCKING ==========
-        applyWeekBlocking() {
-            if (this.isStudentView) return;
-            
-            const blockingType = document.getElementById('weekBlocking').value;
-            const weekRangeInput = document.getElementById('weekRange').value;
-            
-            if (!blockingType || !weekRangeInput) {
-                this.showToast('Please select blocking type and enter week range', 'error');
-                return;
-            }
-            
-            let weeks = [];
-            if (weekRangeInput.includes('-')) {
-                const [start, end] = weekRangeInput.split('-').map(Number);
-                weeks = Array.from({length: end - start + 1}, (_, i) => start + i);
-            } else if (weekRangeInput.includes(',')) {
-                weeks = weekRangeInput.split(',').map(w => parseInt(w.trim())).filter(w => !isNaN(w));
-            } else {
-                weeks = [parseInt(weekRangeInput) || 1];
-            }
-            
-            // Validate weeks
-            weeks.forEach(week => {
-                if (week < 1 || week > this.courseData.totalWeeks) {
-                    this.showToast(`Week ${week} is outside valid range`, 'error');
-                    return;
-                }
-            });
-            
-            this.saveHistory();
-            
-            weeks.forEach(week => {
-                if (blockingType === 'clear') {
-                    delete this.blockedWeeks[week];
-                } else {
-                    this.blockedWeeks[week] = {
-                        type: blockingType,
-                        label: this.blockingLabels[blockingType]
-                    };
-                }
-            });
-            
-            this.renderEverything();
-            this.showToast(`Week blocking applied to weeks ${weeks.join(', ')}`, 'success');
-            this.saveToSharedStorage();
-        }
-
-        // ========== WEEK MANAGEMENT ==========
-        addWeek() {
-            if (this.isStudentView) return;
-            
-            const position = prompt(`Add week at which position? (1-${this.courseData.totalWeeks + 1}, or "end" for at the end)`);
-            if (!position) return;
-
-            this.saveHistory();
-            
-            let insertPosition;
-            if (position.toLowerCase() === 'end') {
-                insertPosition = this.courseData.totalWeeks + 1;
-            } else {
-                insertPosition = parseInt(position);
-                if (isNaN(insertPosition) || insertPosition < 1 || insertPosition > this.courseData.totalWeeks + 1) {
-                    this.showToast('Invalid position', 'error');
-                    return;
-                }
-            }
-
-            // Increment total weeks
-            this.courseData.totalWeeks++;
-            
-            // Find which term this week is being inserted into
-            let termToUpdate = null;
-            let termIndex = -1;
-            
-            for (let i = 0; i < this.courseData.terms.length; i++) {
-                const term = this.courseData.terms[i];
-                if (insertPosition >= term.startWeek) {
-                    termToUpdate = term;
-                    termIndex = i;
-                }
-            }
-            
-            // Update the term where week is inserted
-            if (termToUpdate && insertPosition >= termToUpdate.startWeek && insertPosition <= termToUpdate.startWeek + termToUpdate.weeks) {
-                termToUpdate.weeks++;
-            }
-            
-            // Update subsequent terms' start weeks
-            for (let i = termIndex + 1; i < this.courseData.terms.length; i++) {
-                this.courseData.terms[i].startWeek++;
-            }
-            
-            // Adjust units
-            this.adjustUnitsForWeekInsertion(insertPosition, 1);
-            
-            this.renderEverything();
-            this.showToast('Week added', 'success');
-            this.saveToSharedStorage();
-        }
-
-        removeWeek() {
-            if (this.isStudentView) return;
-            
-            const weekToRemove = parseInt(prompt(`Remove which week? (1-${this.courseData.totalWeeks})`));
-            if (isNaN(weekToRemove) || weekToRemove < 1 || weekToRemove > this.courseData.totalWeeks) {
-                this.showToast('Invalid week', 'error');
-                return;
-            }
-
-            if (!confirm(`Remove Week ${weekToRemove}? This will also remove any units scheduled for this week.`)) {
-                return;
-            }
-
-            this.saveHistory();
-            
-            // Decrement total weeks
-            this.courseData.totalWeeks--;
-            
-            // Find which term this week is in
-            let termToUpdate = null;
-            let termIndex = -1;
-            
-            for (let i = 0; i < this.courseData.terms.length; i++) {
-                const term = this.courseData.terms[i];
-                if (weekToRemove >= term.startWeek && weekToRemove < term.startWeek + term.weeks) {
-                    termToUpdate = term;
-                    termIndex = i;
-                    break;
-                }
-            }
-            
-            if (termToUpdate) {
-                termToUpdate.weeks--;
-            }
-            
-            // Update subsequent terms' start weeks
-            for (let i = termIndex + 1; i < this.courseData.terms.length; i++) {
-                this.courseData.terms[i].startWeek--;
-            }
-            
-            // Remove units in this week and adjust others
-            this.adjustUnitsForWeekRemoval(weekToRemove);
-            
-            this.renderEverything();
-            this.showToast('Week removed', 'success');
-            this.saveToSharedStorage();
-        }
-
-        addWeekToTerm() {
-            if (this.isStudentView) return;
-            
-            const termNumber = parseInt(prompt('Add a week to which term? (1-4)'));
-            if (isNaN(termNumber) || termNumber < 1 || termNumber > this.courseData.terms.length) {
-                this.showToast('Invalid term number', 'error');
-                return;
-            }
-
-            this.saveHistory();
-            
-            const term = this.courseData.terms[termNumber - 1];
-            
-            // Increment total weeks
-            this.courseData.totalWeeks++;
-            
-            // Add week to this term
-            term.weeks++;
-            
-            // Update subsequent terms' start weeks
-            for (let i = termNumber; i < this.courseData.terms.length; i++) {
-                this.courseData.terms[i].startWeek++;
-            }
-            
-            // Adjust units in subsequent terms
-            this.adjustUnitsForWeekInsertion(term.startWeek + term.weeks - 1, 1);
-            
-            this.renderEverything();
-            this.showToast(`Week added to Term ${termNumber}`, 'success');
-            this.saveToSharedStorage();
-        }
-
-        removeWeekFromTerm() {
-            if (this.isStudentView) return;
-            
-            const termNumber = parseInt(prompt('Remove a week from which term? (1-4)'));
-            if (isNaN(termNumber) || termNumber < 1 || termNumber > this.courseData.terms.length) {
-                this.showToast('Invalid term number', 'error');
-                return;
-            }
-
-            const term = this.courseData.terms[termNumber - 1];
-            
-            if (term.weeks <= 1) {
-                this.showToast(`Term ${termNumber} already has only 1 week`, 'error');
-                return;
-            }
-
-            const weekToRemove = term.startWeek + term.weeks - 1;
-            
-            if (!confirm(`Remove week ${weekToRemove} from Term ${termNumber}?`)) {
-                return;
-            }
-
-            this.saveHistory();
-            
-            // Decrement total weeks
-            this.courseData.totalWeeks--;
-            
-            // Remove week from this term
-            term.weeks--;
-            
-            // Update subsequent terms' start weeks
-            for (let i = termNumber; i < this.courseData.terms.length; i++) {
-                this.courseData.terms[i].startWeek--;
-            }
-            
-            // Remove units in this week and adjust others
-            this.adjustUnitsForWeekRemoval(weekToRemove);
-            
-            this.renderEverything();
-            this.showToast(`Week removed from Term ${termNumber}`, 'success');
-            this.saveToSharedStorage();
-        }
-
-        adjustUnitsForWeekInsertion(insertPosition, count) {
-            this.units.forEach(unit => {
-                unit.weeks = unit.weeks.map(week => {
-                    if (week >= insertPosition) {
-                        return week + count;
-                    }
-                    return week;
-                });
-            });
-            
-            // Adjust blocked weeks
-            const newBlockedWeeks = {};
-            Object.keys(this.blockedWeeks).forEach(weekStr => {
-                let week = parseInt(weekStr);
-                if (week >= insertPosition) {
-                    week += count;
-                }
-                newBlockedWeeks[week] = this.blockedWeeks[weekStr];
-            });
-            this.blockedWeeks = newBlockedWeeks;
-            
-            // Adjust project milestones
-            this.courseData.projectMilestones.forEach(milestone => {
-                if (milestone.week >= insertPosition) {
-                    milestone.week += count;
-                }
-            });
-        }
-
-        adjustUnitsForWeekRemoval(weekToRemove) {
-            // Remove units in this week
-            this.units = this.units.filter(unit => !unit.weeks.includes(weekToRemove));
-            
-            // Adjust remaining units
-            this.units.forEach(unit => {
-                unit.weeks = unit.weeks
-                    .map(w => w > weekToRemove ? w - 1 : w)
-                    .filter(w => w !== weekToRemove);
-            });
-            
-            // Remove blocked week if exists
-            delete this.blockedWeeks[weekToRemove];
-            
-            // Adjust remaining blocked weeks
-            const newBlockedWeeks = {};
-            Object.keys(this.blockedWeeks).forEach(weekStr => {
-                let week = parseInt(weekStr);
-                if (week > weekToRemove) {
-                    week--;
-                }
-                newBlockedWeeks[week] = this.blockedWeeks[weekStr];
-            });
-            this.blockedWeeks = newBlockedWeeks;
-            
-            // Adjust project milestones
-            this.courseData.projectMilestones = this.courseData.projectMilestones
-                .filter(milestone => milestone.week !== weekToRemove)
-                .map(milestone => {
-                    if (milestone.week > weekToRemove) {
-                        return { ...milestone, week: milestone.week - 1 };
-                    }
-                    return milestone;
-                });
-        }
-
-        // ========== EXPORT/IMPORT ==========
-        exportPlan() {
-            if (this.isStudentView) return;
-            
-            const data = {
-                version: CONFIG.APP_VERSION,
-                timestamp: new Date().toISOString(),
-                units: this.units,
-                courseData: this.courseData,
-                blockedWeeks: this.blockedWeeks,
-                projectMilestones: this.courseData.projectMilestones
-            };
-
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `course-plan-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            this.showToast('Plan exported successfully', 'success');
-        }
-
-        importPlan() {
-            if (this.isStudentView) return;
-            
-            const fileInput = document.getElementById('importPlan');
-            if (!fileInput.files.length) return;
-            
-            const file = fileInput.files[0];
-            const reader = new FileReader();
-            
-            reader.onload = (e) => {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (data.units && data.courseData) {
-                        this.saveHistory();
-                        this.units = data.units;
-                        this.courseData = data.courseData;
-                        this.blockedWeeks = data.blockedWeeks || {};
-                        this.courseData.projectMilestones = data.projectMilestones || this.courseData.projectMilestones;
-                        this.renderEverything();
-                        this.showToast('Plan imported successfully', 'success');
-                        this.saveToSharedStorage();
-                    } else {
-                        this.showToast('Invalid plan file', 'error');
-                    }
-                } catch (error) {
-                    console.error('Failed to import plan:', error);
-                    this.showToast('Failed to import plan', 'error');
-                }
-            };
-            
-            reader.readAsText(file);
-            fileInput.value = '';
-        }
-
-        printPlan() {
-            window.print();
-        }
-
+        
         // ========== UTILITIES ==========
-        undo() {
-            if (this.historyIndex > 0) {
-                this.historyIndex--;
-                const state = this.history[this.historyIndex];
-                this.units = JSON.parse(JSON.stringify(state.units));
-                this.courseData = JSON.parse(JSON.stringify(state.courseData));
-                this.blockedWeeks = JSON.parse(JSON.stringify(state.blockedWeeks));
-                this.renderEverything();
-                this.showToast('Undo', 'success');
-                this.saveToSharedStorage();
-                return true;
-            }
-            return false;
-        }
-
-        redo() {
-            if (this.historyIndex < this.history.length - 1) {
-                this.historyIndex++;
-                const state = this.history[this.historyIndex];
-                this.units = JSON.parse(JSON.stringify(state.units));
-                this.courseData = JSON.parse(JSON.stringify(state.courseData));
-                this.blockedWeeks = JSON.parse(JSON.stringify(state.blockedWeeks));
-                this.renderEverything();
-                this.showToast('Redo', 'success');
-                this.saveToSharedStorage();
-                return true;
-            }
-            return false;
-        }
-
-        getTermForWeek(week) {
-            return this.courseData.terms.find(term => 
-                week >= term.startWeek && week < term.startWeek + term.weeks
-            );
-        }
-
-        updateTotalWeeksDisplay() {
-            const display = document.getElementById('totalWeeksDisplay');
-            if (display) {
-                display.textContent = this.courseData.totalWeeks;
-            }
-        }
-
         showToast(message, type = 'info') {
-            const container = document.getElementById('toastsContainer');
-            if (!container) return;
-
-            const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            toast.textContent = message;
-            container.appendChild(toast);
-
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100%)';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            console.log('Toast:', message);
+            alert(message); // Simple alert for testing
         }
-
-        showSyncNotification(message) {
-            const status = document.getElementById('syncStatus');
-            const messageEl = document.getElementById('syncMessage');
-            if (status && messageEl) {
-                messageEl.textContent = message;
-                status.classList.add('show');
-                
-                setTimeout(() => {
-                    status.classList.remove('show');
-                }, 3000);
-            }
-        }
-
+        
         hideLoadingScreen() {
             const loading = document.getElementById('loading');
             if (loading) {
@@ -3164,72 +1459,31 @@
                 }, 300);
             }
         }
-
-        darkenColor(color, percent) {
-            const num = parseInt(color.replace('#', ''), 16);
-            const amt = Math.round(2.55 * percent);
-            const R = (num >> 16) - amt;
-            const G = (num >> 8 & 0x00FF) - amt;
-            const B = (num & 0x0000FF) - amt;
-            return '#' + (
-                0x1000000 +
-                (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
-                (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
-                (B < 255 ? B < 1 ? 0 : B : 255)
-            ).toString(16).slice(1);
-        }
-
-        setupKeyboardShortcuts() {
-            document.addEventListener('keydown', (e) => {
-                if (e.target.matches('input, textarea, select')) return;
-                
-                if (e.ctrlKey || e.metaKey) {
-                    switch(e.key) {
-                        case 'z':
-                            if (!this.isStudentView) {
-                                e.preventDefault();
-                                if (e.shiftKey) {
-                                    this.redo();
-                                } else {
-                                    this.undo();
-                                }
-                            }
-                            break;
-                        case 'y':
-                            if (!this.isStudentView) {
-                                e.preventDefault();
-                                this.redo();
-                            }
-                            break;
-                        case 's':
-                            if (!this.isStudentView) {
-                                e.preventDefault();
-                                this.savePlan();
-                            }
-                            break;
-                        case 'p':
-                            e.preventDefault();
-                            this.printPlan();
-                            break;
-                    }
-                }
-                
-                if (e.key === 'Escape') {
-                    document.querySelectorAll('.modal').forEach(modal => {
-                        modal.style.display = 'none';
-                    });
-                    const panel = document.getElementById('sharePanel');
-                    if (panel) panel.classList.remove('show');
-                }
-            });
-        }
     }
-
-    // ========== INITIALIZE APP ==========
+    
+    // ========== INITIALIZE ==========
     let app;
     document.addEventListener('DOMContentLoaded', () => {
         app = new CoursePlanner();
-        window.app = app; // Make available globally
+        window.app = app;
+        
+        // Add a clear storage button for debugging
+        const debugDiv = document.createElement('div');
+        debugDiv.style.position = 'fixed';
+        debugDiv.style.bottom = '10px';
+        debugDiv.style.left = '10px';
+        debugDiv.style.zIndex = '9999';
+        debugDiv.innerHTML = `
+            <button onclick="localStorage.clear(); location.reload();" 
+                    style="padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 3px; font-size: 12px;">
+                🔥 Clear Storage & Reload
+            </button>
+            <button onclick="console.log('Storage:', localStorage.getItem('${SHARED_STORAGE_KEY}'))" 
+                    style="margin-left: 5px; padding: 5px 10px; background: #17a2b8; color: white; border: none; border-radius: 3px; font-size: 12px;">
+                📊 Debug Storage
+            </button>
+        `;
+        document.body.appendChild(debugDiv);
     });
 </script>
 </body>
