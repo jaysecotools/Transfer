@@ -126,6 +126,7 @@
             gap: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             transition: all 0.2s;
+            position: relative;
         }
 
         .view-toggle button:hover {
@@ -360,11 +361,13 @@
             flex-direction: column;
             gap: 10px;
             min-width: min-content;
+            position: relative;
         }
 
         .swimlane {
             display: flex;
             min-height: 120px;
+            position: relative;
         }
 
         .lane-label {
@@ -386,6 +389,7 @@
         .lane-content {
             display: flex;
             flex: 1;
+            position: relative;
         }
 
         .week-slot {
@@ -442,6 +446,7 @@
             position: relative;
             overflow: hidden;
             min-height: 60px;
+            z-index: 2;
         }
 
         .unit-block:hover {
@@ -477,30 +482,80 @@
             border-radius: 3px;
         }
 
-        /* Project Thread */
-        .project-thread {
+        /* Project Markers */
+        .project-marker {
             position: absolute;
-            height: 4px;
-            background: var(--color-project);
-            top: 50%;
-            left: 0;
-            right: 0;
-            transform: translateY(-50%);
-            z-index: 1;
-            border-radius: 2px;
-        }
-
-        .project-milestone {
-            position: absolute;
-            width: 12px;
-            height: 12px;
+            width: 16px;
+            height: 16px;
             background: var(--color-project);
             border-radius: 50%;
             top: 50%;
             transform: translateY(-50%);
-            z-index: 2;
+            z-index: 10;
             border: 2px solid white;
-            box-shadow: 0 0 0 2px var(--color-project);
+            box-shadow: 0 0 0 2px var(--color-project), 0 2px 4px rgba(0,0,0,0.2);
+            cursor: grab;
+            transition: all 0.2s;
+        }
+
+        .project-marker:hover {
+            transform: translateY(-50%) scale(1.2);
+            box-shadow: 0 0 0 3px var(--color-project), 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        .project-marker.dragging {
+            cursor: grabbing;
+            opacity: 0.8;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .project-marker-label {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            white-space: nowrap;
+            color: #2d3436;
+            background: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            font-weight: 600;
+            min-width: 100px;
+            text-align: center;
+            z-index: 11;
+            pointer-events: none;
+        }
+
+        .project-marker-delete {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 18px;
+            height: 18px;
+            background: #ff6b6b;
+            border-radius: 50%;
+            color: white;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 12;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .project-marker:hover .project-marker-delete {
+            opacity: 1;
+        }
+
+        .project-marker-delete:hover {
+            background: #ff5252;
+            transform: scale(1.1);
         }
 
         /* Empty Slot */
@@ -766,6 +821,19 @@
             color: #636e72;
         }
 
+        /* Project Marker Controls */
+        .project-marker-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+
+        .project-marker-controls button {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
         /* Responsive */
         @media (max-width: 1200px) {
             .workspace {
@@ -803,6 +871,12 @@
             .view-toggle button {
                 padding: 8px 15px;
                 font-size: 14px;
+            }
+            
+            .project-marker-label {
+                font-size: 10px;
+                padding: 2px 6px;
+                min-width: 80px;
             }
         }
 
@@ -926,6 +1000,7 @@
         
         <button class="primary" id="savePlan">💾 Save Plan</button>
         <button id="sharePlan">🔗 Share</button>
+        <button id="forceSync" class="success">🔄 Force Sync</button>
         <button id="resetPlan">🔄 Reset</button>
         <button id="printPlan">🖨️ Print</button>
         <button id="exportPlan">📤 Export</button>
@@ -942,6 +1017,15 @@
                     <button id="addWeekToTermBtn" class="success" style="flex: 1;">+ To Term</button>
                     <button id="removeWeekFromTermBtn" class="warning" style="flex: 1;">- From Term</button>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Project Marker Controls -->
+        <div class="control-group">
+            <label>Project Milestones</label>
+            <div class="project-marker-controls">
+                <button id="addProjectMarker" class="success" title="Add a project milestone">+ Add Marker</button>
+                <button id="clearProjectMarkers" class="warning" title="Clear all project milestones">🗑️ Clear All</button>
             </div>
         </div>
     </div>
@@ -995,6 +1079,10 @@
         <div class="legend-item">
             <div class="legend-color" style="background: var(--color-term-break);"></div>
             <span>Term Break</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #a29bfe; border: 1px solid #888;"></div>
+            <span>Project Milestones</span>
         </div>
     </div>
 
@@ -1100,10 +1188,10 @@
                         { number: 4, weeks: 7, startWeek: 31, name: "Apex & Finalisation" }
                     ],
                     projectMilestones: [
-                        { week: 18, label: "Project Start" },
-                        { week: 25, label: "Phase 2" },
-                        { week: 30, label: "Integration" },
-                        { week: 34, label: "Final Phase" }
+                        { id: 'milestone-1', week: 18, label: "Project Start" },
+                        { id: 'milestone-2', week: 25, label: "Phase 2" },
+                        { id: 'milestone-3', week: 30, label: "Integration" },
+                        { id: 'milestone-4', week: 34, label: "Final Phase" }
                     ]
                 };
                 this.blockedWeeks = {};
@@ -1113,6 +1201,7 @@
                 this.isStudentView = false;
                 this.sharedPlanId = null;
                 this.draggedUnit = null;
+                this.draggedMarker = null;
                 this.draggedFromPalette = false;
                 
                 this.colorMap = {
@@ -1373,35 +1462,52 @@
             }
 
             loadInitialData() {
-                // Check URL for student view
-                const urlParams = new URLSearchParams(window.location.search);
-                this.isStudentView = urlParams.has('student');
-                this.sharedPlanId = urlParams.get('plan');
+                try {
+                    // Check URL for student view
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const hasStudentParam = urlParams.has('student') || urlParams.has('view') && urlParams.get('view') === 'student';
+                    this.isStudentView = hasStudentParam;
+                    this.sharedPlanId = urlParams.get('plan') || urlParams.get('shared');
+                    
+                    console.log('=== INITIAL LOAD ===');
+                    console.log('Student View:', this.isStudentView);
+                    console.log('Plan ID from URL:', this.sharedPlanId);
 
-                if (this.isStudentView) {
-                    this.setupStudentView();
-                    this.loadSharedPlan();
-                } else {
-                    // Try to load saved data
-                    const saved = localStorage.getItem(`${CONFIG.STORAGE_PREFIX}autosave`);
-                    if (saved) {
-                        try {
-                            const data = JSON.parse(saved);
-                            if (data.version === CONFIG.APP_VERSION) {
-                                this.units = data.units || this.defaultUnits;
-                                this.courseData = data.courseData || this.courseData;
-                                this.blockedWeeks = data.blockedWeeks || {};
+                    if (this.isStudentView) {
+                        this.setupStudentView();
+                        this.loadSharedPlan();
+                    } else {
+                        // Try to load saved data
+                        const saved = localStorage.getItem(`${CONFIG.STORAGE_PREFIX}autosave`);
+                        if (saved) {
+                            try {
+                                const data = JSON.parse(saved);
+                                if (data.version === CONFIG.APP_VERSION) {
+                                    this.units = data.units || this.defaultUnits;
+                                    this.courseData = data.courseData || this.courseData;
+                                    this.blockedWeeks = data.blockedWeeks || {};
+                                    // Ensure project milestones have IDs
+                                    if (this.courseData.projectMilestones) {
+                                        this.courseData.projectMilestones = this.courseData.projectMilestones.map((milestone, index) => ({
+                                            ...milestone,
+                                            id: milestone.id || `milestone-${index + 1}`
+                                        }));
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Failed to load saved data:', e);
+                                this.units = [...this.defaultUnits];
                             }
-                        } catch (e) {
-                            console.error('Failed to load saved data:', e);
+                        } else {
                             this.units = [...this.defaultUnits];
                         }
-                    } else {
-                        this.units = [...this.defaultUnits];
                     }
-                }
 
-                this.saveHistory();
+                    this.saveHistory();
+                } catch (error) {
+                    console.error('Error in loadInitialData:', error);
+                    this.units = [...this.defaultUnits];
+                }
             }
 
             setupStudentView() {
@@ -1412,27 +1518,94 @@
                 document.getElementById('courseTitle').textContent = 'Course Schedule - Cert III Conservation & Ecosystem Management';
                 document.getElementById('courseSubtitle').textContent = `Student View - ${this.courseData.totalWeeks}-Week Plan`;
                 document.getElementById('viewModeIndicator').textContent = 'Student View';
+                document.getElementById('courseDescription').textContent = 'Click units for details | Term overviews below';
                 
                 // Update view toggle
                 document.getElementById('viewIcon').textContent = '✏️';
                 document.getElementById('viewLabel').textContent = 'Editor View';
+                
+                // Hide controls and sidebar
+                const controls = document.querySelector('.controls');
+                const legend = document.querySelector('.legend');
+                const sidebar = document.querySelector('.sidebar');
+                
+                if (controls) controls.style.display = 'none';
+                if (legend) legend.style.display = 'none';
+                if (sidebar) sidebar.style.display = 'none';
             }
 
             loadSharedPlan() {
-                if (!this.sharedPlanId) return;
-                
                 try {
-                    const planData = localStorage.getItem(`${CONFIG.STORAGE_PREFIX}shared_${this.sharedPlanId}`);
-                    if (planData) {
-                        const plan = JSON.parse(planData);
-                        this.units = plan.units || this.defaultUnits;
-                        this.courseData = plan.courseData || this.courseData;
-                        this.blockedWeeks = plan.blockedWeeks || {};
-                        this.showToast('Shared plan loaded', 'success');
+                    console.log('=== LOADING SHARED PLAN ===');
+                    console.log('Plan ID from URL:', this.sharedPlanId);
+                    
+                    // List all shared plans in localStorage for debugging
+                    const allKeys = Object.keys(localStorage);
+                    const sharedKeys = allKeys.filter(key => key.startsWith(`${CONFIG.STORAGE_PREFIX}shared_`));
+                    console.log('All shared keys in localStorage:', sharedKeys);
+                    
+                    if (!this.sharedPlanId && sharedKeys.length > 0) {
+                        // Use the first shared plan found
+                        this.sharedPlanId = sharedKeys[0].replace(`${CONFIG.STORAGE_PREFIX}`, '');
+                        console.log('Using first available plan:', this.sharedPlanId);
                     }
-                } catch (e) {
-                    console.error('Failed to load shared plan:', e);
+                    
+                    if (this.sharedPlanId) {
+                        const storageKey = `${CONFIG.STORAGE_PREFIX}${this.sharedPlanId}`;
+                        console.log('Looking for key:', storageKey);
+                        
+                        const planData = localStorage.getItem(storageKey);
+                        console.log('Found data:', planData ? 'YES' : 'NO');
+                        
+                        if (planData) {
+                            const plan = JSON.parse(planData);
+                            console.log('Parsed plan:', plan);
+                            
+                            if (plan.units && Array.isArray(plan.units)) {
+                                this.units = plan.units;
+                                console.log('Loaded units:', this.units.length);
+                                console.log('Sample units:', this.units.slice(0, 3));
+                            } else {
+                                console.warn('Plan has no valid units array');
+                                this.units = [...this.defaultUnits];
+                            }
+                            
+                            if (plan.courseData) {
+                                this.courseData = plan.courseData;
+                            }
+                            
+                            if (plan.blockedWeeks) {
+                                this.blockedWeeks = plan.blockedWeeks;
+                            }
+                            
+                            if (plan.projectMilestones) {
+                                this.courseData.projectMilestones = plan.projectMilestones;
+                            }
+                            
+                            this.showToast('Shared plan loaded successfully', 'success');
+                        } else {
+                            console.warn('No plan data found for ID:', this.sharedPlanId);
+                            console.warn('Available keys:', allKeys);
+                            this.units = [...this.defaultUnits];
+                            this.showToast('Using default course sequence', 'info');
+                        }
+                    } else {
+                        console.log('No plan ID provided, using default units');
+                        this.units = [...this.defaultUnits];
+                        this.showToast('Using default course sequence', 'info');
+                    }
+                    
+                    console.log('Final units count:', this.units.length);
+                    
+                    // Force render
+                    this.renderEverything();
+                    
+                } catch (error) {
+                    console.error('Failed to load shared plan:', error);
+                    console.error('Error details:', error.message, error.stack);
                     this.units = [...this.defaultUnits];
+                    this.showToast('Error loading plan, using default', 'error');
+                    this.renderEverything();
                 }
             }
 
@@ -1452,34 +1625,6 @@
                 this.historyIndex = this.history.length - 1;
             }
 
-            undo() {
-                if (this.historyIndex > 0) {
-                    this.historyIndex--;
-                    const state = this.history[this.historyIndex];
-                    this.units = JSON.parse(JSON.stringify(state.units));
-                    this.courseData = JSON.parse(JSON.stringify(state.courseData));
-                    this.blockedWeeks = JSON.parse(JSON.stringify(state.blockedWeeks));
-                    this.renderEverything();
-                    this.showToast('Undo', 'success');
-                    return true;
-                }
-                return false;
-            }
-
-            redo() {
-                if (this.historyIndex < this.history.length - 1) {
-                    this.historyIndex++;
-                    const state = this.history[this.historyIndex];
-                    this.units = JSON.parse(JSON.stringify(state.units));
-                    this.courseData = JSON.parse(JSON.stringify(state.courseData));
-                    this.blockedWeeks = JSON.parse(JSON.stringify(state.blockedWeeks));
-                    this.renderEverything();
-                    this.showToast('Redo', 'success');
-                    return true;
-                }
-                return false;
-            }
-
             // ========== RENDERING ==========
             renderEverything() {
                 this.renderUnitPalette();
@@ -1492,48 +1637,11 @@
                 }
             }
 
-            renderUnitPalette() {
-                const container = document.getElementById('unitPalette');
-                if (!container) return;
-
-                container.innerHTML = this.unitTemplates.map(template => `
-                    <div class="unit-item" draggable="true" data-template='${JSON.stringify(template)}'
-                         style="border-left: 4px solid ${this.colorMap[template.color]};">
-                        <div class="unit-code">${template.code}</div>
-                        <div class="unit-name">${template.name}</div>
-                        <div style="display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap;">
-                            ${template.tags.map(tag => `
-                                <span style="font-size: 10px; padding: 2px 6px; border-radius: 10px; background: #e9ecef; color: #495057;">
-                                    ${tag}
-                                </span>
-                            `).join('')}
-                        </div>
-                    </div>
-                `).join('');
-
-                // Add drag event listeners
-                container.querySelectorAll('.unit-item').forEach(item => {
-                    item.addEventListener('dragstart', (e) => {
-                        const template = JSON.parse(e.currentTarget.dataset.template);
-                        this.draggedFromPalette = true;
-                        this.draggedUnit = template;
-                        e.dataTransfer.setData('text/plain', JSON.stringify(template));
-                        e.currentTarget.classList.add('dragging');
-                    });
-
-                    item.addEventListener('dragend', (e) => {
-                        e.currentTarget.classList.remove('dragging');
-                        this.draggedFromPalette = false;
-                        this.draggedUnit = null;
-                    });
-                });
-            }
-
             renderTimeline() {
                 const container = document.getElementById('timelineContent');
                 if (!container) return;
 
-                const { totalWeeks, terms, projectMilestones } = this.courseData;
+                const { totalWeeks, terms } = this.courseData;
                 const weekWidth = this.isStudentView ? 120 : 150;
                 
                 // Update CSS variables
@@ -1548,9 +1656,11 @@
                 
                 terms.forEach(term => {
                     const termWidth = term.weeks * weekWidth;
+                    const clickable = !this.isStudentView ? 'cursor: pointer;' : '';
                     html += `
                         <div class="term-header" data-term="${term.number}" 
-                             style="width: ${termWidth}px;" title="Click to manage term">
+                             style="width: ${termWidth}px; ${clickable}" 
+                             title="${this.isStudentView ? '' : 'Click to manage term'}">
                             Term ${term.number} (Weeks ${term.startWeek}-${term.startWeek + term.weeks - 1})
                             <div style="font-size: 12px; opacity: 0.8; margin-top: 3px;">${term.name}</div>
                         </div>
@@ -1580,7 +1690,7 @@
 
                 // Determine swimlanes based on view mode
                 let swimlanes = [];
-                const viewMode = document.getElementById('viewMode')?.value || 'week';
+                const viewMode = this.isStudentView ? 'week' : (document.getElementById('viewMode')?.value || 'week');
                 
                 if (viewMode === 'teacher') {
                     swimlanes = [
@@ -1606,11 +1716,11 @@
                     ];
                 }
 
-                swimlanes.forEach(lane => {
+                swimlanes.forEach((lane, laneIndex) => {
                     html += `
                         <div class="swimlane" data-lane="${lane.id}">
                             <div class="lane-label">${lane.label}</div>
-                            <div class="lane-content">
+                            <div class="lane-content" data-lane-id="${lane.id}">
                     `;
 
                     for (let week = 1; week <= totalWeeks; week++) {
@@ -1648,32 +1758,121 @@
                     html += `</div></div>`;
                 });
 
-                // Add project thread to project lane
-                if (viewMode !== 'term') {
-                    html += `
-                        <div style="position: absolute; top: ${swimlanes.findIndex(l => l.id === 'project') * 130 + 165}px; left: 120px; right: 0; height: 0;">
-                            <div class="project-thread"></div>
-                            ${projectMilestones.map(milestone => `
-                                <div class="project-milestone" style="left: ${(milestone.week - 1) * weekWidth + weekWidth/2}px;" 
-                                     title="${milestone.label}"></div>
-                            `).join('')}
-                        </div>
-                    `;
-                }
-
                 html += `</div>`;
                 container.innerHTML = html;
+
+                // Add project markers to the project lane
+                if (viewMode !== 'term') {
+                    this.renderProjectMarkers();
+                }
 
                 // Add event listeners
                 this.setupTimelineEvents();
                 
                 // Add term click handlers
-                container.querySelectorAll('.term-header').forEach(header => {
-                    header.addEventListener('click', (e) => {
-                        const termNumber = parseInt(e.currentTarget.dataset.term);
-                        this.openTermModal(termNumber);
+                if (!this.isStudentView) {
+                    container.querySelectorAll('.term-header').forEach(header => {
+                        header.addEventListener('click', (e) => {
+                            const termNumber = parseInt(e.currentTarget.dataset.term);
+                            this.openTermModal(termNumber);
+                        });
                     });
+                }
+            }
+
+            renderProjectMarkers() {
+                const projectLane = document.querySelector('.lane-content[data-lane-id="project"]');
+                if (!projectLane) return;
+
+                const weekWidth = this.isStudentView ? 120 : 150;
+                const laneTop = projectLane.getBoundingClientRect().top;
+                const containerTop = document.getElementById('timelineContent').getBoundingClientRect().top;
+                const laneHeight = projectLane.offsetHeight;
+                
+                // Remove existing markers first
+                document.querySelectorAll('.project-marker').forEach(marker => marker.remove());
+                
+                // Render each project milestone
+                this.courseData.projectMilestones.forEach(milestone => {
+                    if (milestone.week < 1 || milestone.week > this.courseData.totalWeeks) return;
+                    
+                    const markerLeft = (milestone.week - 1) * weekWidth + weekWidth/2 - 8;
+                    
+                    const marker = document.createElement('div');
+                    marker.className = 'project-marker';
+                    marker.dataset.milestoneId = milestone.id;
+                    marker.dataset.week = milestone.week;
+                    marker.style.left = `${markerLeft}px`;
+                    marker.style.top = `${laneHeight / 2}px`;
+                    marker.style.position = 'absolute';
+                    marker.style.zIndex = '10';
+                    
+                    // Add label
+                    const label = document.createElement('div');
+                    label.className = 'project-marker-label';
+                    label.textContent = milestone.label;
+                    marker.appendChild(label);
+                    
+                    // Add delete button (only in editor view)
+                    if (!this.isStudentView) {
+                        const deleteBtn = document.createElement('div');
+                        deleteBtn.className = 'project-marker-delete';
+                        deleteBtn.innerHTML = '×';
+                        deleteBtn.title = 'Delete milestone';
+                        deleteBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.deleteProjectMilestone(milestone.id);
+                        });
+                        marker.appendChild(deleteBtn);
+                        
+                        // Make marker draggable
+                        marker.draggable = true;
+                        marker.style.cursor = 'grab';
+                        
+                        marker.addEventListener('dragstart', (e) => {
+                            e.dataTransfer.setData('text/plain', milestone.id);
+                            this.draggedMarker = milestone;
+                            marker.classList.add('dragging');
+                        });
+                        
+                        marker.addEventListener('dragend', () => {
+                            marker.classList.remove('dragging');
+                            this.draggedMarker = null;
+                        });
+                    } else {
+                        marker.style.cursor = 'default';
+                    }
+                    
+                    // Add click handler for student view
+                    if (this.isStudentView) {
+                        marker.addEventListener('click', () => {
+                            this.showProjectMilestoneDetails(milestone);
+                        });
+                    }
+                    
+                    projectLane.appendChild(marker);
                 });
+                
+                // Add drop zone for markers
+                if (!this.isStudentView) {
+                    projectLane.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                    });
+                    
+                    projectLane.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        if (!this.draggedMarker) return;
+                        
+                        const rect = projectLane.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const weekWidth = this.isStudentView ? 120 : 150;
+                        const week = Math.floor(x / weekWidth) + 1;
+                        
+                        if (week >= 1 && week <= this.courseData.totalWeeks) {
+                            this.moveProjectMilestone(this.draggedMarker.id, week);
+                        }
+                    });
+                }
             }
 
             getUnitsForWeekAndLane(week, laneId, viewMode) {
@@ -1731,10 +1930,11 @@
                 const color = this.colorMap[unit.color] || this.colorMap.foundational;
                 const darkColor = this.darkenColor(color, 30);
                 const isStudentView = this.isStudentView;
+                const cursorStyle = isStudentView ? 'cursor: pointer;' : '';
                 
                 return `
                     <div class="unit-block" data-unit-id="${unit.id}" data-week="${week}"
-                         style="background: ${color}; border-left-color: ${darkColor};"
+                         style="background: ${color}; border-left-color: ${darkColor}; ${cursorStyle}"
                          draggable="${!isStudentView}">
                         <div class="unit-code">${unit.code}</div>
                         ${isFirstWeek ? `<div class="unit-name">${unit.name}</div>` : ''}
@@ -1742,56 +1942,434 @@
                             `<div class="unit-duration">${unit.weeks.length}w</div>` : ''}
                         ${isStudentView && unit.teacher === 'other' ? 
                             `<div class="week-summary" style="color: #fd79a8;">Other Teacher</div>` : ''}
-                        ${isStudentView && unit.tags.includes('SEASONAL') ? 
+                        ${isStudentView && unit.tags && unit.tags.includes('SEASONAL') ? 
                             `<div class="week-summary" style="color: #55efc4;">Seasonal Timing</div>` : ''}
                     </div>
                 `;
             }
 
-            getTermForWeek(week) {
-                return this.courseData.terms.find(term => 
-                    week >= term.startWeek && week < term.startWeek + term.weeks
-                );
+            // ========== PROJECT MILESTONE MANAGEMENT ==========
+            addProjectMilestone() {
+                const week = prompt('Enter week for new project milestone (1-' + this.courseData.totalWeeks + '):');
+                if (!week) return;
+                
+                const weekNum = parseInt(week);
+                if (isNaN(weekNum) || weekNum < 1 || weekNum > this.courseData.totalWeeks) {
+                    this.showToast('Invalid week number', 'error');
+                    return;
+                }
+                
+                const label = prompt('Enter milestone label:', 'New Milestone');
+                if (!label) return;
+                
+                this.saveHistory();
+                
+                const newMilestone = {
+                    id: `milestone-${Date.now()}`,
+                    week: weekNum,
+                    label: label
+                };
+                
+                this.courseData.projectMilestones.push(newMilestone);
+                this.renderEverything();
+                this.showToast('Project milestone added', 'success');
+                this.showSyncNotification('Project milestone added');
+                this.updateSharedPlan();
             }
 
+            moveProjectMilestone(milestoneId, newWeek) {
+                const milestoneIndex = this.courseData.projectMilestones.findIndex(m => m.id === milestoneId);
+                if (milestoneIndex === -1) return;
+                
+                this.saveHistory();
+                
+                this.courseData.projectMilestones[milestoneIndex].week = newWeek;
+                this.renderEverything();
+                this.showToast('Project milestone moved to week ' + newWeek, 'success');
+                this.showSyncNotification('Project milestone moved');
+                this.updateSharedPlan();
+            }
+
+            deleteProjectMilestone(milestoneId) {
+                if (!confirm('Delete this project milestone?')) return;
+                
+                this.saveHistory();
+                
+                this.courseData.projectMilestones = this.courseData.projectMilestones.filter(m => m.id !== milestoneId);
+                this.renderEverything();
+                this.showToast('Project milestone deleted', 'success');
+                this.showSyncNotification('Project milestone deleted');
+                this.updateSharedPlan();
+            }
+
+            clearAllProjectMilestones() {
+                if (!confirm('Clear ALL project milestones?')) return;
+                
+                this.saveHistory();
+                
+                this.courseData.projectMilestones = [];
+                this.renderEverything();
+                this.showToast('All project milestones cleared', 'success');
+                this.showSyncNotification('Project milestones cleared');
+                this.updateSharedPlan();
+            }
+
+            showProjectMilestoneDetails(milestone) {
+                const modal = document.getElementById('unitModal');
+                const modalBody = document.getElementById('modalBody');
+                const modalTitle = document.getElementById('modalTitle');
+
+                modalTitle.textContent = `Project Milestone: ${milestone.label}`;
+                
+                modalBody.innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                            <div style="flex: 1; background: #f8f9fa; padding: 10px; border-radius: 6px;">
+                                <div style="font-size: 12px; color: #636e72;">Week</div>
+                                <div style="font-weight: 600;">Week ${milestone.week}</div>
+                            </div>
+                        </div>
+                        
+                        <button onclick="document.getElementById('unitModal').style.display = 'none'" 
+                                style="width: 100%; padding: 10px; background: #0984e3; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            Close
+                        </button>
+                    </div>
+                `;
+
+                modal.style.display = 'flex';
+            }
+
+            // ========== EVENT LISTENERS ==========
+            setupEventListeners() {
+                // View mode changes
+                const viewModeSelect = document.getElementById('viewMode');
+                if (viewModeSelect && !this.isStudentView) {
+                    viewModeSelect.addEventListener('change', (e) => {
+                        this.currentView = e.target.value;
+                        this.renderTimeline();
+                    });
+                }
+
+                // Highlight mode
+                const highlightMode = document.getElementById('highlightMode');
+                if (highlightMode) {
+                    highlightMode.addEventListener('change', (e) => {
+                        this.showToast(`Highlighting ${e.target.value} units`, 'info');
+                    });
+                }
+
+                // Control buttons
+                const savePlanBtn = document.getElementById('savePlan');
+                if (savePlanBtn) savePlanBtn.addEventListener('click', () => this.savePlan());
+                
+                const sharePlanBtn = document.getElementById('sharePlan');
+                if (sharePlanBtn) sharePlanBtn.addEventListener('click', () => this.sharePlan());
+                
+                const forceSyncBtn = document.getElementById('forceSync');
+                if (forceSyncBtn) forceSyncBtn.addEventListener('click', () => {
+                    this.updateSharedPlan();
+                    this.showToast('Forced sync to student view', 'success');
+                    
+                    // Also regenerate share link with current data
+                    const shareUrl = this.generateShareLink();
+                    const panel = document.getElementById('sharePanel');
+                    const input = document.getElementById('shareLink');
+                    if (panel && input) {
+                        input.value = shareUrl;
+                        panel.classList.add('show');
+                    }
+                });
+                
+                const resetPlanBtn = document.getElementById('resetPlan');
+                if (resetPlanBtn) resetPlanBtn.addEventListener('click', () => this.resetToDefault());
+                
+                const clearTimetableBtn = document.getElementById('clearTimetable');
+                if (clearTimetableBtn) clearTimetableBtn.addEventListener('click', () => this.clearTimetable());
+                
+                const printPlanBtn = document.getElementById('printPlan');
+                if (printPlanBtn) printPlanBtn.addEventListener('click', () => this.printPlan());
+                
+                const exportPlanBtn = document.getElementById('exportPlan');
+                if (exportPlanBtn) exportPlanBtn.addEventListener('click', () => this.exportPlan());
+                
+                const applyBlockingBtn = document.getElementById('applyBlocking');
+                if (applyBlockingBtn) applyBlockingBtn.addEventListener('click', () => this.applyWeekBlocking());
+                
+                // Week management
+                const addWeekBtn = document.getElementById('addWeekBtn');
+                if (addWeekBtn) addWeekBtn.addEventListener('click', () => this.addWeek());
+                
+                const removeWeekBtn = document.getElementById('removeWeekBtn');
+                if (removeWeekBtn) removeWeekBtn.addEventListener('click', () => this.removeWeek());
+                
+                const addWeekToTermBtn = document.getElementById('addWeekToTermBtn');
+                if (addWeekToTermBtn) addWeekToTermBtn.addEventListener('click', () => this.addWeekToTerm());
+                
+                const removeWeekFromTermBtn = document.getElementById('removeWeekFromTermBtn');
+                if (removeWeekFromTermBtn) removeWeekFromTermBtn.addEventListener('click', () => this.removeWeekFromTerm());
+                
+                // Project milestone controls
+                const addProjectMarkerBtn = document.getElementById('addProjectMarker');
+                if (addProjectMarkerBtn) addProjectMarkerBtn.addEventListener('click', () => this.addProjectMilestone());
+                
+                const clearProjectMarkersBtn = document.getElementById('clearProjectMarkers');
+                if (clearProjectMarkersBtn) clearProjectMarkersBtn.addEventListener('click', () => this.clearAllProjectMilestones());
+                
+                // Unit management
+                const addCustomUnitBtn = document.getElementById('addCustomUnit');
+                if (addCustomUnitBtn) addCustomUnitBtn.addEventListener('click', () => this.addUnitFromTemplate(
+                    { code: 'CUSTOM', name: 'Custom Unit/Block', color: 'foundational', tags: ['CUSTOM'] },
+                    1,
+                    'core'
+                ));
+                
+                const importPlanBtn = document.getElementById('importPlanBtn');
+                if (importPlanBtn) importPlanBtn.addEventListener('click', () => this.importPlan());
+                
+                // View toggle
+                const toggleBtn = document.getElementById('toggleView');
+                if (toggleBtn) {
+                    toggleBtn.addEventListener('click', () => this.toggleViewMode());
+                }
+                
+                // Modal close buttons
+                document.querySelectorAll('.close-modal').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        this.closest('.modal').style.display = 'none';
+                    });
+                });
+                
+                document.querySelectorAll('.modal').forEach(modal => {
+                    modal.addEventListener('click', (e) => {
+                        if (e.target === modal) {
+                            modal.style.display = 'none';
+                        }
+                    });
+                });
+                
+                // Close share panel when clicking outside
+                document.addEventListener('click', (e) => {
+                    const panel = document.getElementById('sharePanel');
+                    const toggleBtn = document.getElementById('toggleView');
+                    const shareBtn = document.getElementById('sharePlan');
+                    
+                    if (panel && panel.classList.contains('show') && 
+                        !panel.contains(e.target) && 
+                        !(toggleBtn && toggleBtn.contains(e.target)) &&
+                        !(shareBtn && shareBtn.contains(e.target))) {
+                        panel.classList.remove('show');
+                    }
+                });
+                
+                // Close share panel with Escape key
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        const panel = document.getElementById('sharePanel');
+                        if (panel && panel.classList.contains('show')) {
+                            panel.classList.remove('show');
+                        }
+                    }
+                });
+            }
+
+            // ========== SHARING AND SYNC ==========
+            generateShareLink() {
+                // Use existing shared plan ID if available, otherwise create new
+                let shareId = this.sharedPlanId;
+                
+                if (!shareId) {
+                    // Try to find existing shared plan
+                    const existingKeys = Object.keys(localStorage)
+                        .filter(key => key.startsWith(`${CONFIG.STORAGE_PREFIX}shared_`));
+                    
+                    if (existingKeys.length > 0) {
+                        // Use the first existing shared plan
+                        shareId = existingKeys[0].replace(`${CONFIG.STORAGE_PREFIX}`, '');
+                        console.log('Using existing share ID:', shareId);
+                    } else {
+                        // Create new
+                        shareId = `shared_${Date.now()}`;
+                        console.log('Creating new share ID:', shareId);
+                    }
+                }
+                
+                const shareData = {
+                    id: shareId,
+                    name: 'Shared Student View',
+                    date: new Date().toISOString(),
+                    units: JSON.parse(JSON.stringify(this.units)),
+                    courseData: JSON.parse(JSON.stringify(this.courseData)),
+                    blockedWeeks: JSON.parse(JSON.stringify(this.blockedWeeks)),
+                    projectMilestones: JSON.parse(JSON.stringify(this.courseData.projectMilestones)),
+                    lastUpdate: new Date().toISOString(),
+                    version: CONFIG.APP_VERSION
+                };
+
+                // SAVE to localStorage with the CORRECT key
+                localStorage.setItem(`${CONFIG.STORAGE_PREFIX}${shareId}`, JSON.stringify(shareData));
+                console.log('Saved shared plan with ID:', shareId, 'Data:', shareData);
+
+                const baseUrl = window.location.origin + window.location.pathname;
+                const shareUrl = `${baseUrl}?student=true&plan=${shareId}`;
+                
+                return shareUrl;
+            }
+
+            updateSharedPlan() {
+                try {
+                    console.log('Updating shared plans...');
+                    
+                    // Get ALL shared plan keys
+                    const sharedKeys = Object.keys(localStorage)
+                        .filter(key => key.startsWith(`${CONFIG.STORAGE_PREFIX}shared_`));
+                    
+                    console.log('Found shared keys:', sharedKeys);
+                    
+                    if (sharedKeys.length === 0) {
+                        // Create a new shared plan if none exists
+                        const shareId = `shared_${Date.now()}`;
+                        console.log('No shared plans found, creating new one:', shareId);
+                        this.generateShareLink();
+                        return;
+                    }
+                    
+                    // Update EVERY shared plan with current state
+                    sharedKeys.forEach(key => {
+                        let data;
+                        try {
+                            data = JSON.parse(localStorage.getItem(key)) || {};
+                        } catch (e) {
+                            data = {};
+                        }
+                        
+                        // ALWAYS update, even if data structure is incomplete
+                        data.units = JSON.parse(JSON.stringify(this.units));
+                        data.courseData = JSON.parse(JSON.stringify(this.courseData));
+                        data.blockedWeeks = JSON.parse(JSON.stringify(this.blockedWeeks));
+                        data.projectMilestones = JSON.parse(JSON.stringify(this.courseData.projectMilestones));
+                        data.lastUpdate = new Date().toISOString();
+                        data.version = CONFIG.APP_VERSION;
+                        
+                        localStorage.setItem(key, JSON.stringify(data));
+                        console.log('Updated shared plan:', key);
+                    });
+                    
+                    // Also save an autosave
+                    localStorage.setItem(`${CONFIG.STORAGE_PREFIX}autosave`, JSON.stringify({
+                        units: this.units,
+                        courseData: this.courseData,
+                        blockedWeeks: this.blockedWeeks,
+                        projectMilestones: this.courseData.projectMilestones,
+                        timestamp: Date.now(),
+                        version: CONFIG.APP_VERSION
+                    }));
+                    
+                    this.showSyncNotification('Changes saved to student view');
+                    
+                } catch (error) {
+                    console.error('Failed to update shared plans:', error);
+                }
+            }
+
+            sharePlan() {
+                if (this.isStudentView) return;
+                
+                // First, update the shared plan with current data
+                this.updateSharedPlan();
+                
+                // Then generate and show the share link
+                const shareUrl = this.generateShareLink();
+                
+                // Show share panel
+                const panel = document.getElementById('sharePanel');
+                const input = document.getElementById('shareLink');
+                const copyBtn = document.getElementById('copyShareLink');
+                const qrContainer = document.getElementById('qrCode');
+                
+                input.value = shareUrl;
+                panel.classList.add('show');
+                
+                // Generate QR code
+                qrContainer.innerHTML = `
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}" 
+                         alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px;">
+                    <div style="font-size: 12px; margin-top: 10px; color: #636e72;">
+                        <div style="margin-bottom: 5px;">Students will see:</div>
+                        <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 11px;">
+                            • Simplified timeline view<br>
+                            • Term overviews<br>
+                            • Unit details on click<br>
+                            • No editing controls<br>
+                            • Updated automatically
+                        </div>
+                        <button onclick="window.open('${shareUrl}', '_blank')" 
+                                style="width: 100%; margin-top: 10px; padding: 8px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            Open Student View in New Tab
+                        </button>
+                    </div>
+                `;
+                
+                copyBtn.onclick = () => {
+                    input.select();
+                    input.setSelectionRange(0, 99999);
+                    document.execCommand('copy');
+                    this.showToast('Link copied to clipboard!', 'success');
+                };
+            }
+
+            toggleViewMode() {
+                if (this.isStudentView) {
+                    // Switch to editor view
+                    window.location.href = window.location.pathname;
+                } else {
+                    // Show preview of student view in the share panel
+                    this.sharePlan();
+                }
+            }
+
+            // ========== UNIT MANAGEMENT ==========
             setupTimelineEvents() {
                 const container = document.getElementById('timelineContent');
                 if (!container) return;
 
-                // Unit drag start
+                // Unit click handlers for student view
                 container.querySelectorAll('.unit-block').forEach(block => {
-                    if (this.isStudentView) return;
-                    
-                    block.addEventListener('dragstart', (e) => {
-                        const unitId = e.currentTarget.dataset.unitId;
-                        const unit = this.units.find(u => u.id === unitId);
-                        if (unit) {
-                            this.draggedFromPalette = false;
-                            this.draggedUnit = unit;
-                            e.dataTransfer.setData('text/plain', JSON.stringify({
-                                type: 'move',
-                                unitId: unitId
-                            }));
-                            e.currentTarget.classList.add('dragging');
-                        }
-                    });
-
-                    block.addEventListener('dragend', (e) => {
-                        e.currentTarget.classList.remove('dragging');
-                        this.draggedFromPalette = false;
-                        this.draggedUnit = null;
-                    });
-
                     block.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const unitId = e.currentTarget.dataset.unitId;
                         if (this.isStudentView) {
-                            this.showStudentUnitDetails(e.currentTarget.dataset.unitId);
+                            this.showStudentUnitDetails(unitId);
                         } else {
-                            this.openUnitModal(e.currentTarget.dataset.unitId);
+                            this.openUnitModal(unitId);
                         }
                     });
+
+                    // Drag and drop for editor view
+                    if (!this.isStudentView) {
+                        block.addEventListener('dragstart', (e) => {
+                            const unitId = e.currentTarget.dataset.unitId;
+                            const unit = this.units.find(u => u.id === unitId);
+                            if (unit) {
+                                this.draggedFromPalette = false;
+                                this.draggedUnit = unit;
+                                e.dataTransfer.setData('text/plain', JSON.stringify({
+                                    type: 'move',
+                                    unitId: unitId
+                                }));
+                                e.currentTarget.classList.add('dragging');
+                            }
+                        });
+
+                        block.addEventListener('dragend', (e) => {
+                            e.currentTarget.classList.remove('dragging');
+                            this.draggedFromPalette = false;
+                            this.draggedUnit = null;
+                        });
+                    }
                 });
 
-                // Week slot drop zones
+                // Week slot drop zones for editor view
                 if (!this.isStudentView) {
                     container.querySelectorAll('.week-slot').forEach(slot => {
                         slot.addEventListener('dragover', (e) => {
@@ -1830,7 +2408,6 @@
                 }
             }
 
-            // ========== UNIT MANAGEMENT ==========
             moveUnit(unitId, week, lane) {
                 const unitIndex = this.units.findIndex(u => u.id === unitId);
                 if (unitIndex === -1) return;
@@ -1853,6 +2430,47 @@
 
                 this.renderEverything();
                 this.showSyncNotification('Unit moved');
+                this.updateSharedPlan();
+            }
+
+            renderUnitPalette() {
+                // Your existing renderUnitPalette method
+                if (this.isStudentView) return;
+                
+                const container = document.getElementById('unitPalette');
+                if (!container) return;
+
+                container.innerHTML = this.unitTemplates.map(template => `
+                    <div class="unit-item" draggable="true" data-template='${JSON.stringify(template)}'
+                         style="border-left: 4px solid ${this.colorMap[template.color]};">
+                        <div class="unit-code">${template.code}</div>
+                        <div class="unit-name">${template.name}</div>
+                        <div style="display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap;">
+                            ${template.tags.map(tag => `
+                                <span style="font-size: 10px; padding: 2px 6px; border-radius: 10px; background: #e9ecef; color: #495057;">
+                                    ${tag}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+
+                // Add drag event listeners
+                container.querySelectorAll('.unit-item').forEach(item => {
+                    item.addEventListener('dragstart', (e) => {
+                        const template = JSON.parse(e.currentTarget.dataset.template);
+                        this.draggedFromPalette = true;
+                        this.draggedUnit = template;
+                        e.dataTransfer.setData('text/plain', JSON.stringify(template));
+                        e.currentTarget.classList.add('dragging');
+                    });
+
+                    item.addEventListener('dragend', (e) => {
+                        e.currentTarget.classList.remove('dragging');
+                        this.draggedFromPalette = false;
+                        this.draggedUnit = null;
+                    });
+                });
             }
 
             addUnitFromTemplate(template, week, lane) {
@@ -1873,6 +2491,7 @@
                 this.units.push(newUnit);
                 this.renderEverything();
                 this.showSyncNotification('Unit added');
+                this.updateSharedPlan();
                 
                 // Open modal to edit the new unit
                 if (!this.isStudentView) {
@@ -1978,16 +2597,22 @@
                 this.renderEverything();
                 this.showToast('Unit updated successfully', 'success');
                 this.showSyncNotification('Unit updated');
+                this.updateSharedPlan();
             }
 
             parseWeeksInput(input) {
-                if (input.includes('-')) {
-                    const [start, end] = input.split('-').map(Number);
-                    return Array.from({length: end - start + 1}, (_, i) => start + i);
-                } else if (input.includes(',')) {
-                    return input.split(',').map(w => parseInt(w.trim())).filter(w => !isNaN(w));
-                } else {
-                    return [parseInt(input) || 1];
+                try {
+                    if (input.includes('-')) {
+                        const [start, end] = input.split('-').map(Number);
+                        return Array.from({length: end - start + 1}, (_, i) => start + i);
+                    } else if (input.includes(',')) {
+                        return input.split(',').map(w => parseInt(w.trim())).filter(w => !isNaN(w));
+                    } else {
+                        const week = parseInt(input);
+                        return !isNaN(week) ? [week] : [1];
+                    }
+                } catch (error) {
+                    return [1];
                 }
             }
 
@@ -1999,354 +2624,8 @@
                     this.renderEverything();
                     this.showToast('Unit deleted', 'success');
                     this.showSyncNotification('Unit deleted');
+                    this.updateSharedPlan();
                 }
-            }
-
-            // ========== TERM MANAGEMENT ==========
-            openTermModal(termNumber) {
-                if (this.isStudentView) return;
-                
-                const term = this.courseData.terms.find(t => t.number === termNumber);
-                if (!term) return;
-
-                const modal = document.getElementById('termModal');
-                const modalBody = document.getElementById('termModalBody');
-
-                modalBody.innerHTML = `
-                    <div style="display: flex; flex-direction: column; gap: 15px;">
-                        <div class="form-group">
-                            <label for="termName">Term Name</label>
-                            <input type="text" id="termName" value="${term.name || ''}">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="termWeeks">Number of Weeks</label>
-                            <input type="number" id="termWeeks" value="${term.weeks}" min="1" max="20">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="termStartWeek">Start Week</label>
-                            <input type="number" id="termStartWeek" value="${term.startWeek}" min="1" max="${this.courseData.totalWeeks}">
-                        </div>
-                        
-                        <div style="display: flex; gap: 10px; margin-top: 20px;">
-                            <button class="primary" onclick="app.saveTermChanges(${termNumber})" style="flex: 1;">Save Changes</button>
-                            <button onclick="document.getElementById('termModal').style.display = 'none'" style="flex: 1;">Cancel</button>
-                        </div>
-                    </div>
-                `;
-
-                modal.style.display = 'flex';
-            }
-
-            saveTermChanges(termNumber) {
-                const termIndex = this.courseData.terms.findIndex(t => t.number === termNumber);
-                if (termIndex === -1) return;
-
-                this.saveHistory();
-                
-                const term = this.courseData.terms[termIndex];
-                const oldWeeks = term.weeks;
-                const oldStartWeek = term.startWeek;
-                
-                term.name = document.getElementById('termName').value;
-                term.weeks = parseInt(document.getElementById('termWeeks').value);
-                term.startWeek = parseInt(document.getElementById('termStartWeek').value);
-                
-                // Adjust total weeks if term weeks changed
-                const weekDiff = term.weeks - oldWeeks;
-                if (weekDiff !== 0) {
-                    this.courseData.totalWeeks += weekDiff;
-                    
-                    // Update subsequent terms
-                    for (let i = termIndex + 1; i < this.courseData.terms.length; i++) {
-                        this.courseData.terms[i].startWeek += weekDiff;
-                    }
-                    
-                    // Adjust units in affected weeks
-                    this.adjustUnitsForTermChange(termNumber, weekDiff);
-                }
-                
-                // Adjust for start week change
-                const startDiff = term.startWeek - oldStartWeek;
-                if (startDiff !== 0) {
-                    // Update subsequent terms
-                    for (let i = termIndex + 1; i < this.courseData.terms.length; i++) {
-                        this.courseData.terms[i].startWeek += startDiff;
-                    }
-                    
-                    // Adjust units in affected weeks
-                    this.adjustUnitsForStartWeekChange(termNumber, startDiff);
-                }
-
-                document.getElementById('termModal').style.display = 'none';
-                this.renderEverything();
-                this.showToast('Term updated successfully', 'success');
-                this.showSyncNotification('Term updated');
-            }
-
-            adjustUnitsForTermChange(termNumber, weekDiff) {
-                const term = this.courseData.terms.find(t => t.number === termNumber);
-                if (!term) return;
-
-                this.units.forEach(unit => {
-                    unit.weeks = unit.weeks.map(week => {
-                        if (week >= term.startWeek + term.weeks - weekDiff) {
-                            return week + weekDiff;
-                        }
-                        return week;
-                    });
-                });
-            }
-
-            adjustUnitsForStartWeekChange(termNumber, startDiff) {
-                const termIndex = this.courseData.terms.findIndex(t => t.number === termNumber);
-                if (termIndex === -1) return;
-
-                this.units.forEach(unit => {
-                    unit.weeks = unit.weeks.map(week => {
-                        for (let i = termIndex; i < this.courseData.terms.length; i++) {
-                            const t = this.courseData.terms[i];
-                            if (week >= t.startWeek - startDiff && week < t.startWeek - startDiff + t.weeks) {
-                                return week + startDiff;
-                            }
-                        }
-                        return week;
-                    });
-                });
-            }
-
-            // ========== WEEK MANAGEMENT ==========
-            addWeek() {
-                const position = prompt(`Add week at which position? (1-${this.courseData.totalWeeks + 1}, or "end" for at the end)`);
-                if (!position) return;
-
-                this.saveHistory();
-                
-                let insertPosition;
-                if (position.toLowerCase() === 'end') {
-                    insertPosition = this.courseData.totalWeeks + 1;
-                } else {
-                    insertPosition = parseInt(position);
-                    if (isNaN(insertPosition) || insertPosition < 1 || insertPosition > this.courseData.totalWeeks + 1) {
-                        this.showToast('Invalid position', 'error');
-                        return;
-                    }
-                }
-
-                // Increment total weeks
-                this.courseData.totalWeeks++;
-                
-                // Find which term this week is being inserted into
-                let termToUpdate = null;
-                let termIndex = -1;
-                
-                for (let i = 0; i < this.courseData.terms.length; i++) {
-                    const term = this.courseData.terms[i];
-                    if (insertPosition >= term.startWeek) {
-                        termToUpdate = term;
-                        termIndex = i;
-                    }
-                }
-                
-                // Update the term where week is inserted
-                if (termToUpdate && insertPosition >= termToUpdate.startWeek && insertPosition <= termToUpdate.startWeek + termToUpdate.weeks) {
-                    termToUpdate.weeks++;
-                }
-                
-                // Update subsequent terms' start weeks
-                for (let i = termIndex + 1; i < this.courseData.terms.length; i++) {
-                    this.courseData.terms[i].startWeek++;
-                }
-                
-                // Adjust units
-                this.adjustUnitsForWeekInsertion(insertPosition, 1);
-                
-                this.renderEverything();
-                this.showToast('Week added', 'success');
-                this.showSyncNotification('Week added');
-            }
-
-            removeWeek() {
-                const weekToRemove = parseInt(prompt(`Remove which week? (1-${this.courseData.totalWeeks})`));
-                if (isNaN(weekToRemove) || weekToRemove < 1 || weekToRemove > this.courseData.totalWeeks) {
-                    this.showToast('Invalid week', 'error');
-                    return;
-                }
-
-                if (!confirm(`Remove Week ${weekToRemove}? This will also remove any units scheduled for this week.`)) {
-                    return;
-                }
-
-                this.saveHistory();
-                
-                // Decrement total weeks
-                this.courseData.totalWeeks--;
-                
-                // Find which term this week is in
-                let termToUpdate = null;
-                let termIndex = -1;
-                
-                for (let i = 0; i < this.courseData.terms.length; i++) {
-                    const term = this.courseData.terms[i];
-                    if (weekToRemove >= term.startWeek && weekToRemove < term.startWeek + term.weeks) {
-                        termToUpdate = term;
-                        termIndex = i;
-                        break;
-                    }
-                }
-                
-                if (termToUpdate) {
-                    termToUpdate.weeks--;
-                }
-                
-                // Update subsequent terms' start weeks
-                for (let i = termIndex + 1; i < this.courseData.terms.length; i++) {
-                    this.courseData.terms[i].startWeek--;
-                }
-                
-                // Remove units in this week and adjust others
-                this.adjustUnitsForWeekRemoval(weekToRemove);
-                
-                this.renderEverything();
-                this.showToast('Week removed', 'success');
-                this.showSyncNotification('Week removed');
-            }
-
-            addWeekToTerm() {
-                const termNumber = parseInt(prompt('Add a week to which term? (1-4)'));
-                if (isNaN(termNumber) || termNumber < 1 || termNumber > this.courseData.terms.length) {
-                    this.showToast('Invalid term number', 'error');
-                    return;
-                }
-
-                this.saveHistory();
-                
-                const term = this.courseData.terms[termNumber - 1];
-                
-                // Increment total weeks
-                this.courseData.totalWeeks++;
-                
-                // Add week to this term
-                term.weeks++;
-                
-                // Update subsequent terms' start weeks
-                for (let i = termNumber; i < this.courseData.terms.length; i++) {
-                    this.courseData.terms[i].startWeek++;
-                }
-                
-                // Adjust units in subsequent terms
-                this.adjustUnitsForWeekInsertion(term.startWeek + term.weeks - 1, 1);
-                
-                this.renderEverything();
-                this.showToast(`Week added to Term ${termNumber}`, 'success');
-                this.showSyncNotification('Week added to term');
-            }
-
-            removeWeekFromTerm() {
-                const termNumber = parseInt(prompt('Remove a week from which term? (1-4)'));
-                if (isNaN(termNumber) || termNumber < 1 || termNumber > this.courseData.terms.length) {
-                    this.showToast('Invalid term number', 'error');
-                    return;
-                }
-
-                const term = this.courseData.terms[termNumber - 1];
-                
-                if (term.weeks <= 1) {
-                    this.showToast(`Term ${termNumber} already has only 1 week`, 'error');
-                    return;
-                }
-
-                const weekToRemove = term.startWeek + term.weeks - 1;
-                
-                if (!confirm(`Remove week ${weekToRemove} from Term ${termNumber}?`)) {
-                    return;
-                }
-
-                this.saveHistory();
-                
-                // Decrement total weeks
-                this.courseData.totalWeeks--;
-                
-                // Remove week from this term
-                term.weeks--;
-                
-                // Update subsequent terms' start weeks
-                for (let i = termNumber; i < this.courseData.terms.length; i++) {
-                    this.courseData.terms[i].startWeek--;
-                }
-                
-                // Remove units in this week and adjust others
-                this.adjustUnitsForWeekRemoval(weekToRemove);
-                
-                this.renderEverything();
-                this.showToast(`Week removed from Term ${termNumber}`, 'success');
-                this.showSyncNotification('Week removed from term');
-            }
-
-            adjustUnitsForWeekInsertion(insertPosition, count) {
-                this.units.forEach(unit => {
-                    unit.weeks = unit.weeks.map(week => {
-                        if (week >= insertPosition) {
-                            return week + count;
-                        }
-                        return week;
-                    });
-                });
-                
-                // Adjust blocked weeks
-                const newBlockedWeeks = {};
-                Object.keys(this.blockedWeeks).forEach(weekStr => {
-                    let week = parseInt(weekStr);
-                    if (week >= insertPosition) {
-                        week += count;
-                    }
-                    newBlockedWeeks[week] = this.blockedWeeks[weekStr];
-                });
-                this.blockedWeeks = newBlockedWeeks;
-                
-                // Adjust project milestones
-                this.courseData.projectMilestones.forEach(milestone => {
-                    if (milestone.week >= insertPosition) {
-                        milestone.week += count;
-                    }
-                });
-            }
-
-            adjustUnitsForWeekRemoval(weekToRemove) {
-                // Remove units in this week
-                this.units = this.units.filter(unit => !unit.weeks.includes(weekToRemove));
-                
-                // Adjust remaining units
-                this.units.forEach(unit => {
-                    unit.weeks = unit.weeks
-                        .map(w => w > weekToRemove ? w - 1 : w)
-                        .filter(w => w !== weekToRemove);
-                });
-                
-                // Remove blocked week if exists
-                delete this.blockedWeeks[weekToRemove];
-                
-                // Adjust remaining blocked weeks
-                const newBlockedWeeks = {};
-                Object.keys(this.blockedWeeks).forEach(weekStr => {
-                    let week = parseInt(weekStr);
-                    if (week > weekToRemove) {
-                        week--;
-                    }
-                    newBlockedWeeks[week] = this.blockedWeeks[weekStr];
-                });
-                this.blockedWeeks = newBlockedWeeks;
-                
-                // Adjust project milestones
-                this.courseData.projectMilestones = this.courseData.projectMilestones
-                    .filter(milestone => milestone.week !== weekToRemove)
-                    .map(milestone => {
-                        if (milestone.week > weekToRemove) {
-                            return { ...milestone, week: milestone.week - 1 };
-                        }
-                        return milestone;
-                    });
             }
 
             // ========== STUDENT VIEW ==========
@@ -2456,8 +2735,10 @@
 
             // ========== PLAN MANAGEMENT ==========
             renderSavedPlans() {
+                if (this.isStudentView) return;
+                
                 const container = document.getElementById('savedPlans');
-                if (!container || this.isStudentView) return;
+                if (!container) return;
 
                 try {
                     const savedPlans = JSON.parse(localStorage.getItem(`${CONFIG.STORAGE_PREFIX}plans`) || '[]');
@@ -2504,6 +2785,7 @@
                     units: this.units,
                     courseData: this.courseData,
                     blockedWeeks: this.blockedWeeks,
+                    projectMilestones: this.courseData.projectMilestones,
                     version: CONFIG.APP_VERSION
                 };
 
@@ -2517,6 +2799,7 @@
                         units: this.units,
                         courseData: this.courseData,
                         blockedWeeks: this.blockedWeeks,
+                        projectMilestones: this.courseData.projectMilestones,
                         timestamp: Date.now(),
                         version: CONFIG.APP_VERSION
                     }));
@@ -2540,9 +2823,11 @@
                         this.units = plan.units || [];
                         this.courseData = plan.courseData || this.courseData;
                         this.blockedWeeks = plan.blockedWeeks || {};
+                        this.courseData.projectMilestones = plan.projectMilestones || this.courseData.projectMilestones;
                         this.renderEverything();
                         this.showToast(`Loaded "${plan.name}"`, 'success');
                         this.showSyncNotification('Plan loaded');
+                        this.updateSharedPlan();
                     }
                 } catch (error) {
                     console.error('Failed to load plan:', error);
@@ -2578,10 +2863,10 @@
                             { number: 4, weeks: 7, startWeek: 31, name: "Apex & Finalisation" }
                         ],
                         projectMilestones: [
-                            { week: 18, label: "Project Start" },
-                            { week: 25, label: "Phase 2" },
-                            { week: 30, label: "Integration" },
-                            { week: 34, label: "Final Phase" }
+                            { id: 'milestone-1', week: 18, label: "Project Start" },
+                            { id: 'milestone-2', week: 25, label: "Phase 2" },
+                            { id: 'milestone-3', week: 30, label: "Integration" },
+                            { id: 'milestone-4', week: 34, label: "Final Phase" }
                         ]
                     };
                     this.blockedWeeks = {};
@@ -2589,6 +2874,7 @@
                     this.renderEverything();
                     this.showToast('Reset to default sequence', 'success');
                     this.showSyncNotification('Reset to default');
+                    this.updateSharedPlan();
                 }
             }
 
@@ -2599,58 +2885,7 @@
                     this.renderEverything();
                     this.showToast('Timetable cleared', 'success');
                     this.showSyncNotification('Timetable cleared');
-                }
-            }
-
-            // ========== SHARING ==========
-            sharePlan() {
-                if (this.isStudentView) return;
-                
-                const shareId = `shared_${Date.now()}`;
-                const shareData = {
-                    id: shareId,
-                    name: 'Shared Student View',
-                    date: new Date().toISOString(),
-                    units: this.units,
-                    courseData: this.courseData,
-                    blockedWeeks: this.blockedWeeks,
-                    lastUpdate: new Date().toISOString(),
-                    version: CONFIG.APP_VERSION
-                };
-
-                localStorage.setItem(`${CONFIG.STORAGE_PREFIX}${shareId}`, JSON.stringify(shareData));
-
-                const shareUrl = `${window.location.origin}${window.location.pathname}?student=true&plan=${shareId}`;
-                
-                // Show share panel
-                const panel = document.getElementById('sharePanel');
-                const input = document.getElementById('shareLink');
-                const copyBtn = document.getElementById('copyShareLink');
-                const qrContainer = document.getElementById('qrCode');
-                
-                input.value = shareUrl;
-                panel.classList.add('show');
-                
-                // Generate QR code
-                qrContainer.innerHTML = `
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}" 
-                         alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px;">
-                `;
-                
-                copyBtn.onclick = () => {
-                    input.select();
-                    document.execCommand('copy');
-                    this.showToast('Link copied to clipboard!', 'success');
-                };
-            }
-
-            toggleViewMode() {
-                if (this.isStudentView) {
-                    // Switch to editor view
-                    window.location.href = window.location.pathname;
-                } else {
-                    // Switch to student view
-                    this.sharePlan();
+                    this.updateSharedPlan();
                 }
             }
 
@@ -2700,6 +2935,252 @@
                 this.renderEverything();
                 this.showToast(`Week blocking applied to weeks ${weeks.join(', ')}`, 'success');
                 this.showSyncNotification('Week blocking applied');
+                this.updateSharedPlan();
+            }
+
+            // ========== WEEK MANAGEMENT ==========
+            addWeek() {
+                if (this.isStudentView) return;
+                
+                const position = prompt(`Add week at which position? (1-${this.courseData.totalWeeks + 1}, or "end" for at the end)`);
+                if (!position) return;
+
+                this.saveHistory();
+                
+                let insertPosition;
+                if (position.toLowerCase() === 'end') {
+                    insertPosition = this.courseData.totalWeeks + 1;
+                } else {
+                    insertPosition = parseInt(position);
+                    if (isNaN(insertPosition) || insertPosition < 1 || insertPosition > this.courseData.totalWeeks + 1) {
+                        this.showToast('Invalid position', 'error');
+                        return;
+                    }
+                }
+
+                // Increment total weeks
+                this.courseData.totalWeeks++;
+                
+                // Find which term this week is being inserted into
+                let termToUpdate = null;
+                let termIndex = -1;
+                
+                for (let i = 0; i < this.courseData.terms.length; i++) {
+                    const term = this.courseData.terms[i];
+                    if (insertPosition >= term.startWeek) {
+                        termToUpdate = term;
+                        termIndex = i;
+                    }
+                }
+                
+                // Update the term where week is inserted
+                if (termToUpdate && insertPosition >= termToUpdate.startWeek && insertPosition <= termToUpdate.startWeek + termToUpdate.weeks) {
+                    termToUpdate.weeks++;
+                }
+                
+                // Update subsequent terms' start weeks
+                for (let i = termIndex + 1; i < this.courseData.terms.length; i++) {
+                    this.courseData.terms[i].startWeek++;
+                }
+                
+                // Adjust units
+                this.adjustUnitsForWeekInsertion(insertPosition, 1);
+                
+                this.renderEverything();
+                this.showToast('Week added', 'success');
+                this.showSyncNotification('Week added');
+                this.updateSharedPlan();
+            }
+
+            removeWeek() {
+                if (this.isStudentView) return;
+                
+                const weekToRemove = parseInt(prompt(`Remove which week? (1-${this.courseData.totalWeeks})`));
+                if (isNaN(weekToRemove) || weekToRemove < 1 || weekToRemove > this.courseData.totalWeeks) {
+                    this.showToast('Invalid week', 'error');
+                    return;
+                }
+
+                if (!confirm(`Remove Week ${weekToRemove}? This will also remove any units scheduled for this week.`)) {
+                    return;
+                }
+
+                this.saveHistory();
+                
+                // Decrement total weeks
+                this.courseData.totalWeeks--;
+                
+                // Find which term this week is in
+                let termToUpdate = null;
+                let termIndex = -1;
+                
+                for (let i = 0; i < this.courseData.terms.length; i++) {
+                    const term = this.courseData.terms[i];
+                    if (weekToRemove >= term.startWeek && weekToRemove < term.startWeek + term.weeks) {
+                        termToUpdate = term;
+                        termIndex = i;
+                        break;
+                    }
+                }
+                
+                if (termToUpdate) {
+                    termToUpdate.weeks--;
+                }
+                
+                // Update subsequent terms' start weeks
+                for (let i = termIndex + 1; i < this.courseData.terms.length; i++) {
+                    this.courseData.terms[i].startWeek--;
+                }
+                
+                // Remove units in this week and adjust others
+                this.adjustUnitsForWeekRemoval(weekToRemove);
+                
+                this.renderEverything();
+                this.showToast('Week removed', 'success');
+                this.showSyncNotification('Week removed');
+                this.updateSharedPlan();
+            }
+
+            addWeekToTerm() {
+                if (this.isStudentView) return;
+                
+                const termNumber = parseInt(prompt('Add a week to which term? (1-4)'));
+                if (isNaN(termNumber) || termNumber < 1 || termNumber > this.courseData.terms.length) {
+                    this.showToast('Invalid term number', 'error');
+                    return;
+                }
+
+                this.saveHistory();
+                
+                const term = this.courseData.terms[termNumber - 1];
+                
+                // Increment total weeks
+                this.courseData.totalWeeks++;
+                
+                // Add week to this term
+                term.weeks++;
+                
+                // Update subsequent terms' start weeks
+                for (let i = termNumber; i < this.courseData.terms.length; i++) {
+                    this.courseData.terms[i].startWeek++;
+                }
+                
+                // Adjust units in subsequent terms
+                this.adjustUnitsForWeekInsertion(term.startWeek + term.weeks - 1, 1);
+                
+                this.renderEverything();
+                this.showToast(`Week added to Term ${termNumber}`, 'success');
+                this.showSyncNotification('Week added to term');
+                this.updateSharedPlan();
+            }
+
+            removeWeekFromTerm() {
+                if (this.isStudentView) return;
+                
+                const termNumber = parseInt(prompt('Remove a week from which term? (1-4)'));
+                if (isNaN(termNumber) || termNumber < 1 || termNumber > this.courseData.terms.length) {
+                    this.showToast('Invalid term number', 'error');
+                    return;
+                }
+
+                const term = this.courseData.terms[termNumber - 1];
+                
+                if (term.weeks <= 1) {
+                    this.showToast(`Term ${termNumber} already has only 1 week`, 'error');
+                    return;
+                }
+
+                const weekToRemove = term.startWeek + term.weeks - 1;
+                
+                if (!confirm(`Remove week ${weekToRemove} from Term ${termNumber}?`)) {
+                    return;
+                }
+
+                this.saveHistory();
+                
+                // Decrement total weeks
+                this.courseData.totalWeeks--;
+                
+                // Remove week from this term
+                term.weeks--;
+                
+                // Update subsequent terms' start weeks
+                for (let i = termNumber; i < this.courseData.terms.length; i++) {
+                    this.courseData.terms[i].startWeek--;
+                }
+                
+                // Remove units in this week and adjust others
+                this.adjustUnitsForWeekRemoval(weekToRemove);
+                
+                this.renderEverything();
+                this.showToast(`Week removed from Term ${termNumber}`, 'success');
+                this.showSyncNotification('Week removed from term');
+                this.updateSharedPlan();
+            }
+
+            adjustUnitsForWeekInsertion(insertPosition, count) {
+                this.units.forEach(unit => {
+                    unit.weeks = unit.weeks.map(week => {
+                        if (week >= insertPosition) {
+                            return week + count;
+                        }
+                        return week;
+                    });
+                });
+                
+                // Adjust blocked weeks
+                const newBlockedWeeks = {};
+                Object.keys(this.blockedWeeks).forEach(weekStr => {
+                    let week = parseInt(weekStr);
+                    if (week >= insertPosition) {
+                        week += count;
+                    }
+                    newBlockedWeeks[week] = this.blockedWeeks[weekStr];
+                });
+                this.blockedWeeks = newBlockedWeeks;
+                
+                // Adjust project milestones
+                this.courseData.projectMilestones.forEach(milestone => {
+                    if (milestone.week >= insertPosition) {
+                        milestone.week += count;
+                    }
+                });
+            }
+
+            adjustUnitsForWeekRemoval(weekToRemove) {
+                // Remove units in this week
+                this.units = this.units.filter(unit => !unit.weeks.includes(weekToRemove));
+                
+                // Adjust remaining units
+                this.units.forEach(unit => {
+                    unit.weeks = unit.weeks
+                        .map(w => w > weekToRemove ? w - 1 : w)
+                        .filter(w => w !== weekToRemove);
+                });
+                
+                // Remove blocked week if exists
+                delete this.blockedWeeks[weekToRemove];
+                
+                // Adjust remaining blocked weeks
+                const newBlockedWeeks = {};
+                Object.keys(this.blockedWeeks).forEach(weekStr => {
+                    let week = parseInt(weekStr);
+                    if (week > weekToRemove) {
+                        week--;
+                    }
+                    newBlockedWeeks[week] = this.blockedWeeks[weekStr];
+                });
+                this.blockedWeeks = newBlockedWeeks;
+                
+                // Adjust project milestones
+                this.courseData.projectMilestones = this.courseData.projectMilestones
+                    .filter(milestone => milestone.week !== weekToRemove)
+                    .map(milestone => {
+                        if (milestone.week > weekToRemove) {
+                            return { ...milestone, week: milestone.week - 1 };
+                        }
+                        return milestone;
+                    });
             }
 
             // ========== EXPORT/IMPORT ==========
@@ -2711,7 +3192,8 @@
                     timestamp: new Date().toISOString(),
                     units: this.units,
                     courseData: this.courseData,
-                    blockedWeeks: this.blockedWeeks
+                    blockedWeeks: this.blockedWeeks,
+                    projectMilestones: this.courseData.projectMilestones
                 };
 
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -2744,9 +3226,11 @@
                             this.units = data.units;
                             this.courseData = data.courseData;
                             this.blockedWeeks = data.blockedWeeks || {};
+                            this.courseData.projectMilestones = data.projectMilestones || this.courseData.projectMilestones;
                             this.renderEverything();
                             this.showToast('Plan imported successfully', 'success');
                             this.showSyncNotification('Plan imported');
+                            this.updateSharedPlan();
                         } else {
                             this.showToast('Invalid plan file', 'error');
                         }
@@ -2765,6 +3249,42 @@
             }
 
             // ========== UTILITIES ==========
+            undo() {
+                if (this.historyIndex > 0) {
+                    this.historyIndex--;
+                    const state = this.history[this.historyIndex];
+                    this.units = JSON.parse(JSON.stringify(state.units));
+                    this.courseData = JSON.parse(JSON.stringify(state.courseData));
+                    this.blockedWeeks = JSON.parse(JSON.stringify(state.blockedWeeks));
+                    this.renderEverything();
+                    this.showToast('Undo', 'success');
+                    this.updateSharedPlan();
+                    return true;
+                }
+                return false;
+            }
+
+            redo() {
+                if (this.historyIndex < this.history.length - 1) {
+                    this.historyIndex++;
+                    const state = this.history[this.historyIndex];
+                    this.units = JSON.parse(JSON.stringify(state.units));
+                    this.courseData = JSON.parse(JSON.stringify(state.courseData));
+                    this.blockedWeeks = JSON.parse(JSON.stringify(state.blockedWeeks));
+                    this.renderEverything();
+                    this.showToast('Redo', 'success');
+                    this.updateSharedPlan();
+                    return true;
+                }
+                return false;
+            }
+
+            getTermForWeek(week) {
+                return this.courseData.terms.find(term => 
+                    week >= term.startWeek && week < term.startWeek + term.weeks
+                );
+            }
+
             updateTotalWeeksDisplay() {
                 const display = document.getElementById('totalWeeksDisplay');
                 if (display) {
@@ -2825,76 +3345,6 @@
                 ).toString(16).slice(1);
             }
 
-            // ========== EVENT LISTENERS ==========
-            setupEventListeners() {
-                // View mode changes
-                document.getElementById('viewMode').addEventListener('change', (e) => {
-                    this.currentView = e.target.value;
-                    this.renderTimeline();
-                });
-
-                document.getElementById('highlightMode').addEventListener('change', (e) => {
-                    // Highlight units based on selection
-                    this.showToast(`Highlighting ${e.target.value} units`, 'info');
-                });
-
-                // Control buttons
-                document.getElementById('savePlan').addEventListener('click', () => this.savePlan());
-                document.getElementById('sharePlan').addEventListener('click', () => this.sharePlan());
-                document.getElementById('resetPlan').addEventListener('click', () => this.resetToDefault());
-                document.getElementById('clearTimetable').addEventListener('click', () => this.clearTimetable());
-                document.getElementById('printPlan').addEventListener('click', () => this.printPlan());
-                document.getElementById('exportPlan').addEventListener('click', () => this.exportPlan());
-                document.getElementById('applyBlocking').addEventListener('click', () => this.applyWeekBlocking());
-                
-                // Week management
-                document.getElementById('addWeekBtn').addEventListener('click', () => this.addWeek());
-                document.getElementById('removeWeekBtn').addEventListener('click', () => this.removeWeek());
-                document.getElementById('addWeekToTermBtn').addEventListener('click', () => this.addWeekToTerm());
-                document.getElementById('removeWeekFromTermBtn').addEventListener('click', () => this.removeWeekFromTerm());
-                
-                // Unit management
-                document.getElementById('addCustomUnit').addEventListener('click', () => this.addUnitFromTemplate(
-                    { code: 'CUSTOM', name: 'Custom Unit/Block', color: 'foundational', tags: ['CUSTOM'] },
-                    1,
-                    'core'
-                ));
-                
-                document.getElementById('importPlanBtn').addEventListener('click', () => this.importPlan());
-                
-                // View toggle
-                document.getElementById('toggleView').addEventListener('click', () => this.toggleViewMode());
-                
-                // Modal close buttons
-                document.querySelectorAll('.close-modal').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        this.closest('.modal').style.display = 'none';
-                    });
-                });
-                
-                document.querySelectorAll('.modal').forEach(modal => {
-                    modal.addEventListener('click', (e) => {
-                        if (e.target === modal) {
-                            modal.style.display = 'none';
-                        }
-                    });
-                });
-                
-                // Close share panel when clicking outside
-                document.addEventListener('click', (e) => {
-                    const panel = document.getElementById('sharePanel');
-                    const toggleBtn = document.getElementById('toggleView');
-                    const shareBtn = document.getElementById('sharePlan');
-                    
-                    if (panel && panel.classList.contains('show') && 
-                        !panel.contains(e.target) && 
-                        !toggleBtn.contains(e.target) &&
-                        !shareBtn.contains(e.target)) {
-                        panel.classList.remove('show');
-                    }
-                });
-            }
-
             setupKeyboardShortcuts() {
                 document.addEventListener('keydown', (e) => {
                     if (e.target.matches('input, textarea, select')) return;
@@ -2902,20 +3352,26 @@
                     if (e.ctrlKey || e.metaKey) {
                         switch(e.key) {
                             case 'z':
-                                e.preventDefault();
-                                if (e.shiftKey) {
-                                    this.redo();
-                                } else {
-                                    this.undo();
+                                if (!this.isStudentView) {
+                                    e.preventDefault();
+                                    if (e.shiftKey) {
+                                        this.redo();
+                                    } else {
+                                        this.undo();
+                                    }
                                 }
                                 break;
                             case 'y':
-                                e.preventDefault();
-                                this.redo();
+                                if (!this.isStudentView) {
+                                    e.preventDefault();
+                                    this.redo();
+                                }
                                 break;
                             case 's':
-                                e.preventDefault();
-                                this.savePlan();
+                                if (!this.isStudentView) {
+                                    e.preventDefault();
+                                    this.savePlan();
+                                }
                                 break;
                             case 'p':
                                 e.preventDefault();
@@ -2928,7 +3384,8 @@
                         document.querySelectorAll('.modal').forEach(modal => {
                             modal.style.display = 'none';
                         });
-                        document.getElementById('sharePanel').classList.remove('show');
+                        const panel = document.getElementById('sharePanel');
+                        if (panel) panel.classList.remove('show');
                     }
                 });
             }
