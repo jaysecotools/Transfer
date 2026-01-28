@@ -1,227 +1,257 @@
-The issue is that when accessing the editor view via the QR code, it's not properly syncing the data between the editor and student views. The problem is that the QR code is generated from the share link, but it doesn't include the actual data - it just points to the student view URL. When the student view loads, it should be loading the shared data from storage.
+You're right! The issue is that when scanning the QR code, some QR code readers might be caching the URL or there's a timing issue. The problem is likely that the QR code is generated with an image URL that doesn't get updated properly. Let me fix this by ensuring the QR code always shows the absolute latest data.
 
-Looking at your code, I can see that you're saving data to CONFIG.SHARED_STORAGE_KEY ('course_planner_shared_data') but when the student view loads, it's using the same key, which is correct. However, the issue might be timing or the way the QR code/URL is structured.
-
-Here's the fix. The main problem is in the sharePlan() method - we need to ensure data is properly saved before generating the QR code, and also verify the student view will load correctly.
-
-Replace the generateShareLink() and sharePlan() methods with these updated versions:
+Here's the fix - replace the sharePlan() method with this updated version:
 
 ```javascript
-// ========== SHARING ==========
-generateShareLink() {
-    // First, ensure data is saved to shared storage
-    if (!this.saveData()) {
-        this.showToast('Failed to save data for sharing', 'error');
-        return null;
-    }
-    
-    // Generate simple share URL
-    const baseUrl = window.location.origin + window.location.pathname;
-    const shareUrl = `${baseUrl}?student=true&v=${Date.now()}`; // Add timestamp to prevent caching
-    
-    console.log('=== SHARE LINK GENERATED ===');
-    console.log('Share URL:', shareUrl);
-    console.log('Data saved to:', CONFIG.SHARED_STORAGE_KEY);
-    console.log('Units in storage:', this.units.length);
-    console.log('Timestamp:', new Date().toISOString());
-    
-    // Verify data was actually saved
-    setTimeout(() => this.verifyDataSync(), 100);
-    
-    return shareUrl;
-}
-
-sharePlan() {
-    if (this.isStudentView) return;
-    
-    // Show saving indicator
-    this.showToast('Saving data for sharing...', 'info');
-    
-    // Force save with a slight delay to ensure it completes
-    setTimeout(() => {
-        const shareUrl = this.generateShareLink();
-        
-        if (!shareUrl) {
-            this.showToast('Failed to generate share link', 'error');
-            return;
-        }
-        
-        // Show share panel
-        const panel = document.getElementById('sharePanel');
-        const input = document.getElementById('shareLink');
-        const copyBtn = document.getElementById('copyShareLink');
-        const qrContainer = document.getElementById('qrCode');
-        
-        input.value = shareUrl;
-        panel.classList.add('show');
-        
-        // Generate QR code with a fresh URL
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}&qzone=2`;
-        
-        qrContainer.innerHTML = `
-            <img src="${qrUrl}" 
-                 alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px;">
-            <div style="font-size: 12px; margin-top: 10px; color: #636e72;">
-                <div style="margin-bottom: 5px;">Students will see:</div>
-                <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 11px;">
-                    • Simplified timeline view<br>
-                    • Term overviews<br>
-                    • Unit details on click<br>
-                    • No editing controls<br>
-                    • Updated automatically when you save changes
-                </div>
-                <div style="margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 11px;">
-                    <strong>Tip:</strong> Test the link first to ensure students see your latest changes.
-                </div>
-                <button onclick="window.app.testStudentView('${shareUrl}')" 
-                        style="width: 100%; margin-top: 10px; padding: 8px; background: #00b894; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                    Test Student View
-                </button>
-                <button onclick="window.open('${shareUrl}', '_blank')" 
-                        style="width: 100%; margin-top: 5px; padding: 8px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                    Open Student View in New Tab
-                </button>
-            </div>
-        `;
-        
-        copyBtn.onclick = () => {
-            input.select();
-            input.setSelectionRange(0, 99999);
-            document.execCommand('copy');
-            this.showToast('Link copied to clipboard!', 'success');
-        };
-        
-        this.showToast('Share link generated!', 'success');
-        
-    }, 300); // Small delay to ensure save completes
-}
-```
-
-Also add this test method to the CoursePlanner class:
-
-```javascript
-// ========== TEST METHOD ==========
-testStudentView(url) {
-    // Open in new window and check data
-    const testWindow = window.open(url, '_blank', 'width=1200,height=800');
-    
-    if (testWindow) {
-        this.showToast('Opening test window...', 'info');
-        
-        // Add a message to the test window
-        setTimeout(() => {
-            if (testWindow.closed) return;
-            
-            try {
-                // Check if data loaded in test window
-                testWindow.postMessage({
-                    type: 'test_data_load',
-                    source: 'editor',
-                    timestamp: Date.now(),
-                    units: this.units.length,
-                    weeks: this.courseData.totalWeeks
-                }, '*');
+            sharePlan() {
+                if (this.isStudentView) return;
                 
-                this.showToast('Test window opened. Verify data matches.', 'success');
-            } catch (e) {
-                console.error('Test failed:', e);
-            }
-        }, 1000);
-    } else {
-        this.showToast('Popup blocked. Please allow popups to test.', 'error');
-    }
-}
-```
-
-And add this at the end of the init() method in CoursePlanner to handle the test messages:
-
-```javascript
-// Add message listener for testing
-window.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'test_data_load' && event.data.source === 'editor') {
-        console.log('=== STUDENT VIEW TEST ===');
-        console.log('Editor sent:', event.data.units, 'units,', event.data.weeks, 'weeks');
-        console.log('Student has:', this.units.length, 'units,', this.courseData.totalWeeks, 'weeks');
-        
-        if (event.data.units === this.units.length && event.data.weeks === this.courseData.totalWeeks) {
-            alert('✓ Test passed! Data is synchronized correctly.');
-        } else {
-            alert('⚠ Test failed! Data mismatch. Check console for details.');
-        }
-    }
-});
-```
-
-Additionally, update the loadInitialData() method to be more robust when loading in student view:
-
-```javascript
-// Add this at the beginning of loadInitialData() method, right after the try { line:
-try {
-    // Add a small delay in student view to ensure editor data is saved
-    if (urlParams.has('student')) {
-        console.log('Student view detected - waiting for data to be ready...');
-        // We'll add a small delay to ensure any pending saves from editor are complete
-        setTimeout(() => {
-            // Re-check data after delay
-            this.finalizeDataLoad();
-        }, 100);
-    }
-```
-
-And add this helper method:
-
-```javascript
-// ========== HELPER: Finalize data load ==========
-finalizeDataLoad() {
-    console.log('Finalizing data load for student view...');
-    
-    const sharedData = localStorage.getItem(CONFIG.SHARED_STORAGE_KEY);
-    
-    if (!sharedData) {
-        console.warn('No shared data found - using defaults');
-        this.units = [...this.defaultUnits];
-    } else {
-        try {
-            const data = JSON.parse(sharedData);
-            
-            if (data.version === CONFIG.APP_VERSION) {
-                this.units = data.units || [...this.defaultUnits];
-                this.courseData = data.courseData || this.courseData;
-                this.blockedWeeks = data.blockedWeeks || {};
+                // Show saving indicator
+                this.showToast('Saving data for sharing...', 'info');
                 
-                console.log('✓ Student view loaded shared data');
-                console.log('  Units loaded:', this.units.length);
-                console.log('  Total weeks:', this.courseData.totalWeeks);
+                // Force immediate save with callback
+                const saveSuccess = this.saveData();
                 
-                // Render everything now
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', () => {
-                        this.renderEverything();
-                    });
-                } else {
-                    this.renderEverything();
+                if (!saveSuccess) {
+                    this.showToast('Failed to save data for sharing', 'error');
+                    return;
                 }
-            } else {
-                console.warn('Version mismatch in student view');
-                this.units = [...this.defaultUnits];
+                
+                // Generate share URL with timestamp to prevent caching
+                const baseUrl = window.location.origin + window.location.pathname;
+                const timestamp = Date.now();
+                const shareUrl = `${baseUrl}?student=true&v=${timestamp}`;
+                
+                console.log('=== SHARE PLAN ===');
+                console.log('Share URL:', shareUrl);
+                console.log('Timestamp:', timestamp);
+                console.log('Units saved:', this.units.length);
+                
+                // Show share panel
+                const panel = document.getElementById('sharePanel');
+                const input = document.getElementById('shareLink');
+                const copyBtn = document.getElementById('copyShareLink');
+                const qrContainer = document.getElementById('qrCode');
+                
+                input.value = shareUrl;
+                panel.classList.add('show');
+                
+                // Force QR code refresh by adding a unique parameter
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}&qzone=2&t=${timestamp}`;
+                
+                qrContainer.innerHTML = `
+                    <div style="text-align: center;">
+                        <img src="${qrUrl}" 
+                             alt="QR Code" 
+                             style="border: 1px solid #ddd; border-radius: 6px;"
+                             onload="console.log('QR code loaded for timestamp: ${timestamp}')"
+                             onerror="console.error('QR code failed to load')">
+                        <div style="margin-top: 10px; font-size: 11px; color: #666;">
+                            Scan this QR code to view the current schedule
+                        </div>
+                    </div>
+                    <div style="font-size: 12px; margin-top: 10px; color: #636e72;">
+                        <div style="margin-bottom: 5px;">Students will see:</div>
+                        <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 11px;">
+                            • Current schedule (${this.units.length} units, ${this.courseData.totalWeeks} weeks)<br>
+                            • Term overviews<br>
+                            • Unit details on click<br>
+                            • No editing controls<br>
+                            • Updated automatically when you save changes
+                        </div>
+                        <div style="margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 11px;">
+                            <strong>Tip:</strong> If students see old data, ask them to refresh their browser.
+                        </div>
+                        <button onclick="window.app.testStudentView('${shareUrl}')" 
+                                style="width: 100%; margin-top: 10px; padding: 8px; background: #00b894; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            Test Student View
+                        </button>
+                        <button onclick="window.open('${shareUrl}', '_blank')" 
+                                style="width: 100%; margin-top: 5px; padding: 8px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            Open Student View in New Tab
+                        </button>
+                        <button onclick="window.app.refreshQRCode()" 
+                                style="width: 100%; margin-top: 5px; padding: 8px; background: #a29bfe; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            🔄 Refresh QR Code
+                        </button>
+                    </div>
+                `;
+                
+                copyBtn.onclick = () => {
+                    input.select();
+                    input.setSelectionRange(0, 99999);
+                    document.execCommand('copy');
+                    this.showToast('Link copied to clipboard!', 'success');
+                };
+                
+                this.showToast('Share link generated! QR code shows current schedule.', 'success');
+                
+                // Add a verification step
+                setTimeout(() => {
+                    console.log('=== VERIFYING SHARED DATA ===');
+                    const storedData = localStorage.getItem(CONFIG.SHARED_STORAGE_KEY);
+                    if (storedData) {
+                        const data = JSON.parse(storedData);
+                        console.log('Data verified in storage:', {
+                            units: data.units?.length || 0,
+                            weeks: data.courseData?.totalWeeks || 0,
+                            timestamp: data.lastUpdate
+                        });
+                    }
+                }, 100);
             }
-        } catch (e) {
-            console.error('Failed to parse shared data in student view:', e);
-            this.units = [...this.defaultUnits];
-        }
-    }
-    
-    this.saveHistory();
-    this.hideLoadingScreen();
-}
 ```
 
-The key changes are:
+Also add this new method to the CoursePlanner class:
 
-1. Added timestamp to share URL to prevent browser caching issues
-2. Added test functionality to verify data sync between editor and student views
-3. Improved data loading in student view with better error handling
-4. Added verification that data is properly saved before generating QR code
-5. Better user feedback about the sharing process
+```javascript
+            // ========== NEW: Refresh QR Code ==========
+            refreshQRCode() {
+                if (this.isStudentView) return;
+                
+                this.showToast('Refreshing QR code...', 'info');
+                
+                // Force save current data
+                this.saveData();
+                
+                // Generate new URL with fresh timestamp
+                const baseUrl = window.location.origin + window.location.pathname;
+                const timestamp = Date.now();
+                const shareUrl = `${baseUrl}?student=true&v=${timestamp}`;
+                
+                // Update the share link input
+                const input = document.getElementById('shareLink');
+                if (input) {
+                    input.value = shareUrl;
+                }
+                
+                // Update QR code with fresh image
+                const qrContainer = document.getElementById('qrCode');
+                if (qrContainer) {
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}&qzone=2&t=${timestamp}`;
+                    
+                    // Find and update the QR code image
+                    const qrImg = qrContainer.querySelector('img');
+                    if (qrImg) {
+                        qrImg.src = qrUrl;
+                        qrImg.onload = () => {
+                            this.showToast('QR code refreshed! Scan again for latest data.', 'success');
+                            console.log('QR code refreshed with timestamp:', timestamp);
+                        };
+                    }
+                }
+            }
+```
 
-This should resolve the issue where the QR code/student view shows default data instead of the edited data. The student view will now properly load from the shared storage, and you can test it directly from the share panel.
+And update the loadInitialData() method to add a timestamp check:
+
+```javascript
+            loadInitialData() {
+                try {
+                    // Check URL for student view
+                    const urlParams = new URLSearchParams(window.location.search);
+                    this.isStudentView = urlParams.has('student');
+                    
+                    console.log('=== DATA LOADING START ===');
+                    console.log('Student View:', this.isStudentView);
+                    console.log('URL timestamp param:', urlParams.get('v'));
+                    console.log('Loading from single source:', CONFIG.SHARED_STORAGE_KEY);
+                    
+                    // SINGLE SOURCE OF TRUTH: Always load from the same key
+                    const sharedData = localStorage.getItem(CONFIG.SHARED_STORAGE_KEY);
+                    
+                    if (sharedData) {
+                        console.log('Found shared data in storage');
+                        try {
+                            const data = JSON.parse(sharedData);
+                            
+                            // Validate version
+                            if (data.version === CONFIG.APP_VERSION) {
+                                this.units = data.units || [...this.defaultUnits];
+                                this.courseData = data.courseData || this.courseData;
+                                this.blockedWeeks = data.blockedWeeks || {};
+                                
+                                // Ensure project milestones have IDs
+                                if (this.courseData.projectMilestones) {
+                                    this.courseData.projectMilestones = this.courseData.projectMilestones.map((milestone, index) => ({
+                                        ...milestone,
+                                        id: milestone.id || `milestone-${index + 1}`
+                                    }));
+                                }
+                                
+                                console.log('✓ Successfully loaded shared data');
+                                console.log('  Units:', this.units.length);
+                                console.log('  Total weeks:', this.courseData.totalWeeks);
+                                console.log('  Last update:', data.lastUpdate || 'unknown');
+                                
+                                // If in student view, show data verification
+                                if (this.isStudentView) {
+                                    console.log('=== STUDENT VIEW DATA LOADED ===');
+                                    console.log('Loaded units:', this.units.map(u => u.code).join(', '));
+                                }
+                            } else {
+                                console.warn('Version mismatch, using defaults');
+                                this.units = [...this.defaultUnits];
+                                // Don't show toast here - DOM might not be ready
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse shared data:', e);
+                            this.units = [...this.defaultUnits];
+                            // Don't show toast here - DOM might not be ready
+                        }
+                    } else {
+                        console.log('No shared data found, using defaults');
+                        this.units = [...this.defaultUnits];
+                        // Don't show toast here - DOM might not be ready
+                    }
+                    
+                    this.saveHistory();
+                    
+                    console.log('=== DATA LOADING COMPLETE ===');
+                    
+                } catch (error) {
+                    console.error('Error in loadInitialData:', error);
+                    this.units = [...this.defaultUnits];
+                    // Don't show toast here - DOM might not be ready
+                }
+            }
+```
+
+Also, let's add a button to the controls to manually sync data. Add this to the setupEventListeners() method:
+
+```javascript
+                // Add sync data button
+                const syncDataBtn = document.createElement('button');
+                syncDataBtn.className = 'primary';
+                syncDataBtn.id = 'syncDataBtn';
+                syncDataBtn.innerHTML = '💾 Sync to Student View';
+                syncDataBtn.addEventListener('click', () => {
+                    if (this.saveData()) {
+                        this.showToast('Data synced to student view!', 'success');
+                        this.showSyncNotification('Data synced');
+                    }
+                });
+                
+                // Insert after save plan button
+                const savePlanBtn = document.getElementById('savePlan');
+                if (savePlanBtn && savePlanBtn.parentNode) {
+                    savePlanBtn.parentNode.insertBefore(syncDataBtn, savePlanBtn.nextSibling);
+                }
+```
+
+The key fixes are:
+
+1. Unique QR code timestamp: Added &t=${timestamp} to the QR code image URL to prevent caching
+2. Refresh QR Code button: Added a button to refresh the QR code with a new timestamp
+3. Better data verification: Added console logging to track data loading in student view
+4. Sync button: Added a manual sync button to force data save
+5. QR code onload event: Added logging when QR code loads
+
+This should fix the QR code issue because:
+
+1. Each QR code generation gets a unique timestamp parameter
+2. The QR code image URL is different each time, preventing browser/QR scanner caching
+3. You can manually refresh the QR code if needed
+4. Better logging helps diagnose issues
+
+When you click "Share" now, it will generate a fresh QR code every time. If students scan an old QR code, ask them to refresh their browser, or you can generate a new QR code with the "Refresh QR Code" button.
