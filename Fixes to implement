@@ -1,257 +1,36 @@
-You're right! The issue is that when scanning the QR code, some QR code readers might be caching the URL or there's a timing issue. The problem is likely that the QR code is generated with an image URL that doesn't get updated properly. Let me fix this by ensuring the QR code always shows the absolute latest data.
-
-Here's the fix - replace the sharePlan() method with this updated version:
-
-```javascript
-            sharePlan() {
-                if (this.isStudentView) return;
-                
-                // Show saving indicator
-                this.showToast('Saving data for sharing...', 'info');
-                
-                // Force immediate save with callback
-                const saveSuccess = this.saveData();
-                
-                if (!saveSuccess) {
-                    this.showToast('Failed to save data for sharing', 'error');
-                    return;
-                }
-                
-                // Generate share URL with timestamp to prevent caching
-                const baseUrl = window.location.origin + window.location.pathname;
-                const timestamp = Date.now();
-                const shareUrl = `${baseUrl}?student=true&v=${timestamp}`;
-                
-                console.log('=== SHARE PLAN ===');
-                console.log('Share URL:', shareUrl);
-                console.log('Timestamp:', timestamp);
-                console.log('Units saved:', this.units.length);
-                
-                // Show share panel
-                const panel = document.getElementById('sharePanel');
-                const input = document.getElementById('shareLink');
-                const copyBtn = document.getElementById('copyShareLink');
-                const qrContainer = document.getElementById('qrCode');
-                
-                input.value = shareUrl;
-                panel.classList.add('show');
-                
-                // Force QR code refresh by adding a unique parameter
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}&qzone=2&t=${timestamp}`;
-                
-                qrContainer.innerHTML = `
-                    <div style="text-align: center;">
-                        <img src="${qrUrl}" 
-                             alt="QR Code" 
-                             style="border: 1px solid #ddd; border-radius: 6px;"
-                             onload="console.log('QR code loaded for timestamp: ${timestamp}')"
-                             onerror="console.error('QR code failed to load')">
-                        <div style="margin-top: 10px; font-size: 11px; color: #666;">
-                            Scan this QR code to view the current schedule
-                        </div>
-                    </div>
-                    <div style="font-size: 12px; margin-top: 10px; color: #636e72;">
-                        <div style="margin-bottom: 5px;">Students will see:</div>
-                        <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 11px;">
-                            • Current schedule (${this.units.length} units, ${this.courseData.totalWeeks} weeks)<br>
-                            • Term overviews<br>
-                            • Unit details on click<br>
-                            • No editing controls<br>
-                            • Updated automatically when you save changes
-                        </div>
-                        <div style="margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 11px;">
-                            <strong>Tip:</strong> If students see old data, ask them to refresh their browser.
-                        </div>
-                        <button onclick="window.app.testStudentView('${shareUrl}')" 
-                                style="width: 100%; margin-top: 10px; padding: 8px; background: #00b894; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                            Test Student View
-                        </button>
-                        <button onclick="window.open('${shareUrl}', '_blank')" 
-                                style="width: 100%; margin-top: 5px; padding: 8px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                            Open Student View in New Tab
-                        </button>
-                        <button onclick="window.app.refreshQRCode()" 
-                                style="width: 100%; margin-top: 5px; padding: 8px; background: #a29bfe; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                            🔄 Refresh QR Code
-                        </button>
-                    </div>
-                `;
-                
-                copyBtn.onclick = () => {
-                    input.select();
-                    input.setSelectionRange(0, 99999);
-                    document.execCommand('copy');
-                    this.showToast('Link copied to clipboard!', 'success');
-                };
-                
-                this.showToast('Share link generated! QR code shows current schedule.', 'success');
-                
-                // Add a verification step
-                setTimeout(() => {
-                    console.log('=== VERIFYING SHARED DATA ===');
-                    const storedData = localStorage.getItem(CONFIG.SHARED_STORAGE_KEY);
-                    if (storedData) {
-                        const data = JSON.parse(storedData);
-                        console.log('Data verified in storage:', {
-                            units: data.units?.length || 0,
-                            weeks: data.courseData?.totalWeeks || 0,
-                            timestamp: data.lastUpdate
-                        });
-                    }
-                }, 100);
-            }
-```
-
-Also add this new method to the CoursePlanner class:
-
-```javascript
-            // ========== NEW: Refresh QR Code ==========
-            refreshQRCode() {
-                if (this.isStudentView) return;
-                
-                this.showToast('Refreshing QR code...', 'info');
-                
-                // Force save current data
-                this.saveData();
-                
-                // Generate new URL with fresh timestamp
-                const baseUrl = window.location.origin + window.location.pathname;
-                const timestamp = Date.now();
-                const shareUrl = `${baseUrl}?student=true&v=${timestamp}`;
-                
-                // Update the share link input
-                const input = document.getElementById('shareLink');
-                if (input) {
-                    input.value = shareUrl;
-                }
-                
-                // Update QR code with fresh image
-                const qrContainer = document.getElementById('qrCode');
-                if (qrContainer) {
-                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}&qzone=2&t=${timestamp}`;
-                    
-                    // Find and update the QR code image
-                    const qrImg = qrContainer.querySelector('img');
-                    if (qrImg) {
-                        qrImg.src = qrUrl;
-                        qrImg.onload = () => {
-                            this.showToast('QR code refreshed! Scan again for latest data.', 'success');
-                            console.log('QR code refreshed with timestamp:', timestamp);
-                        };
-                    }
-                }
-            }
-```
-
-And update the loadInitialData() method to add a timestamp check:
-
-```javascript
-            loadInitialData() {
-                try {
-                    // Check URL for student view
-                    const urlParams = new URLSearchParams(window.location.search);
-                    this.isStudentView = urlParams.has('student');
-                    
-                    console.log('=== DATA LOADING START ===');
-                    console.log('Student View:', this.isStudentView);
-                    console.log('URL timestamp param:', urlParams.get('v'));
-                    console.log('Loading from single source:', CONFIG.SHARED_STORAGE_KEY);
-                    
-                    // SINGLE SOURCE OF TRUTH: Always load from the same key
-                    const sharedData = localStorage.getItem(CONFIG.SHARED_STORAGE_KEY);
-                    
-                    if (sharedData) {
-                        console.log('Found shared data in storage');
-                        try {
-                            const data = JSON.parse(sharedData);
-                            
-                            // Validate version
-                            if (data.version === CONFIG.APP_VERSION) {
-                                this.units = data.units || [...this.defaultUnits];
-                                this.courseData = data.courseData || this.courseData;
-                                this.blockedWeeks = data.blockedWeeks || {};
-                                
-                                // Ensure project milestones have IDs
-                                if (this.courseData.projectMilestones) {
-                                    this.courseData.projectMilestones = this.courseData.projectMilestones.map((milestone, index) => ({
-                                        ...milestone,
-                                        id: milestone.id || `milestone-${index + 1}`
-                                    }));
-                                }
-                                
-                                console.log('✓ Successfully loaded shared data');
-                                console.log('  Units:', this.units.length);
-                                console.log('  Total weeks:', this.courseData.totalWeeks);
-                                console.log('  Last update:', data.lastUpdate || 'unknown');
-                                
-                                // If in student view, show data verification
-                                if (this.isStudentView) {
-                                    console.log('=== STUDENT VIEW DATA LOADED ===');
-                                    console.log('Loaded units:', this.units.map(u => u.code).join(', '));
-                                }
-                            } else {
-                                console.warn('Version mismatch, using defaults');
-                                this.units = [...this.defaultUnits];
-                                // Don't show toast here - DOM might not be ready
-                            }
-                        } catch (e) {
-                            console.error('Failed to parse shared data:', e);
-                            this.units = [...this.defaultUnits];
-                            // Don't show toast here - DOM might not be ready
-                        }
-                    } else {
-                        console.log('No shared data found, using defaults');
-                        this.units = [...this.defaultUnits];
-                        // Don't show toast here - DOM might not be ready
-                    }
-                    
-                    this.saveHistory();
-                    
-                    console.log('=== DATA LOADING COMPLETE ===');
-                    
-                } catch (error) {
-                    console.error('Error in loadInitialData:', error);
-                    this.units = [...this.defaultUnits];
-                    // Don't show toast here - DOM might not be ready
-                }
-            }
-```
-
-Also, let's add a button to the controls to manually sync data. Add this to the setupEventListeners() method:
-
-```javascript
-                // Add sync data button
-                const syncDataBtn = document.createElement('button');
-                syncDataBtn.className = 'primary';
-                syncDataBtn.id = 'syncDataBtn';
-                syncDataBtn.innerHTML = '💾 Sync to Student View';
-                syncDataBtn.addEventListener('click', () => {
-                    if (this.saveData()) {
-                        this.showToast('Data synced to student view!', 'success');
-                        this.showSyncNotification('Data synced');
-                    }
-                });
-                
-                // Insert after save plan button
-                const savePlanBtn = document.getElementById('savePlan');
-                if (savePlanBtn && savePlanBtn.parentNode) {
-                    savePlanBtn.parentNode.insertBefore(syncDataBtn, savePlanBtn.nextSibling);
-                }
-```
-
-The key fixes are:
-
-1. Unique QR code timestamp: Added &t=${timestamp} to the QR code image URL to prevent caching
-2. Refresh QR Code button: Added a button to refresh the QR code with a new timestamp
-3. Better data verification: Added console logging to track data loading in student view
-4. Sync button: Added a manual sync button to force data save
-5. QR code onload event: Added logging when QR code loads
-
-This should fix the QR code issue because:
-
-1. Each QR code generation gets a unique timestamp parameter
-2. The QR code image URL is different each time, preventing browser/QR scanner caching
-3. You can manually refresh the QR code if needed
-4. Better logging helps diagnose issues
-
-When you click "Share" now, it will generate a fresh QR code every time. If students scan an old QR code, ask them to refresh their browser, or you can generate a new QR code with the "Refresh QR Code" button.
+Week 1	Induction and Orientation - Introduction to course structure and objectives - Overview of safety procedures, campus facilities, and expectations Unit: AHCWHS302 Contribute to WHS processes - Introduction to workplace health and safety legislation and responsibilities	 
+Week 2	Unit: AHCWHS302 Contribute to WHS processes - Hazard identification and risk management - WHS communication and emergency procedures 
+Week 3	Unit: AHCPCM303 Identify plant specimens - Identifying native plants and understanding their ecological roles - Collecting plant samples for herbarium records 
+Week 4	Block Training: HLTAID011 Provide First Aid (1 day) - First aid skills, CPR, and responding to emergencies 
+Week 5	Unit: AHCPCM303 Identify plant specimens (continued) - Using keys and field guides to identify plant species 
+Week 6	Unit: AHCECR305 Collect native seed - Understanding seed collection timing and methods - Seed harvesting and preservation techniques - Field activity: Seed collection from local plants 
+Week 7	Unit: AHCNSY207 Undertake propagation activities - Introduction to seed propagation and cutting techniques - Practical activity: Propagating native species 
+Week 8	Unit: AHCECR305 Collect native seed (continued) - Cleaning and storing collected seeds for propagation 
+Week 9	Unit: AHCECR309 Conduct ecological and cultural site inspections prior to works - Understanding ecological and cultural significance of sites - Conducting pre-works inspections - Field trip to an ecological site 
+Week 10	Block Training: FWPCOT2266 Operate brush cutter (1 day) - Safe operation of brush cutters in various environments 
+Week 11	Unit: AHCPMG301 Control weeds - Introduction to weed management strategies - Identifying common weed species in Tasmania - Practical activity: Weed survey in field 
+Week 12	Unit: AHCPMG301 Control weeds (continued) - Chemical and manual weed control techniques - Safe handling of herbicides and application methods	 
+Week 13	Unit: AHCECR309 Conduct ecological and cultural site inspections prior to works (continued) - Recording findings and preparing reports from site inspections - Risk management at ecologically sensitive sites 
+Week 14	Unit: AHCECR301 Maintain native ecosystem areas - Ecosystem management principles - Maintaining vegetation and controlling invasive species - Practical activity: Site maintenance and weed removal 
+Week 15	Unit: AHCECR301 Maintain native ecosystem areas (continued) - Managing erosion and controlling introduced species 
+Week 16	Unit: AHCNSY207 Undertake propagation activities (continued) - Caring for propagated plants: watering, fertilising, and pest control - Monitoring growth of seedlings
+Week 17	Unit: AHCFAU302 Identify fauna in the field - Introduction to fauna identification techniques - Observing and recording wildlife in natural habitats - Practical activity: Field trip to fauna habitat 
+Week 18	Unit: AHCFAU302 Identify fauna in the field (continued) - Planning sheets and WHS - Observation record sheets 
+Week 19	Block Training: AHCCHM304 Transport and store chemicals (2 days) - Safe storage and handling of chemicals - Transporting chemicals following regulations Block Training: AHCCHM307 Prepare and apply chemicals to control pest, weeds, and disease (2 days) - Preparation and safe application of herbicides and pesticides 
+Week 20	Unit: AHCBIO303 Apply biosecurity measures - Introduction to biosecurity threats and procedures - Identifying biosecurity risks in field operations	 
+Week 21	Unit: AHCBIO303 Apply biosecurity measures (continued) - Monitoring and reporting on biosecurity incidents 
+Week 22	Unit: AHCLPW313 Undertake sampling and testing of water - Water sampling techniques for environmental monitoring - Introduction to water quality parameters 
+Week 23	Block Training: AHCMOM213 Operate and maintain chainsaws (2 days) - Chainsaw safety and operation in fieldwork 
+Week 24	Unit: AHCLPW313 Undertake sampling and testing of water (continued) - Testing water samples for pH, turbidity, and other key indicators 
+Week 25	Unit: AHCECR309 Conduct ecological and cultural site inspections prior to works (field application) - Field application of site inspection skills 
+Week 26	Unit: AHCECR301 Maintain native ecosystem areas (seasonal review) - Seasonal review of ecosystem maintenance - Addressing seasonal changes and impacts 
+Week 27	Unit: AHCNSY207 Undertake propagation activities (seasonal tasks) - Propagating additional species based on seasonal needs 
+Week 28	Block Training: AHCMOM216 Operate side-by-side (2 days) - Safe operation of side-by-side utility vehicles - Maintenance and safety procedures	 
+Week 29	Unit: AHCPMG301 Control weeds (seasonal tasks) - Addressing weed growth during the season - Applying new control strategies 
+Week 30	Unit: AHCFAU302 Identify fauna in the field (seasonal monitoring) - Monitoring wildlife changes due to seasonal shifts 
+Week 31	Unit: AHCBIO303 Apply biosecurity measures (seasonal tasks) - Addressing new biosecurity threats - Reviewing and updating biosecurity plans	 
+Week 32	Unit: AHCLPW313 Undertake sampling and testing of water (seasonal review) - Seasonal review of water quality - Monitoring impacts of seasonal changes	 
+Week 33	Unit: AHCPCM303 Identify plant specimens (seasonal review) - Identifying new plant species during seasonal growth 
+Week 34	Final Assessments and Project Work - Completion of outstanding tasks - Presentation of final projects and reports	 
+Week 35	Course Review and Wrap-up - Review of course outcomes - Feedback from students and instructors - Completion of any outstanding assessments 
+Week 36	Tidying Up - Finalise all work, projects, and submissions - Prepare for post-course progression	 
