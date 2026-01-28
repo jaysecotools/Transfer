@@ -314,8 +314,8 @@
             }
         }
             
-        // ========== CRITICAL FIX: LOAD DATA FROM SINGLE SOURCE ==========
-       loadInitialData() {
+        // ========== CRITICAL FIX: LOAD DATA FROM MULTIPLE SOURCES ==========
+        loadInitialData() {
             try {
                 // Check URL for student view
                 const urlParams = new URLSearchParams(window.location.search);
@@ -324,54 +324,39 @@
                 console.log('=== DATA LOADING START ===');
                 console.log('Student View:', this.isStudentView);
                 console.log('URL timestamp param:', urlParams.get('v'));
-                console.log('Loading from single source:', CONFIG.SHARED_STORAGE_KEY);
+                console.log('URL has data param:', urlParams.has('data'));
                 
-                // SINGLE SOURCE OF TRUTH: Always load from the same key
+                // TRY 1: Check if data is embedded in URL (for QR codes)
+                if (urlParams.has('data')) {
+                    try {
+                        const encodedData = urlParams.get('data');
+                        const jsonData = decodeURIComponent(encodedData);
+                        const data = JSON.parse(jsonData);
+                        
+                        console.log('Found data in URL (QR code)');
+                        this.loadFromData(data);
+                        return;
+                    } catch (e) {
+                        console.warn('Failed to parse URL data:', e);
+                    }
+                }
+                
+                // TRY 2: Load from shared storage
+                console.log('Loading from shared storage:', CONFIG.SHARED_STORAGE_KEY);
                 const sharedData = localStorage.getItem(CONFIG.SHARED_STORAGE_KEY);
                 
                 if (sharedData) {
                     console.log('Found shared data in storage');
                     try {
                         const data = JSON.parse(sharedData);
-                        
-                        // Validate version
-                        if (data.version === CONFIG.APP_VERSION) {
-                            this.units = data.units || [...this.defaultUnits];
-                            this.courseData = data.courseData || this.courseData;
-                            this.blockedWeeks = data.blockedWeeks || {};
-                            
-                            // Ensure project milestones have IDs
-                            if (this.courseData.projectMilestones) {
-                                this.courseData.projectMilestones = this.courseData.projectMilestones.map((milestone, index) => ({
-                                    ...milestone,
-                                    id: milestone.id || `milestone-${index + 1}`
-                                }));
-                            }
-                            
-                            console.log('✓ Successfully loaded shared data');
-                            console.log('  Units:', this.units.length);
-                            console.log('  Total weeks:', this.courseData.totalWeeks);
-                            console.log('  Last update:', data.lastUpdate || 'unknown');
-                            
-                            // If in student view, show data verification
-                            if (this.isStudentView) {
-                                console.log('=== STUDENT VIEW DATA LOADED ===');
-                                console.log('Loaded units:', this.units.map(u => u.code).join(', '));
-                            }
-                        } else {
-                            console.warn('Version mismatch, using defaults');
-                            this.units = [...this.defaultUnits];
-                            // Don't show toast here - DOM might not be ready
-                        }
+                        this.loadFromData(data);
                     } catch (e) {
                         console.error('Failed to parse shared data:', e);
-                        this.units = [...this.defaultUnits];
-                        // Don't show toast here - DOM might not be ready
+                        this.loadDefaultData();
                     }
                 } else {
                     console.log('No shared data found, using defaults');
-                    this.units = [...this.defaultUnits];
-                    // Don't show toast here - DOM might not be ready
+                    this.loadDefaultData();
                 }
                 
                 this.saveHistory();
@@ -380,10 +365,60 @@
                 
             } catch (error) {
                 console.error('Error in loadInitialData:', error);
-                this.units = [...this.defaultUnits];
-                // Don't show toast here - DOM might not be ready
+                this.loadDefaultData();
             }
-        } 
+        }
+
+        loadFromData(data) {
+            // Validate version
+            if (data.version === CONFIG.APP_VERSION) {
+                this.units = data.units || [...this.defaultUnits];
+                this.courseData = data.courseData || this.courseData;
+                this.blockedWeeks = data.blockedWeeks || {};
+                
+                // Ensure project milestones have IDs
+                if (this.courseData.projectMilestones) {
+                    this.courseData.projectMilestones = this.courseData.projectMilestones.map((milestone, index) => ({
+                        ...milestone,
+                        id: milestone.id || `milestone-${index + 1}`
+                    }));
+                }
+                
+                console.log('✓ Successfully loaded data');
+                console.log('  Units:', this.units.length);
+                console.log('  Total weeks:', this.courseData.totalWeeks);
+                console.log('  Last update:', data.lastUpdate || 'unknown');
+                
+                // If in student view, show data verification
+                if (this.isStudentView) {
+                    console.log('=== STUDENT VIEW DATA LOADED ===');
+                    console.log('Loaded units:', this.units.map(u => u.code).join(', '));
+                }
+            } else {
+                console.warn('Version mismatch, using defaults');
+                this.loadDefaultData();
+            }
+        }
+
+        loadDefaultData() {
+            this.units = [...this.defaultUnits];
+            this.courseData = {
+                totalWeeks: CONFIG.DEFAULT_TOTAL_WEEKS,
+                terms: [
+                    { number: 1, weeks: 10, startWeek: 1, name: "Safety, Foundations & Summer Harvest" },
+                    { number: 2, weeks: 10, startWeek: 11, name: "Practical Skills & Application" },
+                    { number: 3, weeks: 10, startWeek: 21, name: "Machinery & Advanced Integration" },
+                    { number: 4, weeks: 7, startWeek: 31, name: "Apex & Finalisation" }
+                ],
+                projectMilestones: [
+                    { id: 'milestone-1', week: 18, label: "Project Start" },
+                    { id: 'milestone-2', week: 25, label: "Phase 2" },
+                    { id: 'milestone-3', week: 30, label: "Integration" },
+                    { id: 'milestone-4', week: 34, label: "Final Phase" }
+                ]
+            };
+            this.blockedWeeks = {};
+        }
 
         // ========== CRITICAL FIX: SAVE DATA TO SINGLE SOURCE ==========
         saveData() {
@@ -1651,11 +1686,27 @@
             // Generate share URL with timestamp to prevent caching
             const baseUrl = window.location.origin + window.location.pathname;
             const timestamp = Date.now();
-            const shareUrl = `${baseUrl}?student=true&v=${timestamp}`;
+            
+            // Create data payload
+            const dataToShare = {
+                version: CONFIG.APP_VERSION,
+                lastUpdate: new Date().toISOString(),
+                units: this.units,
+                courseData: this.courseData,
+                blockedWeeks: this.blockedWeeks
+            };
+            
+            // Create two types of URLs:
+            // 1. For direct links (uses LocalStorage)
+            const directUrl = `${baseUrl}?student=true&v=${timestamp}`;
+            // 2. For QR codes (embeds data in URL)
+            const encodedData = encodeURIComponent(JSON.stringify(dataToShare));
+            const qrUrl = `${baseUrl}?student=true&data=${encodedData}&v=${timestamp}`;
             
             console.log('=== SHARE PLAN ===');
-            console.log('Share URL:', shareUrl);
-            console.log('Timestamp:', timestamp);
+            console.log('Direct URL (for browser):', directUrl);
+            console.log('QR URL (with embedded data):', qrUrl.substring(0, 100) + '...');
+            console.log('Data size:', encodedData.length, 'characters');
             console.log('Units saved:', this.units.length);
             
             // Show share panel
@@ -1664,15 +1715,15 @@
             const copyBtn = document.getElementById('copyShareLink');
             const qrContainer = document.getElementById('qrCode');
             
-            input.value = shareUrl;
+            input.value = directUrl;
             panel.classList.add('show');
             
             // Force QR code refresh by adding a unique parameter
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}&qzone=2&t=${timestamp}`;
+            const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}&qzone=2&t=${timestamp}`;
             
             qrContainer.innerHTML = `
                 <div style="text-align: center;">
-                    <img src="${qrUrl}" 
+                    <img src="${qrImageUrl}" 
                          alt="QR Code" 
                          style="border: 1px solid #ddd; border-radius: 6px;"
                          onload="console.log('QR code loaded for timestamp: ${timestamp}')"
@@ -1691,13 +1742,13 @@
                         • Updated automatically when you save changes
                     </div>
                     <div style="margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 11px;">
-                        <strong>Tip:</strong> If students see old data, ask them to refresh their browser.
+                        <strong>QR Code Tip:</strong> Contains all schedule data - works on any device!
                     </div>
-                    <button onclick="window.app.testStudentView('${shareUrl}')" 
+                    <button onclick="window.app.testStudentView('${directUrl}')" 
                             style="width: 100%; margin-top: 10px; padding: 8px; background: #00b894; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                        Test Student View
+                        Test Student View (Browser)
                     </button>
-                    <button onclick="window.open('${shareUrl}', '_blank')" 
+                    <button onclick="window.open('${directUrl}', '_blank')" 
                             style="width: 100%; margin-top: 5px; padding: 8px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer;">
                         Open Student View in New Tab
                     </button>
@@ -1715,7 +1766,7 @@
                 this.showToast('Link copied to clipboard!', 'success');
             };
             
-            this.showToast('Share link generated! QR code shows current schedule.', 'success');
+            this.showToast('Share link generated! QR code contains current schedule.', 'success');
             
             // Add a verification step
             setTimeout(() => {
@@ -1736,34 +1787,40 @@
         refreshQRCode() {
             if (this.isStudentView) return;
             
-            this.showToast('Refreshing QR code...', 'info');
+            this.showToast('Refreshing QR code with latest data...', 'info');
             
             // Force save current data
             this.saveData();
             
-            // Generate new URL with fresh timestamp
+            // Generate new URL with fresh timestamp and embedded data
             const baseUrl = window.location.origin + window.location.pathname;
             const timestamp = Date.now();
-            const shareUrl = `${baseUrl}?student=true&v=${timestamp}`;
             
-            // Update the share link input
-            const input = document.getElementById('shareLink');
-            if (input) {
-                input.value = shareUrl;
-            }
+            // Create data payload
+            const dataToShare = {
+                version: CONFIG.APP_VERSION,
+                lastUpdate: new Date().toISOString(),
+                units: this.units,
+                courseData: this.courseData,
+                blockedWeeks: this.blockedWeeks
+            };
+            
+            const encodedData = encodeURIComponent(JSON.stringify(dataToShare));
+            const qrUrl = `${baseUrl}?student=true&data=${encodedData}&v=${timestamp}`;
             
             // Update QR code with fresh image
             const qrContainer = document.getElementById('qrCode');
             if (qrContainer) {
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}&qzone=2&t=${timestamp}`;
+                const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}&qzone=2&t=${timestamp}`;
                 
                 // Find and update the QR code image
                 const qrImg = qrContainer.querySelector('img');
                 if (qrImg) {
-                    qrImg.src = qrUrl;
+                    qrImg.src = qrImageUrl;
                     qrImg.onload = () => {
-                        this.showToast('QR code refreshed! Scan again for latest data.', 'success');
+                        this.showToast('QR code refreshed with latest data!', 'success');
                         console.log('QR code refreshed with timestamp:', timestamp);
+                        console.log('Data embedded:', this.units.length, 'units');
                     };
                 }
             }
