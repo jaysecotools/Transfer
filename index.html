@@ -1076,10 +1076,6 @@
             <span>Leave</span>
         </div>
         <div class="legend-item">
-            <div class="legend-color" style="background: var(--color-term-break);"></div>
-            <span>Term Break</span>
-        </div>
-        <div class="legend-item">
             <div class="legend-color" style="background: #a29bfe; border: 1px solid #888;"></div>
             <span>Project Milestones</span>
         </div>
@@ -1756,6 +1752,14 @@
                         });
                     });
                 }
+                
+                // Apply highlighting if enabled
+                if (!this.isStudentView) {
+                    const highlightMode = document.getElementById('highlightMode');
+                    if (highlightMode && highlightMode.value !== 'none') {
+                        this.applyHighlighting(highlightMode.value);
+                    }
+                }
             }
 
             renderUnitBlock(unit, week, isFirstWeek = false) {
@@ -1924,6 +1928,63 @@
                 }
             }
 
+            // ========== HIGHLIGHTING FUNCTION ==========
+            applyHighlighting(mode) {
+                if (this.isStudentView) return;
+                
+                // Remove any existing highlighting first
+                document.querySelectorAll('.unit-block').forEach(block => {
+                    block.style.boxShadow = '';
+                    block.style.borderColor = '';
+                    block.style.zIndex = '';
+                });
+                
+                if (mode === 'none') {
+                    this.showToast('Highlighting cleared', 'info');
+                    return;
+                }
+                
+                let unitsToHighlight = [];
+                
+                switch(mode) {
+                    case 'specialist':
+                        unitsToHighlight = this.units.filter(unit => 
+                            unit.tags.includes('SPECIALIST') || unit.teacher === 'other'
+                        );
+                        break;
+                    case 'safety':
+                        unitsToHighlight = this.units.filter(unit => 
+                            unit.tags.includes('SAFETY')
+                        );
+                        break;
+                    case 'seasonal':
+                        unitsToHighlight = this.units.filter(unit => 
+                            unit.tags.includes('SEASONAL')
+                        );
+                        break;
+                    case 'assessment':
+                        unitsToHighlight = this.units.filter(unit => 
+                            unit.tags.includes('APEX') || 
+                            unit.code === 'INTEGRATION' || 
+                            unit.code === 'PROJECT'
+                        );
+                        break;
+                }
+                
+                // Apply highlighting
+                const unitIds = unitsToHighlight.map(unit => unit.id);
+                document.querySelectorAll('.unit-block').forEach(block => {
+                    const unitId = block.dataset.unitId;
+                    if (unitIds.includes(unitId)) {
+                        block.style.boxShadow = '0 0 0 3px gold, 0 4px 8px rgba(0,0,0,0.3)';
+                        block.style.borderColor = 'gold';
+                        block.style.zIndex = '10';
+                    }
+                });
+                
+                this.showToast(`Highlighting ${mode} units`, 'info');
+            }
+
             // ========== STUDENT VIEW SETUP ==========
             setupStudentView() {
                 try {
@@ -1985,7 +2046,7 @@
                 const highlightMode = document.getElementById('highlightMode');
                 if (highlightMode) {
                     highlightMode.addEventListener('change', (e) => {
-                        this.showToast(`Highlighting ${e.target.value} units`, 'info');
+                        this.applyHighlighting(e.target.value);
                     });
                 }
 
