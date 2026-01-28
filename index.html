@@ -2745,19 +2745,24 @@
 
             // ========== SHARING ==========
             generateShareLink() {
-                // First, ensure data is saved
-                this.saveData();
+                // First, ensure data is saved to shared storage
+                if (!this.saveData()) {
+                    this.showToast('Failed to save data for sharing', 'error');
+                    return null;
+                }
                 
-                // Generate simple share URL - no complex IDs needed
+                // Generate simple share URL
                 const baseUrl = window.location.origin + window.location.pathname;
-                const shareUrl = `${baseUrl}?student=true`;
+                const shareUrl = `${baseUrl}?student=true&v=${Date.now()}`; // Add timestamp to prevent caching
                 
-                console.log('Generated share link:', shareUrl);
-                console.log('Data ready for sharing:', {
-                    units: this.units.length,
-                    weeks: this.courseData.totalWeeks,
-                    timestamp: new Date().toISOString()
-                });
+                console.log('=== SHARE LINK GENERATED ===');
+                console.log('Share URL:', shareUrl);
+                console.log('Data saved to:', CONFIG.SHARED_STORAGE_KEY);
+                console.log('Units in storage:', this.units.length);
+                console.log('Timestamp:', new Date().toISOString());
+                
+                // Verify data was actually saved
+                setTimeout(() => this.verifyDataSync(), 100);
                 
                 return shareUrl;
             }
@@ -2765,43 +2770,98 @@
             sharePlan() {
                 if (this.isStudentView) return;
                 
-                const shareUrl = this.generateShareLink();
+                // Show saving indicator
+                this.showToast('Saving data for sharing...', 'info');
                 
-                // Show share panel
-                const panel = document.getElementById('sharePanel');
-                const input = document.getElementById('shareLink');
-                const copyBtn = document.getElementById('copyShareLink');
-                const qrContainer = document.getElementById('qrCode');
-                
-                input.value = shareUrl;
-                panel.classList.add('show');
-                
-                // Generate QR code
-                qrContainer.innerHTML = `
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}" 
-                         alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px;">
-                    <div style="font-size: 12px; margin-top: 10px; color: #636e72;">
-                        <div style="margin-bottom: 5px;">Students will see:</div>
-                        <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 11px;">
-                            • Simplified timeline view<br>
-                            • Term overviews<br>
-                            • Unit details on click<br>
-                            • No editing controls<br>
-                            • Updated automatically
+                // Force save with a slight delay to ensure it completes
+                setTimeout(() => {
+                    const shareUrl = this.generateShareLink();
+                    
+                    if (!shareUrl) {
+                        this.showToast('Failed to generate share link', 'error');
+                        return;
+                    }
+                    
+                    // Show share panel
+                    const panel = document.getElementById('sharePanel');
+                    const input = document.getElementById('shareLink');
+                    const copyBtn = document.getElementById('copyShareLink');
+                    const qrContainer = document.getElementById('qrCode');
+                    
+                    input.value = shareUrl;
+                    panel.classList.add('show');
+                    
+                    // Generate QR code with a fresh URL
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}&qzone=2`;
+                    
+                    qrContainer.innerHTML = `
+                        <img src="${qrUrl}" 
+                             alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px;">
+                        <div style="font-size: 12px; margin-top: 10px; color: #636e72;">
+                            <div style="margin-bottom: 5px;">Students will see:</div>
+                            <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 11px;">
+                                • Simplified timeline view<br>
+                                • Term overviews<br>
+                                • Unit details on click<br>
+                                • No editing controls<br>
+                                • Updated automatically when you save changes
+                            </div>
+                            <div style="margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 11px;">
+                                <strong>Tip:</strong> Test the link first to ensure students see your latest changes.
+                            </div>
+                            <button onclick="window.app.testStudentView('${shareUrl}')" 
+                                    style="width: 100%; margin-top: 10px; padding: 8px; background: #00b894; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Test Student View
+                            </button>
+                            <button onclick="window.open('${shareUrl}', '_blank')" 
+                                    style="width: 100%; margin-top: 5px; padding: 8px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Open Student View in New Tab
+                            </button>
                         </div>
-                        <button onclick="window.open('${shareUrl}', '_blank')" 
-                                style="width: 100%; margin-top: 10px; padding: 8px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                            Open Student View in New Tab
-                        </button>
-                    </div>
-                `;
+                    `;
+                    
+                    copyBtn.onclick = () => {
+                        input.select();
+                        input.setSelectionRange(0, 99999);
+                        document.execCommand('copy');
+                        this.showToast('Link copied to clipboard!', 'success');
+                    };
+                    
+                    this.showToast('Share link generated!', 'success');
+                    
+                }, 300); // Small delay to ensure save completes
+            }
+
+            // ========== TEST METHOD ==========
+            testStudentView(url) {
+                // Open in new window and check data
+                const testWindow = window.open(url, '_blank', 'width=1200,height=800');
                 
-                copyBtn.onclick = () => {
-                    input.select();
-                    input.setSelectionRange(0, 99999);
-                    document.execCommand('copy');
-                    this.showToast('Link copied to clipboard!', 'success');
-                };
+                if (testWindow) {
+                    this.showToast('Opening test window...', 'info');
+                    
+                    // Add a message to the test window
+                    setTimeout(() => {
+                        if (testWindow.closed) return;
+                        
+                        try {
+                            // Check if data loaded in test window
+                            testWindow.postMessage({
+                                type: 'test_data_load',
+                                source: 'editor',
+                                timestamp: Date.now(),
+                                units: this.units.length,
+                                weeks: this.courseData.totalWeeks
+                            }, '*');
+                            
+                            this.showToast('Test window opened. Verify data matches.', 'success');
+                        } catch (e) {
+                            console.error('Test failed:', e);
+                        }
+                    }, 1000);
+                } else {
+                    this.showToast('Popup blocked. Please allow popups to test.', 'error');
+                }
             }
 
             toggleViewMode() {
@@ -3396,6 +3456,21 @@
             // Create the app instance
             app = new CoursePlanner();
             window.app = app;
+            
+            // Add message listener for testing
+            window.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'test_data_load' && event.data.source === 'editor') {
+                    console.log('=== STUDENT VIEW TEST ===');
+                    console.log('Editor sent:', event.data.units, 'units,', event.data.weeks, 'weeks');
+                    console.log('Student has:', app.units.length, 'units,', app.courseData.totalWeeks, 'weeks');
+                    
+                    if (event.data.units === app.units.length && event.data.weeks === app.courseData.totalWeeks) {
+                        alert('✓ Test passed! Data is synchronized correctly.');
+                    } else {
+                        alert('⚠ Test failed! Data mismatch. Check console for details.');
+                    }
+                }
+            });
             
             // Add debug button for testing (only in editor view)
             setTimeout(() => {
